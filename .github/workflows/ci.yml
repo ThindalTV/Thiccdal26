@@ -41,13 +41,10 @@ jobs:
           reporter: dotnet-trx
 
       - name: Coverage report
-        uses: danielpalme/ReportGenerator@v5.5.1
         if: always()
-        with:
-          reports: testresults/**/coverage.cobertura.xml
-          targetdir: coveragereport
-          reporttypes: MarkdownSummaryGithub;Cobertura
-          verbosity: Warning
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          reportgenerator -reports:"testresults/**/coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:"MarkdownSummaryGithub;Cobertura" -verbosity:Warning
 
       - name: Write coverage to job summary
         if: always()
