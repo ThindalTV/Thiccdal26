@@ -41,7 +41,7 @@ jobs:
           reporter: dotnet-trx
 
       - name: Coverage report
-        uses: danielpalme/ReportGenerator@v5
+        uses: danielpalme/ReportGenerator@v5.5.1
         if: always()
         with:
           reports: testresults/**/coverage.cobertura.xml
