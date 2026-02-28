@@ -1,6 +1,7 @@
 <InputContainer Label="@Label" Inline="true">
     <label class="toggle">
         <input type="checkbox"
+               id="@Label?.Replace(" ", "-").ToLowerInvariant()"
                class="toggle__input"
                checked="@Checked"
                @onchange="e => CheckedChanged.InvokeAsync((bool)e.Value!)"
