@@ -1,0 +1,25 @@
+.input {
+    background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+    backdrop-filter: var(--glass-blur, blur(12px));
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.10));
+    border-radius: var(--radius-input, 8px);
+    color: var(--color-text, rgba(255, 255, 255, 0.90));
+    font-size: var(--font-size-md, 0.875rem);
+    font-family: inherit;
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 12px);
+    width: 100%;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color var(--duration-fast, 150ms) ease,
+                background var(--duration-fast, 150ms) ease;
+}
+
+.input:focus {
+    border-color: var(--color-accent, rgba(255, 255, 255, 0.30));
+    background: var(--glass-bg-hover, rgba(255, 255, 255, 0.10));
+}
+
+.input::-webkit-inner-spin-button,
+.input::-webkit-outer-spin-button {
+    opacity: 0.4;
+}

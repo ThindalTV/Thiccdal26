@@ -1,0 +1,31 @@
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs, 4px);
+    padding: var(--spacing-sm, 8px) var(--spacing-lg, 20px);
+    border-radius: var(--radius-btn, 8px);
+    font-size: var(--font-size-md, 0.875rem);
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    background: var(--glass-bg-hover, rgba(255, 255, 255, 0.10));
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.18));
+    color: var(--color-text, rgba(255, 255, 255, 0.90));
+    transition: background var(--duration-fast, 150ms) ease,
+                border-color var(--duration-fast, 150ms) ease,
+                box-shadow var(--duration-fast, 150ms) ease;
+}
+
+.btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.30);
+    box-shadow: var(--glow-ready, 0 0 12px rgba(60, 200, 100, 0.25));
+}
+
+.btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}

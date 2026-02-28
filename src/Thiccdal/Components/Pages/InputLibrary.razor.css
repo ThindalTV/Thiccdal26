@@ -1,0 +1,62 @@
+.input-library {
+    padding: var(--spacing-lg, 24px);
+    min-height: 100%;
+}
+
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text, rgba(255, 255, 255, 0.90));
+    margin: 0 0 4px;
+}
+
+.page-subtitle {
+    font-size: var(--font-size-sm, 0.75rem);
+    color: var(--color-text-muted, rgba(255, 255, 255, 0.45));
+    margin: 0 0 28px;
+}
+
+.library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--spacing-lg, 24px);
+    align-items: start;
+}
+
+/* Stack layout inside a panel for vertically-arranged demos */
+.demo-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md, 14px);
+}
+
+/* Row layout for buttons and badge demos */
+.demo-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--spacing-sm, 8px);
+    align-items: center;
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.demo-row--wrap {
+    flex-wrap: wrap;
+}
+
+.demo-value {
+    font-size: var(--font-size-sm, 0.75rem);
+    color: var(--color-text-muted, rgba(255, 255, 255, 0.45));
+    padding-top: var(--spacing-xs, 4px);
+    border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+}
+
+.demo-value code {
+    color: var(--color-text, rgba(255, 255, 255, 0.80));
+    font-size: inherit;
+}
+
+.demo-prose {
+    font-size: var(--font-size-sm, 0.8rem);
+    color: var(--color-text-muted, rgba(255, 255, 255, 0.55));
+    margin: 0;
+}

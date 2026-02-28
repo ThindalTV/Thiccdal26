@@ -1,0 +1,27 @@
+.input-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs, 4px);
+}
+
+.input-container--inline {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+}
+
+.input-label {
+    font-size: var(--font-size-sm, 0.75rem);
+    color: var(--color-text-muted, rgba(255, 255, 255, 0.55));
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    user-select: none;
+}
+
+.input-container--inline .input-label {
+    font-size: var(--font-size-md, 0.875rem);
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--color-text, rgba(255, 255, 255, 0.85));
+    cursor: pointer;
+}

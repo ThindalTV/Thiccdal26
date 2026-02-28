@@ -1,0 +1,51 @@
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.toggle__input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle__track {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: var(--glass-bg, rgba(255, 255, 255, 0.08));
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.15));
+    border-radius: 24px;
+    transition: background var(--duration-fast, 150ms) ease,
+                border-color var(--duration-fast, 150ms) ease;
+    flex-shrink: 0;
+}
+
+.toggle__thumb {
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 16px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.65);
+    border-radius: 50%;
+    transition: transform var(--duration-fast, 150ms) ease,
+                background var(--duration-fast, 150ms) ease;
+}
+
+.toggle__input:checked ~ .toggle__track {
+    background: var(--color-accent, rgba(60, 200, 100, 0.30));
+    border-color: var(--color-accent, rgba(60, 200, 100, 0.55));
+}
+
+.toggle__input:checked ~ .toggle__track .toggle__thumb {
+    transform: translateX(20px);
+    background: #fff;
+}
+
+.toggle__input:focus-visible ~ .toggle__track {
+    outline: 2px solid var(--color-accent, rgba(60, 200, 100, 0.70));
+    outline-offset: 2px;
+}

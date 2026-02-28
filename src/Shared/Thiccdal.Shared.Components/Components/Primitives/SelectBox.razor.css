@@ -1,0 +1,46 @@
+.select-control {
+    position: relative;
+}
+
+/* Pure-CSS chevron — no image asset needed */
+.select-control::after {
+    content: '';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid rgba(255, 255, 255, 0.45);
+    pointer-events: none;
+}
+
+.select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+    backdrop-filter: var(--glass-blur, blur(12px));
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.10));
+    border-radius: var(--radius-input, 8px);
+    color: var(--color-text, rgba(255, 255, 255, 0.90));
+    font-size: var(--font-size-md, 0.875rem);
+    font-family: inherit;
+    padding: var(--spacing-sm, 8px) 32px var(--spacing-sm, 8px) var(--spacing-md, 12px);
+    width: 100%;
+    cursor: pointer;
+    outline: none;
+    transition: border-color var(--duration-fast, 150ms) ease,
+                background var(--duration-fast, 150ms) ease;
+}
+
+.select:focus {
+    border-color: var(--color-accent, rgba(255, 255, 255, 0.30));
+    background: var(--glass-bg-hover, rgba(255, 255, 255, 0.10));
+}
+
+.select option {
+    background: var(--color-bg-popup, #1a1a2e);
+    color: rgba(255, 255, 255, 0.90);
+}

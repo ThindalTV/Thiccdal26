@@ -1,0 +1,111 @@
+@page "/input-library"
+
+<div class="input-library">
+
+    <h1 class="page-title">Input Library</h1>
+    <p class="page-subtitle">Shared primitive components — <code>Thiccdal.Shared.Components</code></p>
+
+    <div class="library-grid">
+
+        <!-- TEXT INPUTS -->
+        <Panel Title="Text inputs">
+            <div class="demo-stack">
+                <TextBox Label="Single-line" @bind-Value="_text" placeholder="Type something…" />
+
+                <TextBox Label="Multiline" @bind-Value="_multiline" Multiline="true"
+                         placeholder="Multiple lines…" rows="3" />
+
+                <div class="demo-value">Value: <code>@(_text ?? "–")</code></div>
+            </div>
+        </Panel>
+
+        <!-- NUMBER -->
+        <Panel Title="Number input">
+            <div class="demo-stack">
+                <NumberBox Label="Quantity" @bind-Value="_number" Min="0" Max="100" Step="1" />
+                <div class="demo-value">Value: <code>@(_number?.ToString() ?? "–")</code></div>
+            </div>
+        </Panel>
+
+        <!-- SELECT -->
+        <Panel Title="Select">
+            <div class="demo-stack">
+                <SelectBox Label="Platform" @bind-Value="_selected" Items="_platforms" />
+                <div class="demo-value">Selected: <code>@(_selected ?? "–")</code></div>
+            </div>
+        </Panel>
+
+        <!-- CHECKBOX + TOGGLE -->
+        <Panel Title="Checkbox &amp; toggle">
+            <div class="demo-stack">
+                <CheckBox Label="Enable chat overlay" @bind-Checked="_checked" />
+                <ToggleSwitch Label="Go live on start" @bind-Checked="_toggled" />
+                <div class="demo-value">
+                    Checked: <code>@_checked</code> &nbsp;|&nbsp; Toggled: <code>@_toggled</code>
+                </div>
+            </div>
+        </Panel>
+
+        <!-- BUTTONS -->
+        <Panel Title="Buttons">
+            <div class="demo-row">
+                <PrimaryButton OnClick='() => _lastButton = "Primary"'>Primary</PrimaryButton>
+                <GhostButton OnClick='() => _lastButton = "Ghost"'>Ghost</GhostButton>
+                <DangerButton OnClick='() => _lastButton = "Danger"'>Danger</DangerButton>
+            </div>
+            <div class="demo-row">
+                <PrimaryButton disabled>Disabled</PrimaryButton>
+                <GhostButton disabled>Disabled</GhostButton>
+                <DangerButton disabled>Disabled</DangerButton>
+            </div>
+            @if (_lastButton is not null)
+            {
+                <div class="demo-value">Last clicked: <code>@_lastButton</code></div>
+            }
+        </Panel>
+
+        <!-- BADGES -->
+        <Panel Title="Badges">
+            <div class="demo-row demo-row--wrap">
+                <Badge Color="default">Default</Badge>
+                <Badge Color="success">Success</Badge>
+                <Badge Color="warning">Warning</Badge>
+                <Badge Color="danger">Danger</Badge>
+                <Badge Color="info">Info</Badge>
+                <Badge Color="live">● Live</Badge>
+                <Badge Color="connected">Connected</Badge>
+                <Badge Color="pending">Pending</Badge>
+            </div>
+        </Panel>
+
+        <!-- PANEL ITSELF -->
+        <Panel Title="Nested panel">
+            <div class="demo-stack">
+                <p class="demo-prose">Panels can nest. The inner panel below has no title.</p>
+                <Panel>
+                    <div class="demo-prose">Inner panel body — no title header rendered.</div>
+                </Panel>
+            </div>
+        </Panel>
+
+    </div>
+</div>
+
+@code {
+    private string? _text;
+    private string? _multiline;
+    private double? _number;
+    private string? _selected;
+    private bool _checked;
+    private bool _toggled;
+    private string? _lastButton;
+
+    private static readonly List<SelectOption> _platforms =
+    [
+        new("twitch",   "Twitch"),
+        new("youtube",  "YouTube"),
+        new("discord",  "Discord"),
+        new("facebook", "Facebook"),
+        new("x",        "X"),
+    ];
+}

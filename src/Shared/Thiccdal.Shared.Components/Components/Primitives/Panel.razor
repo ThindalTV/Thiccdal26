@@ -1,0 +1,18 @@
+<div class="panel" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrEmpty(Title))
+    {
+        <div class="panel__header">
+            <span class="panel__title">@Title</span>
+        </div>
+    }
+    <div class="panel__body">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}

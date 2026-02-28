@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "https://thiccdal_aspire_apphost.dev.localhost:17073;http://thiccdal_aspire_apphost.dev.localhost:15108",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
+        "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "https://localhost:21033",
+        "ASPIRE_DASHBOARD_MCP_ENDPOINT_URL": "https://localhost:23125",
+        "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22163"
+      }
+    },
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "http://thiccdal_aspire_apphost.dev.localhost:15108",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
+        "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:19250",
+        "ASPIRE_DASHBOARD_MCP_ENDPOINT_URL": "http://localhost:18130",
+        "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "http://localhost:20200"
+      }
+    }
+  }
+}

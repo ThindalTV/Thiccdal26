@@ -1,0 +1,21 @@
+<InputContainer Label="@Label">
+    <div class="select-control">
+        <select class="select"
+                @onchange="e => ValueChanged.InvokeAsync(e.Value?.ToString())"
+                @attributes="AdditionalAttributes">
+            @foreach (var item in Items ?? [])
+            {
+                <option value="@item.Value" selected="@(item.Value == Value)">@item.Label</option>
+            }
+        </select>
+    </div>
+</InputContainer>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public IEnumerable<SelectOption>? Items { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}

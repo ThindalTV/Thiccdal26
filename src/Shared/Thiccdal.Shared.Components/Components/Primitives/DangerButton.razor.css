@@ -1,0 +1,31 @@
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs, 4px);
+    padding: var(--spacing-sm, 8px) var(--spacing-lg, 20px);
+    border-radius: var(--radius-btn, 8px);
+    font-size: var(--font-size-md, 0.875rem);
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    background: rgba(200, 40, 40, 0.12);
+    border: 1px solid rgba(220, 60, 60, 0.30);
+    color: rgba(255, 110, 110, 0.90);
+    transition: background var(--duration-fast, 150ms) ease,
+                border-color var(--duration-fast, 150ms) ease,
+                box-shadow var(--duration-fast, 150ms) ease;
+}
+
+.btn:hover:not(:disabled) {
+    background: rgba(200, 40, 40, 0.20);
+    border-color: rgba(220, 60, 60, 0.55);
+    box-shadow: var(--glow-live, 0 0 12px rgba(255, 60, 60, 0.30));
+}
+
+.btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}

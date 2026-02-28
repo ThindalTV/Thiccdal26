@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\Thiccdal.Shared.Components\Thiccdal.Shared.Components.csproj" />
+    <ProjectReference Include="..\Aspire\Thiccdal.Aspire.ServiceDefaults\Thiccdal.Aspire.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>
