@@ -1,12 +1,12 @@
 <div class="@ContainerClass" @attributes="AdditionalAttributes">
     @if (!string.IsNullOrEmpty(Label) && !Inline)
     {
-        <label class="input-label">@Label</label>
+        <label for="@Label?.Replace(" ", "-").ToLowerInvariant()" class="input-label">@Label</label>
     }
     @ChildContent
     @if (!string.IsNullOrEmpty(Label) && Inline)
     {
-        <label class="input-label">@Label</label>
+        <label for="@Label?.Replace(" ", "-").ToLowerInvariant()" class="input-label">@Label</label>
     }
 </div>
 

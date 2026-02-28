@@ -1,6 +1,7 @@
 <InputContainer Label="@Label">
     <div class="select-control">
-        <select class="select"
+        <select id="@Label?.Replace(" ", "-").ToLowerInvariant()"
+                class="select"
                 @onchange="e => ValueChanged.InvokeAsync(e.Value?.ToString())"
                 @attributes="AdditionalAttributes">
             @foreach (var item in Items ?? [])

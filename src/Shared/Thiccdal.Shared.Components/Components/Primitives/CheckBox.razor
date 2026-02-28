@@ -1,5 +1,6 @@
 <InputContainer Label="@Label" Inline="true">
     <input type="checkbox"
+           id="@Label?.Replace(" ", "-").ToLowerInvariant()"
            class="checkbox"
            checked="@Checked"
            @onchange="e => CheckedChanged.InvokeAsync((bool)e.Value!)"

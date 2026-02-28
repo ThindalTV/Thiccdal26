@@ -1,7 +1,8 @@
 <InputContainer Label="@Label">
     @if (Multiline)
     {
-        <textarea class="input"
+        <textarea id="@Label?.Replace(" ", "-").ToLowerInvariant()"
+                  class="input"
                   value="@Value"
                   @oninput="e => ValueChanged.InvokeAsync(e.Value?.ToString())"
                   @attributes="AdditionalAttributes"></textarea>
@@ -9,6 +10,7 @@
     else
     {
         <input type="text"
+               id="@Label?.Replace(" ", "-").ToLowerInvariant()"
                class="input"
                value="@Value"
                @oninput="e => ValueChanged.InvokeAsync(e.Value?.ToString())"
