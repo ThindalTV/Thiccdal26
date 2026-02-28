@@ -19,7 +19,14 @@
     <Project Path="src/Modules/Thiccdal.Modules.Teleprompter/Thiccdal.Modules.Teleprompter.csproj" Id="e84a2cd1-fa98-424e-8924-db324509d3a9" />
   </Folder>
   <Folder Name="/src/Remote/">
+    <Project Path="src/Remote/Thiccdal.Remote.Discord/Thiccdal.Remote.Discord.csproj" Id="f9ecf747-5d8a-4ea7-8651-0ad14282523d" />
+    <Project Path="src/Remote/Thiccdal.Remote.Facebook/Thiccdal.Remote.Facebook.csproj" Id="b6bbc186-ed62-47c4-b59c-31452d1770af" />
+    <Project Path="src/Remote/Thiccdal.Remote.LinkedIn/Thiccdal.Remote.LinkedIn.csproj" />
+    <Project Path="src/Remote/Thiccdal.Remote.Null/Thiccdal.Remote.Null.csproj" Id="6122ec03-595d-4ab3-bdc0-95e88cdf540b" />
+    <Project Path="src/Remote/Thiccdal.Remote.TikTok/Thiccdal.Remote.TikTok.csproj" Id="a0c04afe-5e6f-45a2-9cbb-7c9ad613629c" />
     <Project Path="src/Remote/Thiccdal.Remote.Twitch/Thiccdal.Remote.Twitch.csproj" Id="b784e543-ced0-4e0e-9ee8-fd351fb09c38" />
+    <Project Path="src/Remote/Thiccdal.Remote.X/Thiccdal.Remote.X.csproj" Id="89896653-993f-4e95-bd72-dfe2865dc75f" />
+    <Project Path="src/Remote/Thiccdal.Remote.YouTube/Thiccdal.Remote.YouTube.csproj" Id="82137a88-a846-4b3a-9761-782884ad4fad" />
   </Folder>
   <Folder Name="/src/Shared/">
     <Project Path="src/Shared/Thiccdal.Shared.Components/Thiccdal.Shared.Components.csproj" />
