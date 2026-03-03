@@ -26,6 +26,19 @@ builder.Services.AddRazorComponents()
 
 var app = builder.Build();
 
+// Run migrations at startup. Antipattern but for dev
+/*if (builder.Environment.IsDevelopment())
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await db.Database.EnsureCreatedAsync();
+        var awaitingMigrations = await db.Database.GetPendingMigrationsAsync();
+        foreach (var migration in awaitingMigrations)
+            await db.Database.MigrateAsync(migration);
+    }
+}*/
+
 // Twitch OAuth callback
 app.MapGet("/auth/twitch/callback", async (
     string code,
