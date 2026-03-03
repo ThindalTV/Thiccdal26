@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Modules\Thiccdal.Modules.ChatBot\Thiccdal.Modules.ChatBot.csproj" />
+    <ProjectReference Include="..\Modules\Thiccdal.Modules.Control\Thiccdal.Modules.Control.csproj" />
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Overlay\Thiccdal.Modules.Overlay.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.Twitch\Thiccdal.Remote.Twitch.csproj" />
     <ProjectReference Include="..\Shared\Thiccdal.Shared.Components\Thiccdal.Shared.Components.csproj" />
