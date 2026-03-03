@@ -25,6 +25,13 @@ public interface IChatSource
     public Task Disconnect(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sends a message to the chat source.
+    /// </summary>
+    /// <param name="message">The message content to send.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    public Task SendMessage(string message, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Raised when a chat message is received from the platform.
     /// </summary>
     public event EventHandler<ChatEvent>? OnChatMessageRecieved;

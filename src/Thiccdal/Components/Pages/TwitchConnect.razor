@@ -68,6 +68,11 @@
                 </div>
             </div>
         </div>
+
+        <div class="">
+            <input @bind-value="_messageToSend"  />
+            <button class="btn btn-primary" @onclick="SendMessage">Send</button>
+        </div>
     }
 </div>
 
@@ -77,6 +82,7 @@
     private bool _isConnecting;
     private List<ChatEvent> _recentMessages = new();
     private const int MaxMessages = 50;
+    private string _messageToSend = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -150,6 +156,11 @@
         }
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    private void SendMessage()
+    {
+        ChatService.SendMessage(_messageToSend, Cts.Token);
     }
 
     private void HandleMessage(object? sender, ChatEvent message)

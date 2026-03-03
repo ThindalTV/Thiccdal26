@@ -14,7 +14,9 @@
     <Project Path="src/Aspire/Thiccdal.Aspire.ServiceDefaults/Thiccdal.Aspire.ServiceDefaults.csproj" Id="942be294-333d-48c9-8ded-aeb00427ebc2" />
   </Folder>
   <Folder Name="/src/Modules/">
-    <Project Path="src/Modules/Thiccdal.Modules.ChatBot/Thiccdal.Modules.ChatBot.csproj" Id="f9d57576-08b6-4d5e-ac9d-ef98a9b969f4" />
+    <Project Path="src/Modules/Thiccdal.Modules.ChatBot/Thiccdal.Modules.ChatBot.csproj" Id="f9d57576-08b6-4d5e-ac9d-ef98a9b969f4">
+      <Build Solution="Debug|*" Project="false" />
+    </Project>
     <Project Path="src/Modules/Thiccdal.Modules.Control/Thiccdal.Modules.Control.csproj" Id="26680999-25cc-43af-b4f7-c68c0bea53a9" />
     <Project Path="src/Modules/Thiccdal.Modules.Overlay/Thiccdal.Modules.Overlay.csproj" />
     <Project Path="src/Modules/Thiccdal.Modules.Teleprompter/Thiccdal.Modules.Teleprompter.csproj" Id="e84a2cd1-fa98-424e-8924-db324509d3a9" />

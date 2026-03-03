@@ -1,4 +1,5 @@
 ﻿using System.Net.Sockets;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
@@ -125,6 +126,13 @@ public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
         {
             _logger.LogError(ex, "Error reading Twitch IRC messages");
         }
+    }
+
+    public async Task SendMessage(string message, CancellationToken cancellationToken = default)
+    {
+        if (!Connected || _writer == null) return;
+        StringBuilder stringBuilder = new StringBuilder($"PRIVMSG #{_options.Channel} :{message}");
+        await _writer.WriteLineAsync(stringBuilder, cancellationToken);
     }
 
     public async ValueTask DisposeAsync()

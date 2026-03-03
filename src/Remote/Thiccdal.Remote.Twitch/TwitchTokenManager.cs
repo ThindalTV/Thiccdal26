@@ -109,8 +109,8 @@ public class TwitchTokenManager : ITwitchTokenManager
 
     public string GetAuthorizationUrl()
     {
-        var scopes = "chat:read";
-        return $"https://id.twitch.tv/oauth2/authorize?client_id={_options.ClientId}&redirect_uri={Uri.EscapeDataString(_options.RedirectUri)}&response_type=code&scope={scopes}";
+        var scopes = "chat:read chat:edit";
+        return $"https://id.twitch.tv/oauth2/authorize?client_id={_options.ClientId}&redirect_uri={Uri.EscapeDataString(_options.RedirectUri)}&response_type=code&scope={Uri.EscapeDataString(scopes)}";
     }
 
     private async Task<string> RefreshStoredToken(TwitchToken token, CancellationToken cancellationToken)

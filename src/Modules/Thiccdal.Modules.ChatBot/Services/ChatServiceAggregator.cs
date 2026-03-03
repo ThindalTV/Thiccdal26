@@ -36,9 +36,17 @@ public class ChatServiceAggregator : IChatService, IDisposable
         }
     }
 
+    public async Task SendMessage(string message, CancellationToken cancellationToken)
+    {
+        foreach (var source in _chatSources.Where(cs => cs.Connected))
+        {
+            await source.SendMessage(message, cancellationToken);
+        }
+    }
+
     public void Dispose()
     {
-        foreach(var source in _chatSources)
+        foreach (var source in _chatSources)
         {
             source.OnChatMessageRecieved -= MessageRecieved;
         }
