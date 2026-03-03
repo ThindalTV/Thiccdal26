@@ -1,11 +1,13 @@
 ﻿using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Thiccdal.Infrastructure.Bot.Models;
+using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Twitch;
 
 namespace Thiccdal.Remote.Twitch;
 
-public class TwitchService : ITwitchService, IAsyncDisposable
+public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
 {
     private readonly TwitchOptions _options;
     private readonly ITwitchTokenManager _tokenManager;
@@ -15,7 +17,7 @@ public class TwitchService : ITwitchService, IAsyncDisposable
     private StreamWriter? _writer;
     private CancellationTokenSource? _readCancellation;
     
-    public event EventHandler<string>? OnMessageRecieved;
+    public event EventHandler<ChatMessage>? OnChatMessageRecieved;
 
     public TwitchService(
         IOptions<TwitchOptions> options,
@@ -84,7 +86,28 @@ public class TwitchService : ITwitchService, IAsyncDisposable
                 }
                 else if (line.Contains("PRIVMSG"))
                 {
-                    OnMessageRecieved?.Invoke(this, line);
+                    // Split message into parts
+                    // :thindal!thindal@thindal.tmi.twitch.tv PRIVMSG #thindal :Hello friends
+                    // :napalmcodes!napalmcodes@napalmcodes.tmi.twitch.tv PRIVMSG #thindal :something
+                    // :{username}!{username}@{username}.tmi.twitch.tv PRIVMSG #{channel} :{message}
+                    var parts = line.Split("PRIVMSG");
+
+                    var user = parts[0].Split('!')[0].TrimStart(':');
+                    var channel = parts[1].Split(':')[0].Trim();
+                    var message = parts[1].Split(':')[1].Trim();
+
+
+                    // Build ChatMessage
+                    var msg = new ChatMessage
+                    {
+                        Author = user,
+                        Channel = channel,
+                        Content = message,
+                        Source = ChatSource.Twitch
+                    };
+
+                    // Invoke recieved
+                    OnChatMessageRecieved?.Invoke(this, msg);
                 }
             }
         }

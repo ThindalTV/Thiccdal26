@@ -1,8 +1,10 @@
 ﻿@page "/twitch/connect"
-@inject ITwitchService TwitchService
+@inject IChatSource TwitchService
 @inject ITwitchTokenManager TokenManager
 @inject NavigationManager Navigation
 @inject ILogger<TwitchConnect> Logger
+@using Thiccdal.Infrastructure.Bot.Models
+@using Thiccdal.Infrastructure.Remotes
 @using Thiccdal.Infrastructure.Twitch
 @implements IAsyncDisposable
 
@@ -58,7 +60,7 @@
                     @foreach (var message in _recentMessages)
                     {
                         <div class="message mb-2">
-                            <small class="text-muted">@message</small>
+                            <small class="text-muted">@message.Source<text>:</text> @message.Author</small> @message.Content
                         </div>
                     }
                 </div>
@@ -71,13 +73,13 @@
     private string _connectionStatus = "Checking...";
     private string? _errorMessage;
     private bool _isConnecting;
-    private List<string> _recentMessages = new();
+    private List<ChatMessage> _recentMessages = new();
     private const int MaxMessages = 50;
 
     protected override async Task OnInitializedAsync()
     {
         await CheckTokenStatus();
-        TwitchService.OnMessageRecieved += HandleMessage;
+        TwitchService.OnChatMessageRecieved += HandleMessage;
     }
 
     private async Task CheckTokenStatus()
@@ -148,7 +150,7 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private void HandleMessage(object? sender, string message)
+    private void HandleMessage(object? sender, ChatMessage message)
     {
         InvokeAsync(() =>
         {
@@ -174,7 +176,7 @@
 
     public async ValueTask DisposeAsync()
     {
-        TwitchService.OnMessageRecieved -= HandleMessage;
+        TwitchService.OnChatMessageRecieved -= HandleMessage;
 
         if (_connectionStatus == "Connected")
         {

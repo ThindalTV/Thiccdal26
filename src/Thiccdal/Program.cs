@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Thiccdal.Components;
 using Thiccdal.Data;
+using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Twitch;
 using Thiccdal.Remote.Twitch;
 
@@ -19,7 +20,7 @@ builder.Services.Configure<TwitchOptions>(
 builder.Services.AddHttpClient("Twitch");
 
 builder.Services.AddScoped<ITwitchTokenManager, TwitchTokenManager>();
-builder.Services.AddScoped<ITwitchService, TwitchService>();
+builder.Services.AddScoped<IChatSource, TwitchService>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
