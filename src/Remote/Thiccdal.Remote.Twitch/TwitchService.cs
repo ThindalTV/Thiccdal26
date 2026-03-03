@@ -17,7 +17,9 @@ public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
     private StreamWriter? _writer;
     private CancellationTokenSource? _readCancellation;
     
-    public event EventHandler<ChatMessage>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+
+    public bool Connected { get; private set; } = false;
 
     public TwitchService(
         IOptions<TwitchOptions> options,
@@ -50,6 +52,8 @@ public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
 
         _readCancellation = new CancellationTokenSource();
         _ = Task.Run(() => ReadMessages(_readCancellation.Token), _readCancellation.Token);
+
+        Connected = true;
     }
 
     public async Task Disconnect(CancellationToken cancellationToken = default)
@@ -65,6 +69,8 @@ public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
 
         _reader?.Dispose();
         _client?.Dispose();
+
+        Connected = false;
     }
 
     private async Task ReadMessages(CancellationToken cancellationToken)
@@ -98,12 +104,12 @@ public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
 
 
                     // Build ChatMessage
-                    var msg = new ChatMessage
+                    var msg = new ChatEvent
                     {
                         Author = user,
                         Channel = channel,
                         Content = message,
-                        Source = ChatSource.Twitch
+                        Source = PlatformEventSource.Twitch
                     };
 
                     // Invoke recieved

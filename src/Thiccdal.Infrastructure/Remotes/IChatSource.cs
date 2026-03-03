@@ -8,6 +8,11 @@ namespace Thiccdal.Infrastructure.Remotes;
 public interface IChatSource
 {
     /// <summary>
+    /// Gets a value indicating whether the chat source is currently connected.
+    /// </summary>
+    bool Connected { get; }
+
+    /// <summary>
     /// Establishes a connection to the chat source.
     /// </summary>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
@@ -22,5 +27,5 @@ public interface IChatSource
     /// <summary>
     /// Raised when a chat message is received from the platform.
     /// </summary>
-    public event EventHandler<ChatMessage>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
 }

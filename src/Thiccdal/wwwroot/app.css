@@ -1,40 +1,39 @@
+@import 'overlay.css';
+
 :root {
+    /* Panel */
+    --panel-header-height: 15px;
+
     /* Glass surfaces */
-    --glass-bg:               rgba(255, 255, 255, 0.06);
-    --glass-bg-hover:         rgba(255, 255, 255, 0.10);
-    --glass-border:           rgba(255, 255, 255, 0.10);
-    --glass-blur:             blur(14px);
-    --glass-shadow:           0 4px 24px rgba(0, 0, 0, 0.45);
-
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-bg-hover: rgba(255, 255, 255, 0.10);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-blur: blur(14px);
+    --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
     /* Text */
-    --color-text:             rgba(255, 255, 255, 0.87);
-    --color-text-muted:       rgba(255, 255, 255, 0.50);
+    --color-text: rgba(255, 255, 255, 0.87);
+    --color-text-muted: rgba(255, 255, 255, 0.50);
     --color-text-placeholder: rgba(255, 255, 255, 0.28);
-
     /* Accent & glow */
-    --color-accent:           rgba(255, 255, 255, 0.30);
-    --glow-live:              0 0 16px rgba(255, 60, 60, 0.45);
-    --glow-ready:             0 0 16px rgba(60, 220, 100, 0.45);
-    --color-bg-popup:         #12121f;
-
+    --color-accent: rgba(255, 255, 255, 0.30);
+    --glow-live: 0 0 16px rgba(255, 60, 60, 0.45);
+    --glow-ready: 0 0 16px rgba(60, 220, 100, 0.45);
+    --color-bg-popup: #12121f;
     /* Spacing */
-    --spacing-xs:   4px;
-    --spacing-sm:   8px;
-    --spacing-md:  16px;
-    --spacing-lg:  24px;
-
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
     /* Radii */
-    --radius-panel:    12px;
-    --radius-input:     8px;
-    --radius-btn:       8px;
-    --radius-badge:    12px;
-    --radius-checkbox:  4px;
-
+    --radius-panel: 12px;
+    --radius-input: 8px;
+    --radius-btn: 8px;
+    --radius-badge: 12px;
+    --radius-checkbox: 4px;
     /* Typography */
-    --font-size-xs:  0.70rem;
-    --font-size-sm:  0.75rem;
-    --font-size-md:  0.875rem;
-
+    --font-size-xs: 0.70rem;
+    --font-size-sm: 0.75rem;
+    --font-size-md: 0.875rem;
     /* Transitions */
     --duration-fast: 150ms;
 }
@@ -57,7 +56,7 @@ a, .btn-link {
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
 .content {

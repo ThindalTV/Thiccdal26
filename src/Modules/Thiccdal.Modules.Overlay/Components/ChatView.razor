@@ -1,0 +1,44 @@
+﻿@using Thiccdal.Infrastructure.Bot
+@using Thiccdal.Infrastructure.Bot.Models
+@using Thiccdal.Shared.Components.Components.Primitives
+@inject IChatService ChatService
+@inject CancellationTokenSource Cts
+
+<Panel Title="Chat View" Icon="bi bi-chat-dots-fill" CssClass="overlay-chat">
+    <div class="chat-view p-3" style="">
+        @foreach (var message in _recentMessages)
+        {
+            <div class="chat-message mb-2" style="transform: rotate(180deg);">
+                <strong>@message.Author:</strong> @message.Content
+            </div>
+        }
+    </div>
+</Panel>
+
+@code {
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private List<ChatEvent> _recentMessages = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ChatService.Connect(Cts.Token);
+        ChatService.OnChatMessageRecieved += HandleMessageReceived;
+    }
+
+    private void HandleMessageReceived(object? sender, ChatEvent chatEvent)
+    {
+        _recentMessages.Insert(0, chatEvent);
+        if (_recentMessages.Count > 100)
+        {
+            _recentMessages.RemoveAt(99);
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string SourceSvgMap(PlatformEventSource source) => source switch
+    {
+        PlatformEventSource.Twitch => "bi bi-twitch",
+        _ => "bi bi-question-circle"
+    };
+}

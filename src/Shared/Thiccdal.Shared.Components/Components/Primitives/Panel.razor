@@ -1,4 +1,4 @@
-<div class="panel" @attributes="AdditionalAttributes">
+<div class="@GetCssClass()" @attributes="AdditionalAttributes">
     @if (!string.IsNullOrEmpty(Title))
     {
         <div class="panel__header">
@@ -11,8 +11,19 @@
 </div>
 
 @code {
+    [Parameter] public string? CssClass { get; set; }
     [Parameter] public string? Title { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GetCssClass()
+    {
+        var classes = new List<string> { "panel" };
+        if (!string.IsNullOrEmpty(CssClass))
+        {
+            classes.Add(CssClass);
+        }
+        return string.Join(" ", classes);
+    }
 }

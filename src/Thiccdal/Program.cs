@@ -1,9 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Thiccdal.Components;
 using Thiccdal.Data;
-using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Twitch;
-using Thiccdal.Remote.Twitch;
+using Thiccdal.Modules.ChatBot;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,8 +18,9 @@ builder.Services.Configure<TwitchOptions>(
 
 builder.Services.AddHttpClient("Twitch");
 
-builder.Services.AddScoped<ITwitchTokenManager, TwitchTokenManager>();
-builder.Services.AddScoped<IChatSource, TwitchService>();
+builder.Services.AddTransient<CancellationTokenSource>();
+
+builder.Services.AddChatBotServices();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

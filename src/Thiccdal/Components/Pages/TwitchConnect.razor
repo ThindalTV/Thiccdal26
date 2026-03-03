@@ -1,10 +1,12 @@
 ﻿@page "/twitch/connect"
-@inject IChatSource TwitchService
+@inject IChatService ChatService
 @inject ITwitchTokenManager TokenManager
 @inject NavigationManager Navigation
 @inject ILogger<TwitchConnect> Logger
+@inject CancellationTokenSource Cts
+
+@using Thiccdal.Infrastructure.Bot
 @using Thiccdal.Infrastructure.Bot.Models
-@using Thiccdal.Infrastructure.Remotes
 @using Thiccdal.Infrastructure.Twitch
 @implements IAsyncDisposable
 
@@ -73,13 +75,13 @@
     private string _connectionStatus = "Checking...";
     private string? _errorMessage;
     private bool _isConnecting;
-    private List<ChatMessage> _recentMessages = new();
+    private List<ChatEvent> _recentMessages = new();
     private const int MaxMessages = 50;
 
     protected override async Task OnInitializedAsync()
     {
         await CheckTokenStatus();
-        TwitchService.OnChatMessageRecieved += HandleMessage;
+        ChatService.OnChatMessageRecieved += HandleMessage;
     }
 
     private async Task CheckTokenStatus()
@@ -115,7 +117,7 @@
             _errorMessage = null;
             await InvokeAsync(StateHasChanged);
 
-            await TwitchService.Connect();
+            await ChatService.Connect(Cts.Token);
 
             _connectionStatus = "Connected";
             Logger.LogInformation("Successfully connected to Twitch IRC");
@@ -137,7 +139,7 @@
     {
         try
         {
-            await TwitchService.Disconnect();
+            await ChatService.Disconnect(Cts.Token);
             _connectionStatus = "Disconnected";
             Logger.LogInformation("Disconnected from Twitch IRC");
         }
@@ -150,7 +152,7 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private void HandleMessage(object? sender, ChatMessage message)
+    private void HandleMessage(object? sender, ChatEvent message)
     {
         InvokeAsync(() =>
         {
@@ -176,11 +178,6 @@
 
     public async ValueTask DisposeAsync()
     {
-        TwitchService.OnChatMessageRecieved -= HandleMessage;
-
-        if (_connectionStatus == "Connected")
-        {
-            await TwitchService.Disconnect();
-        }
+        ChatService.OnChatMessageRecieved -= HandleMessage;
     }
 }

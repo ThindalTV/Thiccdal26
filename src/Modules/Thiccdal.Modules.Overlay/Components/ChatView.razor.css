@@ -1,0 +1,10 @@
+.chat-view {
+    transform: rotate(180deg);
+    position: absolute;
+    bottom: 0;
+    overflow: hidden;
+    margin-bottom: 15px;
+    margin-right: 15px;
+    /* Wanted height of chatview - margin of body - margin of header - header height. */
+    height: calc(580px - var(--spacing-md) - var(--spacing-sm) - var(--panel-header-height));
+}

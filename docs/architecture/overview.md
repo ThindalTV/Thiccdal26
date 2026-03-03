@@ -139,7 +139,7 @@ implements `IPlatformConnection`, which combines three concerns:
 |---|---|
 | `IChatService` | Send and receive chat messages |
 | `IStreamTarget` | Accept and relay RTMP stream data |
-| `IEventSource` | Emit typed `PlatformEvent` objects |
+| `PlatformEventSource` | Emit typed `PlatformEvent` objects |
 
 The `Null` implementation logs every operation at `Information` level and emits no traffic.
 It is the default in unit tests and is suitable for offline development.
@@ -149,9 +149,11 @@ disabled with a tooltip explaining that LinkedIn Live API access requires platfo
 
 ### 3.3 Event System
 
+All platform happenings
+
 All platform happenings — subscribes, follows, redeems, raids, likes, superchats — derive
 from `PlatformEvent`. Known event types have dedicated record types with additional properties.
-Unknown events surface the base `PlatformEvent` with a `RawData` field containing the raw
+Unknown events create a `RawEvent` of the base `PlatformEvent` called RawEvent with a `RawData` field containing the raw
 platform payload so that no information is silently discarded.
 
 **Rule:** Every event is persisted to the database *before* it is dispatched to subscribers.

@@ -1,0 +1,12 @@
+﻿@using Thiccdal.Shared.Components.Components.Primitives
+@if (Visible)
+{
+    <Panel CssClass="overlay-lower-third">
+        @ChildContent
+    </Panel>
+}
+@code {
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+
+    [Parameter] public bool Visible { get; set; } = false;
+}
