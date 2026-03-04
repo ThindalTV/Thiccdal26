@@ -5,7 +5,7 @@ using Thiccdal.Infrastructure.Bot.Models;
 
 namespace Thiccdal.Modules.ChatBot;
 
-public class BotCommandWorker
+public class BotCommandWorker : BackgroundService
 {
     private readonly IChatService _chatService;
     private readonly ILogger<IHostedService> _logger;
@@ -16,14 +16,14 @@ public class BotCommandWorker
         _logger = logger;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _chatService.OnChatMessageRecieved += ChatService_OnChatMessageRecieved;
 
-        while (!cancellationToken.IsCancellationRequested)
+        while (!stoppingToken.IsCancellationRequested)
         {
             _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-            await _chatService.Connect(cancellationToken);
+            await _chatService.Connect(stoppingToken);
         }
     }
 
@@ -36,9 +36,8 @@ public class BotCommandWorker
         }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public override void Dispose()
     {
         _chatService.OnChatMessageRecieved -= ChatService_OnChatMessageRecieved;
-        return Task.CompletedTask;
     }
 }
