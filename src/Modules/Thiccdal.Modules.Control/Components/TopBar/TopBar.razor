@@ -1,0 +1,40 @@
+@using Thiccdal.Shared.Components.Components.Primitives
+<header class="topbar">
+    <div class="topbar__left">
+        <span class="topbar__brand">THICCDAL</span>
+        <div class="topbar__platforms">
+            <PlatformIndicator Platform="TWI" ViewerCount="847" Color="#9146FF" IsLive="true" />
+            <PlatformIndicator Platform="YT" ViewerCount="312" Color="#FF4444" IsLive="true" />
+            <PlatformIndicator Platform="KICK" Color="#53FC18" IsLive="false" />
+        </div>
+    </div>
+
+    <div class="topbar__restream">
+        <div class="topbar__restream-dest" style="--plat-color: #9146FF">
+            <span class="topbar__restream-name">Twitch</span>
+            <span class="topbar__restream-stats">6,008 Kbps · 60fps</span>
+            <button type="button" class="topbar__restream-btn topbar__restream-btn--stop">■ Stop</button>
+            <span class="topbar__restream-dot"></span>
+        </div>
+        <div class="topbar__restream-dest" style="--plat-color: #FF4444">
+            <span class="topbar__restream-name">YouTube</span>
+            <span class="topbar__restream-stats">4,500 Kbps · 80fps</span>
+            <button type="button" class="topbar__restream-btn topbar__restream-btn--stop">■ Stop</button>
+            <span class="topbar__restream-dot"></span>
+        </div>
+        <div class="topbar__restream-dest" style="--plat-color: #53FC18">
+            <span class="topbar__restream-name">Kick</span>
+            <span class="topbar__restream-stats">idle</span>
+            <button type="button" class="topbar__restream-btn topbar__restream-btn--go">▶ Go Live</button>
+        </div>
+    </div>
+
+    <div class="topbar__right">
+        <span class="topbar__timer">02:14:38</span>
+        <div class="topbar__actions">
+            <GhostButton>⚙ Config</GhostButton>
+            <DangerButton>■ End</DangerButton>
+        </div>
+    </div>
+</header>
+

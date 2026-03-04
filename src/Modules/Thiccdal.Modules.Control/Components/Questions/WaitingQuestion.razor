@@ -1,0 +1,21 @@
+@using Thiccdal.Shared.Components.Components.Primitives
+<div class="waiting-q">
+    <button type="button" class="waiting-q__dismiss" title="Dismiss">✕</button>
+    <div class="waiting-q__content">
+        <div class="waiting-q__meta">
+            <Badge Color="@PlatformColor">@Platform</Badge>
+            <span class="waiting-q__user">@Username</span>
+            <span class="waiting-q__time">@TimeAgo</span>
+        </div>
+        <p class="waiting-q__text">"@Text"</p>
+    </div>
+    <button type="button" class="waiting-q__show" title="Show on overlay">▶</button>
+</div>
+
+@code {
+    [Parameter] public string Platform { get; set; } = string.Empty;
+    [Parameter] public string PlatformColor { get; set; } = "default";
+    [Parameter] public string Username { get; set; } = string.Empty;
+    [Parameter] public string TimeAgo { get; set; } = string.Empty;
+    [Parameter] public string Text { get; set; } = string.Empty;
+}

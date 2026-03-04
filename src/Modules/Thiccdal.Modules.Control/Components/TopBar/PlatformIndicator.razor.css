@@ -1,0 +1,37 @@
+.plat-ind {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border: 1px solid var(--plat-color, rgba(255, 255, 255, 0.2));
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.plat-ind__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+.plat-ind__dot--live {
+    background: var(--plat-color);
+    box-shadow: 0 0 5px var(--plat-color);
+}
+
+.plat-ind__name {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text);
+}
+
+.plat-ind__count,
+.plat-ind__idle {
+    font-size: var(--font-size-xs);
+    color: var(--color-text);
+    font-weight: 500;
+}

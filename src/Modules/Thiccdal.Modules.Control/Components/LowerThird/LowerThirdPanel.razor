@@ -1,0 +1,29 @@
+@using Thiccdal.Shared.Components.Components.Primitives
+<div class="ctrl-panel">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Lower Third</span>
+        <span class="ctrl-panel__spacer"></span>
+        <Badge Color="success">● ACTIVE</Badge>
+    </div>
+    <div class="ctrl-panel__body lt-body">
+        <div class="lt-now-showing">
+            <span class="lt-label">NOW SHOWING</span>
+            <span class="lt-user">StreamerFan99 (Twitch)</span>
+            <span class="lt-time">0:12</span>
+        </div>
+        <p class="lt-quote">"What's your streaming setup? Which mic do you use?"</p>
+        <div class="lt-dismiss">
+            <DangerButton>✕ Dismiss Lower Third</DangerButton>
+        </div>
+        <div class="lt-separator"></div>
+        <div class="lt-custom">
+            <input type="text" class="ctrl-input" placeholder="Custom text..." />
+            <div class="lt-options">
+                <span class="lt-option">Position</span>
+                <span class="lt-option">Duration</span>
+                <span class="lt-option">Style ✧</span>
+            </div>
+            <PrimaryButton>▶ Push Custom</PrimaryButton>
+        </div>
+    </div>
+</div>

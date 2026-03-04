@@ -1,0 +1,44 @@
+@using Thiccdal.Shared.Components.Components.Primitives
+<div class="ctrl-panel qq-ctrl-panel">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Question Queue</span>
+        <Badge Color="default">5</Badge>
+        <span class="ctrl-panel__spacer"></span>
+        <ToggleSwitch Label="Auto-detect" Checked="true" />
+    </div>
+    <div class="qq-panel__body">
+        <OnAirQuestion />
+
+        <div class="qq-panel__waiting-header">
+            <GhostButton>← Dismiss</GhostButton>
+            <span class="qq-panel__waiting-label">WAITING · 4 QUESTIONS</span>
+            <GhostButton>Show on Overlay →</GhostButton>
+        </div>
+
+        <div class="qq-panel__queue">
+            <WaitingQuestion Platform="YOUTUBE" PlatformColor="live"
+                Username="TechWatcher" TimeAgo="5 min ago"
+                Text="How long have you been streaming and what got you into it?" />
+            <WaitingQuestion Platform="TWITCH" PlatformColor="pending"
+                Username="PurplePanda" TimeAgo="8 min ago"
+                Text="Are you planning to do more collab streams?" />
+            <WaitingQuestion Platform="KICK" PlatformColor="connected"
+                Username="KickViewer42" TimeAgo="15 min ago"
+                Text="What game are you going to play next session?" />
+            <WaitingQuestion Platform="YOUTUBE" PlatformColor="live"
+                Username="GamingNerd" TimeAgo="18 min ago"
+                Text="Do you stream every day or on a schedule?" />
+            <WaitingQuestion Platform="TWITCH" PlatformColor="pending"
+                Username="StreamFan99" TimeAgo="22 min ago"
+                Text="What's the best advice you'd give to someone just starting out on Twitch?" />
+        </div>
+
+        <div class="qq-panel__add">
+            <input type="text" class="ctrl-input" placeholder="↑ Manually add question..." />
+            <PrimaryButton>Add</PrimaryButton>
+        </div>
+        <div class="qq-panel__footer">
+            <GhostButton>Clear All</GhostButton>
+        </div>
+    </div>
+</div>
