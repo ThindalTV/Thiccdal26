@@ -1,0 +1,27 @@
+@using Thiccdal.Shared.Components.Components.Primitives
+<div class="restream-dest" style="--plat-color: @PlatformColor">
+    <div class="restream-dest__info">
+        <span class="restream-dest__name">@PlatformName</span>
+        <span class="restream-dest__user">@Username</span>
+        <span class="restream-dest__stats">@Stats</span>
+    </div>
+    <div class="restream-dest__controls">
+        @if (IsLive)
+        {
+            <DangerButton>■ Stop</DangerButton>
+            <span class="restream-dest__status"></span>
+        }
+        else
+        {
+            <PrimaryButton>▶ Go Live</PrimaryButton>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string PlatformName { get; set; } = string.Empty;
+    [Parameter] public string PlatformColor { get; set; } = "rgba(255,255,255,0.3)";
+    [Parameter] public string Username { get; set; } = string.Empty;
+    [Parameter] public string Stats { get; set; } = string.Empty;
+    [Parameter] public bool IsLive { get; set; }
+}

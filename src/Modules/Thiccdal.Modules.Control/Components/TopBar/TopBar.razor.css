@@ -1,0 +1,129 @@
+.topbar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: 0 var(--spacing-md);
+    height: 56px;
+    background: var(--glass-bg);
+    border-bottom: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur);
+}
+
+.topbar__left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.topbar__brand {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+.topbar__platforms {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+/* ── Compact inline restream destinations ── */
+
+.topbar__restream {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.topbar__restream-dest {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-left: 3px solid var(--plat-color, rgba(255, 255, 255, 0.3));
+    border-top: 1px solid var(--glass-border);
+    border-right: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.topbar__restream-name {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+.topbar__restream-stats {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.topbar__restream-btn {
+    padding: 4px 10px;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background var(--duration-fast) ease;
+}
+
+.topbar__restream-btn--stop {
+    background: rgba(200, 40, 40, 0.12);
+    border: 1px solid rgba(220, 60, 60, 0.30);
+    color: rgba(255, 110, 110, 0.90);
+}
+
+.topbar__restream-btn--stop:hover {
+    background: rgba(200, 40, 40, 0.22);
+}
+
+.topbar__restream-btn--go {
+    background: rgba(0, 100, 200, 0.10);
+    border: 1px solid rgba(60, 150, 255, 0.30);
+    color: rgba(100, 175, 255, 0.90);
+}
+
+.topbar__restream-btn--go:hover {
+    background: rgba(0, 100, 200, 0.20);
+}
+
+.topbar__restream-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3cc864;
+    box-shadow: 0 0 5px rgba(60, 200, 100, 0.7);
+    flex-shrink: 0;
+}
+
+/* ── Right zone: timer + actions ── */
+
+.topbar__right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    justify-self: end;
+}
+
+.topbar__timer {
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+.topbar__actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+

@@ -1,0 +1,9 @@
+<button type="button" class="bot-cmd-btn">
+    <span class="bot-cmd-btn__cmd">@Command</span>
+    <span class="bot-cmd-btn__desc">@Description</span>
+</button>
+
+@code {
+    [Parameter] public string Command { get; set; } = string.Empty;
+    [Parameter] public string Description { get; set; } = string.Empty;
+}

@@ -1,0 +1,19 @@
+<div class="plat-ind" style="--plat-color: @Color">
+    <span class="plat-ind__dot @(IsLive ? "plat-ind__dot--live" : "")"></span>
+    <span class="plat-ind__name">@Platform</span>
+    @if (IsLive)
+    {
+        <span class="plat-ind__count">@ViewerCount</span>
+    }
+    else
+    {
+        <span class="plat-ind__idle">-</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string Platform { get; set; } = string.Empty;
+    [Parameter] public int ViewerCount { get; set; }
+    [Parameter] public string Color { get; set; } = "rgba(255,255,255,0.5)";
+    [Parameter] public bool IsLive { get; set; }
+}

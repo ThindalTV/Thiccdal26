@@ -1,0 +1,36 @@
+.bot-cmds-stretch {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.bot-cmds__body {
+    flex: 1;
+    gap: var(--spacing-sm);
+}
+
+.bot-cmds__grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(4, 1fr);
+    gap: var(--spacing-xs);
+}
+
+.bot-cmds__message {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.bot-cmds__msg-input {
+    flex: 1;
+    width: auto;
+}
+
+.bot-cmds__hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin: 0;
+}

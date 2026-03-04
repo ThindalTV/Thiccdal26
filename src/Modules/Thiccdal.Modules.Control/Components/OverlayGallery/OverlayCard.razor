@@ -1,0 +1,17 @@
+@using Thiccdal.Shared.Components.Components.Primitives
+<div class="overlay-card" style="--card-color: @Color">
+    <span class="overlay-card__category">@Category</span>
+    <p class="overlay-card__title">@Title</p>
+    <p class="overlay-card__desc">@Description</p>
+    <div class="overlay-card__actions">
+        <PrimaryButton>▶ Push</PrimaryButton>
+        <GhostButton>Edit</GhostButton>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Category { get; set; } = string.Empty;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Description { get; set; } = string.Empty;
+    [Parameter] public string Color { get; set; } = "rgba(255,255,255,0.3)";
+}

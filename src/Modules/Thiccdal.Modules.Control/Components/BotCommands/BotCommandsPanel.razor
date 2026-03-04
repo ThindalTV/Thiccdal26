@@ -1,0 +1,25 @@
+@using Thiccdal.Shared.Components.Components.Primitives
+<div class="ctrl-panel bot-cmds-stretch">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Bot Commands</span>
+        <span class="ctrl-panel__spacer"></span>
+        <ToggleSwitch Label="Auto-reply" Checked="true" />
+    </div>
+    <div class="ctrl-panel__body bot-cmds__body">
+        <div class="bot-cmds__grid">
+            <BotCommandButton Command="!shoutout" Description="username $0" />
+            <BotCommandButton Command="!discord" Description="Post invite link" />
+            <BotCommandButton Command="!socials" Description="Post all links" />
+            <BotCommandButton Command="!clip" Description="Create clip now" />
+            <BotCommandButton Command="!schedule" Description="Next stream info" />
+            <BotCommandButton Command="!lurk" Description="!acknowledge" />
+            <BotCommandButton Command="!uptime" Description="Stream duration" />
+            <BotCommandButton Command="!poll" Description="Start a poll" />
+        </div>
+        <div class="bot-cmds__message">
+            <input type="text" class="ctrl-input bot-cmds__msg-input" placeholder="Custom message..." />
+            <PrimaryButton>Send All</PrimaryButton>
+        </div>
+        <p class="bot-cmds__hint">Sends to all active platforms</p>
+    </div>
+</div>

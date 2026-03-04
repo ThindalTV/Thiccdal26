@@ -1,5 +1,42 @@
-﻿<h3>Dashboard</h3>
+﻿@page "/dashboard"
+@using Thiccdal.Modules.Control.Components.BotCommands
+@using Thiccdal.Modules.Control.Components.LowerThird
+@using Thiccdal.Modules.Control.Components.OverlayGallery
+@using Thiccdal.Modules.Control.Components.Prompter
+@using Thiccdal.Modules.Control.Components.Questions
+@using Thiccdal.Modules.Control.Components.Restream
+@using Thiccdal.Modules.Control.Components.TopBar
+@layout Thiccdal.Modules.Control.Layout.DashboardLayout
 
-@code {
+<div class="dashboard">
+    <TopBar />
+    <div class="dashboard__body">
+        <aside class="dashboard__col dashboard__col--left">
+            <div class="wip-wrap">
+                <PrompterPanel />
+                <div class="wip-overlay"></div>
+            </div>
+            <div class="wip-wrap">
+                <BotCommandsPanel />
+                <div class="wip-overlay"></div>
+            </div>
+        </aside>
+        <section class="dashboard__col dashboard__col--middle">
+            <div class="wip-wrap">
+                <QuestionQueuePanel />
+                <div class="wip-overlay"></div>
+            </div>
+        </section>
+        <section class="dashboard__col dashboard__col--right">
+            <div class="wip-wrap">
+                <LowerThirdPanel />
+                <div class="wip-overlay"></div>
+            </div>
+            <div class="wip-wrap">
+                <OverlayGalleryPanel />
+                <div class="wip-overlay"></div>
+            </div>
+        </section>
+    </div>
+</div>
 
-}

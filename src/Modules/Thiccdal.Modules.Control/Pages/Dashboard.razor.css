@@ -1,0 +1,197 @@
+.dashboard {
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    height: 100vh;
+    overflow: hidden;
+    color: var(--color-text);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: var(--font-size-md);
+}
+
+.dashboard__body {
+    display: grid;
+    grid-template-columns: 3fr 4fr 3fr;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    overflow: hidden;
+    min-height: 0;
+}
+
+.dashboard__col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    overflow-y: auto;
+    min-height: 0;
+    padding-bottom: var(--spacing-sm);
+}
+
+.dashboard__col--middle {
+    overflow: hidden;
+}
+
+.dashboard__col--right {
+    overflow: hidden;
+}
+
+/* ── Shared section-panel shell (applied via ::deep into all child components) ── */
+
+.dashboard ::deep .ctrl-panel {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+    box-shadow: var(--glass-shadow);
+}
+
+.dashboard ::deep .ctrl-panel__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.02);
+    min-height: 36px;
+}
+
+.dashboard ::deep .ctrl-panel__title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+}
+
+.dashboard ::deep .ctrl-panel__subtitle {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-left: auto;
+    font-style: italic;
+}
+
+.dashboard ::deep .ctrl-panel__spacer {
+    flex: 1;
+}
+
+.dashboard ::deep .ctrl-panel__body {
+    padding: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+/* ── Shared input field style ── */
+
+.dashboard ::deep .ctrl-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-input);
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-md);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color var(--duration-fast) ease;
+}
+
+.dashboard ::deep .ctrl-input:focus {
+    border-color: rgba(255, 255, 255, 0.30);
+}
+
+.dashboard ::deep .ctrl-input::placeholder {
+    color: var(--color-text-placeholder);
+}
+
+/* ── Middle column: QuestionQueuePanel fills full height ── */
+
+.dashboard__col--middle ::deep .ctrl-panel {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Right column: OverlayGalleryPanel fills remaining space ── */
+
+.dashboard__col--right ::deep .overlay-gallery-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard__col--right ::deep .og-body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* ── Touch-friendly buttons throughout the dashboard ── */
+
+.dashboard ::deep .btn {
+    min-height: 44px;
+    padding: 10px var(--spacing-md);
+    font-size: var(--font-size-md);
+}
+
+/* ── Left column: PrompterPanel and BotCommandsPanel each take 50% ── */
+
+.dashboard__col--left {
+    overflow: hidden;
+}
+
+.dashboard__col--left ::deep .ctrl-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard__col--left ::deep .ctrl-panel__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* ── WIP overlay: absolutely positioned over each panel ── */
+
+.wip-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard__col--left .wip-wrap,
+.dashboard__col--middle .wip-wrap {
+    flex: 1;
+    min-height: 0;
+}
+
+.dashboard__col--right .wip-wrap:last-child {
+    flex: 1;
+    min-height: 0;
+}
+
+.wip-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(128, 128, 128, 0.5);
+    border-radius: var(--radius-panel);
+    cursor: not-allowed;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wip-overlay::after {
+    content: 'DISABLED';
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.75);
+}

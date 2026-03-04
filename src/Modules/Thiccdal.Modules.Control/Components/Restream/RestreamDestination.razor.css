@@ -1,0 +1,45 @@
+.restream-dest {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: 3px solid var(--plat-color, rgba(255, 255, 255, 0.3));
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    gap: var(--spacing-sm);
+}
+
+.restream-dest__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.restream-dest__name {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.restream-dest__user,
+.restream-dest__stats {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.restream-dest__controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex-shrink: 0;
+}
+
+.restream-dest__status {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #3cc864;
+    box-shadow: 0 0 6px rgba(60, 200, 100, 0.7);
+    flex-shrink: 0;
+}
