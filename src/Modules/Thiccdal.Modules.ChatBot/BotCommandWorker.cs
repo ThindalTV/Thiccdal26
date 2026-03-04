@@ -7,17 +7,20 @@ namespace Thiccdal.Modules.ChatBot;
 
 public class BotCommandWorker : BackgroundService
 {
-    private readonly IChatService _chatService;
+    private readonly Lazy<IChatService> _chatServiceLazy;
+    private IChatService? _chatService;
     private readonly ILogger<IHostedService> _logger;
 
     public BotCommandWorker(Lazy<IChatService> chatServiceLazy, ILogger<IHostedService> logger)
     {
-        _chatService = chatServiceLazy.Value;
+        _chatServiceLazy = chatServiceLazy;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _chatService = _chatServiceLazy.Value;
+
         _chatService.OnChatMessageRecieved += ChatService_OnChatMessageRecieved;
 
         while (!stoppingToken.IsCancellationRequested)
@@ -29,6 +32,12 @@ public class BotCommandWorker : BackgroundService
 
     protected void ChatService_OnChatMessageRecieved(object? sender, ChatEvent msg)
     {
+        if(_chatService == null)
+        {
+            _logger.LogError("Chat service is not initialized.");
+            return;
+        }
+
         _chatService.SendMessage($"You said: {msg.Content}"); // For testing
         if (msg.Content.StartsWith("!"))
         {
@@ -38,6 +47,10 @@ public class BotCommandWorker : BackgroundService
 
     public override void Dispose()
     {
-        _chatService.OnChatMessageRecieved -= ChatService_OnChatMessageRecieved;
+        if (_chatService != null)
+        {
+            _chatService.OnChatMessageRecieved -= ChatService_OnChatMessageRecieved;
+        }
+        base.Dispose();
     }
 }
