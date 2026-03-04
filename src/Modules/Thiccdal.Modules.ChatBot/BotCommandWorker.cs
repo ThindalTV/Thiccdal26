@@ -10,9 +10,9 @@ public class BotCommandWorker : BackgroundService
 {
     private readonly IServiceScope _serviceScope;
     private IChatService? _chatService;
-    private readonly ILogger<IHostedService> _logger;
+    private readonly ILogger<BotCommandWorker> _logger;
 
-    public BotCommandWorker(IServiceProvider sp, ILogger<IHostedService> logger)
+    public BotCommandWorker(IServiceProvider sp, ILogger<BotCommandWorker> logger)
     {
         _serviceScope = sp.CreateScope();
         _logger = logger;
@@ -23,15 +23,15 @@ public class BotCommandWorker : BackgroundService
         if (_chatService == null)
         {
             _chatService = _serviceScope.ServiceProvider.GetRequiredService<IChatService>();
-            return;
         }
 
         _chatService.OnChatMessageRecieved += ChatService_OnChatMessageRecieved;
 
+        await _chatService.Connect(stoppingToken);
         while (!stoppingToken.IsCancellationRequested)
         {
             _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-            await _chatService.Connect(stoppingToken);
+            await Task.Delay(5000);
         }
     }
 
@@ -43,10 +43,13 @@ public class BotCommandWorker : BackgroundService
             return;
         }
 
-        _chatService.SendMessage($"You said: {msg.Content}"); // For testing
         if (msg.Content.StartsWith("!"))
         {
             _chatService.SendMessage($"You issued the command: {msg.Content}"); // For testing
+        }
+        else
+        {
+            _chatService.SendMessage($"You said: {msg.Content}"); // For testing
         }
     }
 
