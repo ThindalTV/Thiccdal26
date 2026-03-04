@@ -17,6 +17,9 @@ public static class ChatBotRegistrationExtension
 
             collection.AddScoped<ITwitchTokenManager, TwitchTokenManager>();
             collection.AddScoped<IChatSource, TwitchService>();
+
+            collection.AddHostedService<BotCommandWorker>();
+
             return collection;
         }
     }

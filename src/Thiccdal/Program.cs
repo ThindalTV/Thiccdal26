@@ -21,7 +21,7 @@ builder.Services.AddHttpClient("Twitch");
 builder.Services.AddTransient<CancellationTokenSource>();
 
 builder.Services.AddChatBotServices();
-builder.Services.AddHostedService<BotCommandWorker>();
+
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

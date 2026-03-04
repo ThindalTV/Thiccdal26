@@ -10,9 +10,9 @@ public class BotCommandWorker : BackgroundService
     private readonly IChatService _chatService;
     private readonly ILogger<IHostedService> _logger;
 
-    public BotCommandWorker(IChatService chatService, ILogger<IHostedService> logger)
+    public BotCommandWorker(Lazy<IChatService> chatServiceLazy, ILogger<IHostedService> logger)
     {
-        _chatService = chatService;
+        _chatService = chatServiceLazy.Value;
         _logger = logger;
     }
 
