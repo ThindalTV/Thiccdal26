@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Bot.Models;
 
@@ -7,19 +8,23 @@ namespace Thiccdal.Modules.ChatBot;
 
 public class BotCommandWorker : BackgroundService
 {
-    private readonly Lazy<IChatService> _chatServiceLazy;
+    private readonly IServiceScope _serviceScope;
     private IChatService? _chatService;
     private readonly ILogger<IHostedService> _logger;
 
-    public BotCommandWorker(Lazy<IChatService> chatServiceLazy, ILogger<IHostedService> logger)
+    public BotCommandWorker(IServiceProvider sp, ILogger<IHostedService> logger)
     {
-        _chatServiceLazy = chatServiceLazy;
+        _serviceScope = sp.CreateScope();
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _chatService = _chatServiceLazy.Value;
+        if (_chatService == null)
+        {
+            _chatService = _serviceScope.ServiceProvider.GetRequiredService<IChatService>();
+            return;
+        }
 
         _chatService.OnChatMessageRecieved += ChatService_OnChatMessageRecieved;
 
@@ -32,7 +37,7 @@ public class BotCommandWorker : BackgroundService
 
     protected void ChatService_OnChatMessageRecieved(object? sender, ChatEvent msg)
     {
-        if(_chatService == null)
+        if (_chatService == null)
         {
             _logger.LogError("Chat service is not initialized.");
             return;
@@ -47,6 +52,7 @@ public class BotCommandWorker : BackgroundService
 
     public override void Dispose()
     {
+        _serviceScope.Dispose();
         if (_chatService != null)
         {
             _chatService.OnChatMessageRecieved -= ChatService_OnChatMessageRecieved;
