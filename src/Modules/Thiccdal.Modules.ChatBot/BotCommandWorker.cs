@@ -26,7 +26,7 @@ public class BotCommandWorker : BackgroundService, IDisposable
         while (!stoppingToken.IsCancellationRequested)
         {
             // TODO: Add scheduled messaging here
-            await Task.Delay(1000);
+            await Task.Delay(1000, stoppingToken);
         }
     }
 
@@ -52,6 +52,8 @@ public class BotCommandWorker : BackgroundService, IDisposable
     public override void Dispose()
     {
         _chatService.OnChatMessageRecieved -= ChatService_OnChatMessageRecieved;
+
+        GC.SuppressFinalize(this);
         base.Dispose();
     }
 }

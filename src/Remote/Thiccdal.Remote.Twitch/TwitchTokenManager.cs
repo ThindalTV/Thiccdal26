@@ -35,12 +35,8 @@ public class TwitchTokenManager : ITwitchTokenManager
 
         var storedToken = await context.TwitchTokens
             .OrderByDescending(t => t.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (storedToken == null)
-        {
-            throw new InvalidOperationException("No Twitch token found. Please authorize the application first.");
-        }
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException("No Twitch token found. Please authorize the application first.");
 
         if (DateTime.UtcNow < storedToken.ExpiresAt)
         {
@@ -91,12 +87,8 @@ public class TwitchTokenManager : ITwitchTokenManager
             throw new InvalidOperationException($"Twitch token exchange failed: {errorContent}");
         }
 
-        var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken: cancellationToken);
-        
-        if (tokenResponse == null)
-        {
-            throw new InvalidOperationException("Failed to deserialize token response");
-        }
+        var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Failed to deserialize token response");
 
         var token = new TwitchToken
         {
@@ -140,12 +132,8 @@ public class TwitchTokenManager : ITwitchTokenManager
             throw new InvalidOperationException($"Twitch token refresh failed: {errorContent}");
         }
 
-        var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken: cancellationToken);
-        
-        if (tokenResponse == null)
-        {
-            throw new InvalidOperationException("Failed to refresh token");
-        }
+        var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Failed to refresh token");
 
         token.AccessToken = tokenResponse.AccessToken;
         token.RefreshToken = tokenResponse.RefreshToken;

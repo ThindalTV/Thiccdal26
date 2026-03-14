@@ -58,6 +58,7 @@ public class ChatServiceAggregator : IChatService, IDisposable
         {
             source.OnChatMessageRecieved -= MessageRecieved;
         }
+        GC.SuppressFinalize(this);
     }
 
     protected void MessageRecieved(object? sender, ChatEvent msg)

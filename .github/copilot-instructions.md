@@ -2,10 +2,7 @@
 
 ## Project Overview
 
-Thiccdal is a **streaming command and control system** built with .NET 10 and Blazor Server.
-It runs on one machine (stream PC) and is controlled from another (e.g., a Surface Pro tablet).
-It handles multicast RTMP streaming, multi-platform chat aggregation, a chatbot, a live overlay,
-a teleprompter, event tracking (follows, subs, redeems, etc.) and stream recording.
+Thiccdal is a **streaming command and control system** built with .NET 10 and Blazor Server. It runs on one machine (stream PC) and is controlled from another (e.g., a Surface Pro tablet). It handles multicast RTMP streaming, multi-platform chat aggregation, a chatbot, a live overlay, a teleprompter, event tracking (follows, subs, redeems, etc.) and stream recording.
 
 ---
 
@@ -68,14 +65,10 @@ public class TwitchOptions
 ```
 
 ### Platform Abstraction
-Every streaming/chat target implements `IPlatformConnection`, defined in `Thiccdal.Infrastructure`.
-Implementations are registered in DI and never referenced by concrete type outside their own project.
-The `Null` implementation logs all operations and returns no-op results — use it as the default in unit tests.
+Every streaming/chat target implements `IPlatformConnection`, defined in `Thiccdal.Infrastructure`. Implementations are registered in DI and never referenced by concrete type outside their own project. The `Null` implementation logs all operations and returns no-op results — use it as the default in unit tests.
 
 ### Event System
-All platform happenings derive from `PlatformEvent`. Recognized events (e.g. `TwitchSubscribeEvent`)
-carry extra detail. Unrecognized events emit the base `PlatformEvent` with a `RawData` string.
-Events are always persisted before being dispatched.
+All platform happenings derive from `PlatformEvent`. Recognized events (e.g. `TwitchSubscribeEvent`) carry extra detail. Unrecognized events emit the base `PlatformEvent` with a `RawData` string. Events are always persisted before being dispatched.
 
 ### Entity Framework
 - Entity models and `ApplicationDbContext` live in **`Thiccdal.Data`**.
@@ -91,8 +84,7 @@ Events are always persisted before being dispatched.
 - Touch-friendly UI — primary control device is a Surface Pro tablet.
 
 ### Null Platform
-`Thiccdal.Remote.Null` provides no-op implementations of all platform interfaces.
-It must log every operation at `Information` level so test output is inspectable.
+`Thiccdal.Remote.Null` provides no-op implementations of all platform interfaces. It must log every operation at `Information` level so test output is inspectable.
 
 ---
 
@@ -107,6 +99,7 @@ It must log every operation at `Information` level so test output is inspectable
 - No comments explaining *what* code does — comments explain *why*.
 - No unused parameters, no dead code, no TODO comments in committed code.
 - Warnings are treated as errors solution-wide — fix every warning before committing.
+- Do NOT suggest or use primary constructors (IDE0290) or target-typed new expressions `new(...)` (IDE0090). Both are suppressed via .editorconfig as they conflict with the project's explicit constructor and explicit type-name style.
 
 ---
 
@@ -136,7 +129,7 @@ Include a xUnit test class with a Null platform standing in for the live API.
 ### Adding a new event type
 ```
 Using #file:src/Thiccdal.Infrastructure/Events/PlatformEvent.cs as the base,
-add a new <Platform><Name>Event record. Add it to the event mapping in
+add a new <Platform><Name> Event record. Add it to the event mapping in
 #file:src/Thiccdal.Remote.<Platform>/EventMapper.cs. Write a [Fact] test covering the mapping.
 ```
 
