@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -8,7 +8,7 @@ using Thiccdal.Infrastructure.Twitch;
 
 namespace Thiccdal.Remote.Twitch;
 
-public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
+public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable, IDisposable
 {
     private readonly TwitchOptions _options;
     private readonly ITwitchTokenManager _tokenManager;
@@ -139,5 +139,10 @@ public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
     {
         await Disconnect();
         GC.SuppressFinalize(this);
+    }
+
+    public async void Dispose()
+    {
+        await DisposeAsync();
     }
 }

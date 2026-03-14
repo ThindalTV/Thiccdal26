@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Thiccdal.Infrastructure.Bot;
@@ -43,14 +43,14 @@ public class BotCommandWorker : BackgroundService
             return;
         }
 
-        if (msg.Content.StartsWith("!"))
+        /*if (msg.Content.StartsWith("!"))
         {
             _chatService.SendMessage($"You issued the command: {msg.Content}"); // For testing
         }
         else
         {
             _chatService.SendMessage($"You said: {msg.Content}"); // For testing
-        }
+        }*/
     }
 
     public override void Dispose()

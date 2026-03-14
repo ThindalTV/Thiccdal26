@@ -20,6 +20,10 @@
     transition: background var(--duration-fast) ease;
 }
 
+.prompter__resetScroll {
+
+}
+
 .prompter__scroll:hover {
     background: rgba(255, 255, 255, 0.10);
 }

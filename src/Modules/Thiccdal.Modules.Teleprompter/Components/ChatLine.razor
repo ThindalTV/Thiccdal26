@@ -1,0 +1,6 @@
+@using Thiccdal.Modules.Teleprompter.Models
+
+<div class="message">@Line.Content</div>
+@code {
+    [Parameter] public required Line Line { get; set; }
+}

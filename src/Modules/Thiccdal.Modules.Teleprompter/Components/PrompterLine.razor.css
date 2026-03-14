@@ -1,0 +1,38 @@
+.line {
+    padding: 15px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    width: 100%;
+    flex: 0 0 auto;
+}
+
+    .line > * {
+        vertical-align: top;
+        display: inline-block;
+    }
+
+.platform {
+    font-size: 0.8em;
+    color: rgba(255,255,255,0.5);
+    width: 50px;
+    margin-left: 15px;
+}
+
+    .platform > img {
+        aspect-ratio: 1/1;
+        height: 50px;
+    }
+
+time {
+    font-size: 0.8em;
+    color: rgba(255,255,255,0.5);
+    width: 75px;
+}
+
+.sender {
+    font-weight: bold;
+    width: 150px;
+}
+
+.promptContent {
+    width: calc(100% - 315px);
+}

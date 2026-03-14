@@ -15,4 +15,14 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Layout\" />
+    <Folder Include="wwwroot\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\Thiccdal.Shared.Components\Thiccdal.Shared.Components.csproj" />
+    <ProjectReference Include="..\..\Thiccdal.Infrastructure\Thiccdal.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>
