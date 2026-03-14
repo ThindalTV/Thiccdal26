@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
@@ -15,23 +15,25 @@ public class TwitchTokenManager : ITwitchTokenManager
     private readonly TwitchOptions _options;
     private readonly ILogger<TwitchTokenManager> _logger;
     private readonly HttpClient _httpClient;
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
 
     public TwitchTokenManager(
         IOptions<TwitchOptions> options,
         ILogger<TwitchTokenManager> logger,
         IHttpClientFactory httpClientFactory,
-        ApplicationDbContext context)
+        IDbContextFactory<ApplicationDbContext> dbContextFactory)
     {
         _options = options.Value;
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient("Twitch");
-        _context = context;
+        _dbContextFactory = dbContextFactory;
     }
 
     public async Task<string> GetToken(CancellationToken cancellationToken = default)
     {
-        var storedToken = await _context.TwitchTokens
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var storedToken = await context.TwitchTokens
             .OrderByDescending(t => t.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -47,18 +49,20 @@ public class TwitchTokenManager : ITwitchTokenManager
         }
 
         _logger.LogInformation("Token expired, refreshing");
-        return await RefreshStoredToken(storedToken, cancellationToken);
+        return await RefreshStoredToken(context, storedToken, cancellationToken);
     }
 
     public async Task RefreshToken(CancellationToken cancellationToken = default)
     {
-        var storedToken = await _context.TwitchTokens
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var storedToken = await context.TwitchTokens
             .OrderByDescending(t => t.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (storedToken != null)
         {
-            await RefreshStoredToken(storedToken, cancellationToken);
+            await RefreshStoredToken(context, storedToken, cancellationToken);
         }
     }
 
@@ -101,8 +105,9 @@ public class TwitchTokenManager : ITwitchTokenManager
             ExpiresAt = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn - 300)
         };
 
-        _context.TwitchTokens.Add(token);
-        await _context.SaveChangesAsync(cancellationToken);
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        context.TwitchTokens.Add(token);
+        await context.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Twitch token stored successfully");
     }
@@ -113,7 +118,7 @@ public class TwitchTokenManager : ITwitchTokenManager
         return $"https://id.twitch.tv/oauth2/authorize?client_id={_options.ClientId}&redirect_uri={Uri.EscapeDataString(_options.RedirectUri)}&response_type=code&scope={Uri.EscapeDataString(scopes)}";
     }
 
-    private async Task<string> RefreshStoredToken(TwitchToken token, CancellationToken cancellationToken)
+    private async Task<string> RefreshStoredToken(ApplicationDbContext context, TwitchToken token, CancellationToken cancellationToken)
     {
         var requestData = new Dictionary<string, string>
         {
@@ -146,7 +151,7 @@ public class TwitchTokenManager : ITwitchTokenManager
         token.RefreshToken = tokenResponse.RefreshToken;
         token.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn - 300);
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Token refreshed successfully");
         

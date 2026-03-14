@@ -1,6 +1,9 @@
 @using Thiccdal.Infrastructure.Bot
 @using Thiccdal.Infrastructure.Bot.Models
 @using Thiccdal.Shared.Components.Components.Primitives
+
+@implements IDisposable
+
 @inject IChatService ChatService
 @inject CancellationTokenSource Cts
 
@@ -41,4 +44,9 @@
         PlatformEventSource.Twitch => "bi bi-twitch",
         _ => "bi bi-question-circle"
     };
+
+    public void Dispose()
+    {
+        ChatService.OnChatMessageRecieved -= HandleMessageReceived;
+    }
 }

@@ -6,6 +6,8 @@
 @using Thiccdal.Modules.Teleprompter.Models
 @layout Thiccdal.Shared.Components.Layout.NullLayout
 
+@implements IDisposable
+
 @inject CancellationTokenSource Cts
 @inject IChatService ChatService
 @inject ITeleprompterService PrompterService
@@ -39,7 +41,7 @@
 
         _scrollPosition = 0;
 
-        base.OnInitialized();
+        await base.OnInitializedAsync();
     }
 
     private void HandleChatMessage(object? sender, ChatEvent message)
@@ -61,9 +63,11 @@
         InvokeAsync(StateHasChanged);
     }
 
-
-
-    
+    public void Dispose()
+    {
+        ChatService.OnChatMessageRecieved -= HandleChatMessage;
+        PrompterService.OnScrollRequested -= PrompterService_ScrollRequested;
+    }
 }
 
 

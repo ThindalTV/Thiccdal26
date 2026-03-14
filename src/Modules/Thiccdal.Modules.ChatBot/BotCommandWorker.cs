@@ -6,31 +6,25 @@ using Thiccdal.Infrastructure.Bot.Models;
 
 namespace Thiccdal.Modules.ChatBot;
 
-public class BotCommandWorker : BackgroundService
+public class BotCommandWorker : BackgroundService, IDisposable
 {
-    private readonly IServiceScope _serviceScope;
-    private IChatService? _chatService;
+    private readonly IChatService _chatService;
     private readonly ILogger<BotCommandWorker> _logger;
 
     public BotCommandWorker(IServiceProvider sp, ILogger<BotCommandWorker> logger)
     {
-        _serviceScope = sp.CreateScope();
+        using var scope = sp.CreateScope();
+        _chatService = scope.ServiceProvider.GetRequiredService<IChatService>();
+        _chatService.OnChatMessageRecieved += ChatService_OnChatMessageRecieved;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (_chatService == null)
-        {
-            _chatService = _serviceScope.ServiceProvider.GetRequiredService<IChatService>();
-        }
-
-        _chatService.OnChatMessageRecieved += ChatService_OnChatMessageRecieved;
-
         await _chatService.Connect(stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
             await Task.Delay(5000);
         }
     }
@@ -43,6 +37,7 @@ public class BotCommandWorker : BackgroundService
             return;
         }
 
+        // TODO: Implement timed message sending here. Below is for example purposes only.
         /*if (msg.Content.StartsWith("!"))
         {
             _chatService.SendMessage($"You issued the command: {msg.Content}"); // For testing
@@ -55,11 +50,7 @@ public class BotCommandWorker : BackgroundService
 
     public override void Dispose()
     {
-        _serviceScope.Dispose();
-        if (_chatService != null)
-        {
-            _chatService.OnChatMessageRecieved -= ChatService_OnChatMessageRecieved;
-        }
+        _chatService.OnChatMessageRecieved -= ChatService_OnChatMessageRecieved;
         base.Dispose();
     }
 }
