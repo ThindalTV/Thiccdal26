@@ -8,6 +8,6 @@ public class TeleprompterService : ITeleprompterService
 
     public void RequestScroll(object sender, ScrollDirection direction, int scrollAmount)
     {
-        OnScrollRequested?.Invoke(sender, new ScrollEventArgs(sender, direction, scrollAmount));
+        OnScrollRequested?.Invoke(sender, new ScrollEventArgs(direction, scrollAmount));
     }
 }

@@ -25,7 +25,8 @@ public class BotCommandWorker : BackgroundService, IDisposable
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(5000);
+            // TODO: Add scheduled messaging here
+            await Task.Delay(1000);
         }
     }
 

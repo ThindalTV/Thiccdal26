@@ -1,3 +1,3 @@
 namespace Thiccdal.Infrastructure.Teleprompter;
 
-public record ScrollEventArgs(object sender, ScrollDirection Direction, int ScrollAmount);
+public record ScrollEventArgs(ScrollDirection Direction, int ScrollAmount);
