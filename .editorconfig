@@ -1,0 +1,11 @@
+root = true
+
+[*.cs]
+# IDE0290: Use primary constructor — project style is explicit constructors
+dotnet_diagnostic.IDE0290.severity = none
+
+# IDE0090: Use 'new(...)' — project style is explicit type names
+dotnet_diagnostic.IDE0090.severity = none
+
+# IDE0305: Collection initialization can be simplified
+dotnet_diagnostic.IDE0305.severity = none

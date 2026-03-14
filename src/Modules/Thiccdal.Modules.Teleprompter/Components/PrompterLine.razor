@@ -1,0 +1,31 @@
+@using Thiccdal.Modules.Teleprompter.Models
+
+<!-- TODO: There could be multiple different types of lines. Right now we're only building ChatLine-->
+<div class="line">
+    <div class="platform">
+        @switch (Line.Platform)
+        {
+            case "Twitch":
+                <img src="/img/platforms/twitch.svg" />
+                break;
+            case "YouTube":
+                <img src="https://www.citypng.com/public/uploads/preview/hd-youtube-logo-png-transparent-background-701751695118259w7neomgqo3.png" />
+                break;
+            case "Facebook":
+                <img src="https://www.citypng.com/public/uploads/preview/hd-facebook-logo-png-transparent-background-701751695118259w7neomgqo3.png" />
+                break;
+            default:
+                <span class="bi bi-question-circle"></span>
+                break;
+        }
+    </div>
+    <time>@Line.Timestamp.ToString("HH:mm:ss")</time>
+    <div class="sender">@Line.Sender</div>
+    <div class="promptContent">
+        <ChatLine Line="@Line" />
+    </div>
+</div>
+@code {
+    [Parameter]
+    public required Line Line { get; set; }
+}

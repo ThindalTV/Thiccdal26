@@ -1,4 +1,4 @@
-﻿using Thiccdal.Infrastructure.Bot;
+using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Remotes;
 
@@ -9,6 +9,8 @@ public class ChatServiceAggregator : IChatService, IDisposable
     public event EventHandler<ChatEvent>? OnChatMessageRecieved;
 
     private readonly List<IChatSource> _chatSources;
+
+    private bool _connected = false;
 
     public ChatServiceAggregator(IEnumerable<IChatSource> chatSources)
     {
@@ -22,6 +24,12 @@ public class ChatServiceAggregator : IChatService, IDisposable
 
     public async Task Connect(CancellationToken ct)
     {
+        if (_connected)
+        {
+            return;
+        }
+        _connected = true;
+
         foreach (var source in _chatSources.Where(cs => !cs.Connected))
         {
             await source.Connect(ct);
@@ -36,12 +44,21 @@ public class ChatServiceAggregator : IChatService, IDisposable
         }
     }
 
+    public async Task SendMessage(string message, CancellationToken cancellationToken)
+    {
+        foreach (var source in _chatSources.Where(cs => cs.Connected))
+        {
+            await source.SendMessage(message, cancellationToken);
+        }
+    }
+
     public void Dispose()
     {
-        foreach(var source in _chatSources)
+        foreach (var source in _chatSources)
         {
             source.OnChatMessageRecieved -= MessageRecieved;
         }
+        GC.SuppressFinalize(this);
     }
 
     protected void MessageRecieved(object? sender, ChatEvent msg)

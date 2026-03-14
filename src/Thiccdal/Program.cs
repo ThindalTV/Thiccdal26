@@ -3,6 +3,7 @@ using Thiccdal.Components;
 using Thiccdal.Data;
 using Thiccdal.Infrastructure.Twitch;
 using Thiccdal.Modules.ChatBot;
+using Thiccdal.Modules.Teleprompter;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,10 +18,11 @@ builder.Services.Configure<TwitchOptions>(
     builder.Configuration.GetSection("Twitch"));
 
 builder.Services.AddHttpClient("Twitch");
-
 builder.Services.AddTransient<CancellationTokenSource>();
 
 builder.Services.AddChatBotServices();
+builder.Services.AddTeleprompterServices();
+
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

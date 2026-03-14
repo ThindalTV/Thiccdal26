@@ -1,18 +1,43 @@
+@using Thiccdal.Infrastructure.Teleprompter
+@inject ITeleprompterService PrompterService
 <div class="ctrl-panel">
     <div class="ctrl-panel__header">
         <span class="ctrl-panel__title">Prompter</span>
         <span class="ctrl-panel__subtitle">Chat-to-script</span>
     </div>
     <div class="ctrl-panel__body prompter__body">
-        <button type="button" class="prompter__scroll">
+        <button type="button" class="prompter__scroll" @onclick="ScrollReset">
+            <span class="prompter__arrow prompter__hint">▲▲▲</span>
+            <span class="prompter__hint">Latest messages</span>
+        </button>
+        <button type="button" class="prompter__scroll" @onclick="ScrollUp">
             <span class="prompter__arrow">▲</span>
             <span class="prompter__label">SCROLL UP</span>
-            <span class="prompter__hint">earliest messages</span>
+            <span class="prompter__hint">later messages</span>
         </button>
-        <button type="button" class="prompter__scroll">
+        <button type="button" class="prompter__scroll" @onclick="ScrollDown">
             <span class="prompter__arrow">▼</span>
             <span class="prompter__label">SCROLL DOWN</span>
-            <span class="prompter__hint">latest chat</span>
+            <span class="prompter__hint">earlier chat</span>
         </button>
     </div>
 </div>
+
+@code {
+    private int _scrollAmount = 100;
+
+    private void ScrollReset()
+    {
+        PrompterService.RequestScroll(this, ScrollDirection.Reset, 0);
+    }
+
+    private void ScrollUp()
+    {
+        PrompterService.RequestScroll(this, ScrollDirection.Up, _scrollAmount);
+    }
+
+    private void ScrollDown()
+    {
+        PrompterService.RequestScroll(this, ScrollDirection.Down, _scrollAmount);
+    }
+}

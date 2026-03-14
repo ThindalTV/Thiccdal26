@@ -18,6 +18,7 @@
     <ProjectReference Include="..\Modules\Thiccdal.Modules.ChatBot\Thiccdal.Modules.ChatBot.csproj" />
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Control\Thiccdal.Modules.Control.csproj" />
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Overlay\Thiccdal.Modules.Overlay.csproj" />
+    <ProjectReference Include="..\Modules\Thiccdal.Modules.Teleprompter\Thiccdal.Modules.Teleprompter.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.Twitch\Thiccdal.Remote.Twitch.csproj" />
     <ProjectReference Include="..\Shared\Thiccdal.Shared.Components\Thiccdal.Shared.Components.csproj" />
     <ProjectReference Include="..\Aspire\Thiccdal.Aspire.ServiceDefaults\Thiccdal.Aspire.ServiceDefaults.csproj" />

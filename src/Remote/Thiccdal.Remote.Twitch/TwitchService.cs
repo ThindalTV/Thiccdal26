@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
@@ -7,7 +8,7 @@ using Thiccdal.Infrastructure.Twitch;
 
 namespace Thiccdal.Remote.Twitch;
 
-public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
+public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable, IDisposable
 {
     private readonly TwitchOptions _options;
     private readonly ITwitchTokenManager _tokenManager;
@@ -16,7 +17,7 @@ public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
     private StreamReader? _reader;
     private StreamWriter? _writer;
     private CancellationTokenSource? _readCancellation;
-    
+
     public event EventHandler<ChatEvent>? OnChatMessageRecieved;
 
     public bool Connected { get; private set; } = false;
@@ -34,9 +35,9 @@ public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
     public async Task Connect(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Connecting to Twitch channel {Channel}", _options.Channel);
-        
+
         var token = await _tokenManager.GetToken(cancellationToken);
-        
+
         _client = new TcpClient();
         await _client.ConnectAsync("irc.chat.twitch.tv", 6667, cancellationToken);
 
@@ -127,9 +128,22 @@ public class TwitchService : ITwitchService, IChatSource, IAsyncDisposable
         }
     }
 
+    public async Task SendMessage(string message, CancellationToken cancellationToken = default)
+    {
+        if (!Connected || _writer == null) return;
+        StringBuilder stringBuilder = new StringBuilder($"PRIVMSG #{_options.Channel} :{message}");
+        await _writer.WriteLineAsync(stringBuilder, cancellationToken);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await Disconnect();
         GC.SuppressFinalize(this);
+    }
+
+    public async void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        await DisposeAsync();
     }
 }

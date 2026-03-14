@@ -1,9 +1,10 @@
-﻿<Router AppAssembly="typeof(Program).Assembly"
+<Router AppAssembly="typeof(Program).Assembly"
 AdditionalAssemblies="
 [
     typeof(Thiccdal.Modules.Overlay.OverlayRegistrationExtension).Assembly,
     typeof(Thiccdal.Modules.ChatBot.ChatBotRegistrationExtension).Assembly,
-    typeof(Thiccdal.Modules.Control.ControlRegistrationExtension).Assembly
+    typeof(Thiccdal.Modules.Control.ControlRegistrationExtension).Assembly,
+    typeof(Thiccdal.Modules.Teleprompter.TeleprompterRegistrationExtension).Assembly,
 // Etc etc etc
 ]" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">

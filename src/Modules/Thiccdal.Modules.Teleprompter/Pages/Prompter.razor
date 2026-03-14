@@ -1,0 +1,74 @@
+@page "/prompter"
+@using Thiccdal.Infrastructure.Bot
+@using Thiccdal.Infrastructure.Bot.Models
+@using Thiccdal.Infrastructure.Teleprompter
+@using Thiccdal.Modules.Teleprompter.Components
+@using Thiccdal.Modules.Teleprompter.Models
+@layout Thiccdal.Shared.Components.Layout.NullLayout
+
+@implements IDisposable
+
+@inject CancellationTokenSource Cts
+@inject IChatService ChatService
+@inject ITeleprompterService PrompterService
+
+<div id="prompterBackground">
+    <div id="chatList" style="top: @($"{_scrollPosition}px"); transition: top 0.4s ease-in-out;">
+        @foreach (var line in _lines)
+        {
+            <PrompterLine Line="@line" />
+        }
+    </div>
+</div>
+
+@code {
+    private List<Line> _lines = new List<Line>();
+
+    private int _scrollPosition = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ChatService.Connect(Cts.Token);
+        ChatService.OnChatMessageRecieved += HandleChatMessage;
+
+        PrompterService.OnScrollRequested += PrompterService_ScrollRequested;
+
+        var now = DateTime.Now;
+        _lines = new List<Line>
+        {
+            new("SYSTEM", "Joined channel", "<b>Joined channel!</b>", "Twitch", now),
+        };
+
+        _scrollPosition = 0;
+
+        await base.OnInitializedAsync();
+    }
+
+    private void HandleChatMessage(object? sender, ChatEvent message)
+    {
+        _lines.Insert(0, new Line(message.Author, message.Content, message.Content, message.Source.ToString(), DateTime.Now));
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void PrompterService_ScrollRequested(object? sender, ScrollEventArgs args)
+    {
+        _scrollPosition = args.Direction switch
+        {
+            ScrollDirection.Up => _scrollPosition + args.ScrollAmount,
+            ScrollDirection.Down => _scrollPosition - args.ScrollAmount,
+            ScrollDirection.Reset => 0,
+            _ => _scrollPosition
+        };
+        _scrollPosition = Math.Min(_scrollPosition, 0);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ChatService.OnChatMessageRecieved -= HandleChatMessage;
+        PrompterService.OnScrollRequested -= PrompterService_ScrollRequested;
+    }
+}
+
+
+

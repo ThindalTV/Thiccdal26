@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\Thiccdal.Shared.Components\Thiccdal.Shared.Components.csproj" />
+    <ProjectReference Include="..\..\Thiccdal.Infrastructure\Thiccdal.Infrastructure.csproj" />
   </ItemGroup>
 
 
