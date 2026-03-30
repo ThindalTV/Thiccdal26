@@ -76,41 +76,63 @@ stream output — without needing to switch between apps or screens.
 ### Project & Module Layout
 
 ```
-/src/Thiccdal/                     Blazor Server host
-/src/Thiccdal.Infrastructure/      Interfaces, enums, value types — no EF Core
-/src/Thiccdal.Data/                EF Core DbContext, entities, migrations
+/src/Thiccdal/                          Blazor Server host
+/src/Thiccdal.Infrastructure/           Interfaces, enums, value types — no EF Core
+  Bot/                                    IChatService, chat event models
+    Models/                               ChatEvent, PlatformEvent, RawEvent, PlatformEventSource
+  Remotes/                                IChatSource (per-platform chat adapter contract)
+  Teleprompter/                           ITeleprompterService, ScrollDirection, ScrollEventArgs
+  Twitch/                                 ITwitchService, ITwitchTokenManager, TwitchOptions
+/src/Thiccdal.Data/                     EF Core DbContext, entities, migrations
+  Models/                                 Entity classes (e.g. TwitchToken)
+  Migrations/                             EF Core migration files
+/src/Thiccdal.API/                      HTTP status and control endpoints
+/src/Thiccdal.Streaming/               RTMP ingest, fanout, recording
 /src/Modules/
-  Thiccdal.Modules.Control/        Command & Control operator UI (Razor Class Library)
+  Thiccdal.Modules.ChatBot/             Chat aggregation + command dispatch (Razor Class Library)
+    Services/
+  Thiccdal.Modules.Control/             Command & Control operator UI (Razor Class Library)
+    Components/
+      BotCommands/
+      LowerThird/
+      OverlayGallery/
+      Prompter/
+      Questions/
+      Restream/
+      TopBar/
+    Layout/
+    Pages/
+  Thiccdal.Modules.Overlay/             OBS browser-source overlay (Razor Class Library)
     Components/
     Pages/
-    Services/
-  Thiccdal.Modules.Overlay/        OBS browser-source overlay (Razor Class Library)
+  Thiccdal.Modules.Teleprompter/        Teleprompter display (Razor Class Library)
     Components/
-    Pages/
-    Services/
-  Thiccdal.Modules.Teleprompter/   Teleprompter display (Razor Class Library)
-    Components/
+    Models/
     Pages/
     Services/
 /src/Shared/
-  Thiccdal.Shared.Components/      Shared primitive UI components (Razor Class Library)
+  Thiccdal.Shared.Components/           Shared primitive UI components (Razor Class Library)
     Components/
-      Primitives/                  InputContainer, TextBox, NumberBox, CheckBox, …
-    Models/                        SelectOption and other shared data types
-/src/Thiccdal.Remote/
+      Primitives/                          InputContainer, TextBox, NumberBox, CheckBox, …
+    Models/                                SelectOption and other shared data types
+/src/Remote/
   Thiccdal.Remote.Twitch/
   Thiccdal.Remote.YouTube/
   Thiccdal.Remote.Facebook/
   Thiccdal.Remote.X/
   Thiccdal.Remote.Discord/
-  Thiccdal.Remote.LinkedIn/        ⚠ disabled until API approved
-  Thiccdal.Remote.TikTok/          ⚠ disabled until API approved
-  Thiccdal.Remote.Null/            logging-only; used in tests
-/src/Thiccdal.Streaming/           RTMP ingest, fanout, recording
-/src/Aspire/AppHost/               Aspire AppHost
-/src/Aspire/ServiceDefaults/       Aspire ServiceDefaults
-/docs/architecture/                Architecture .md files + Architectural Decision Records (ADRs)
-/docs/help/                        End-user documentation
+  Thiccdal.Remote.LinkedIn/              ⚠ disabled until API approved
+  Thiccdal.Remote.TikTok/               ⚠ disabled until API approved
+  Thiccdal.Remote.Null/                  logging-only; used in tests
+/src/Aspire/
+  Thiccdal.Aspire.AppHost/              Aspire AppHost
+  Thiccdal.Aspire.ServiceDefaults/      Aspire ServiceDefaults
+/src/Tests/
+  Thiccdal.Tests/                        Main project tests
+  Thiccdal.Data.Tests/                   Data layer tests
+  Remote/
+    Thiccdal.Remote.Twitch.Tests/
+/docs/architecture/                     Architecture .md files
 ```
 
 ---
@@ -128,7 +150,7 @@ configured (URL, stream key) and independently monitored.
 - All active relay sessions are recorded to disk. Recording metadata (start/end time, file path,
   platform, error state) is persisted in the database.
 - Each relay target is an `IStreamTarget` implementation. Adding a new platform requires
-  creating a new project under `/src/Thiccdal.Remote/` and registering it.
+  creating a new project under `/src/Remote/` and registering it.
 
 ### 3.2 Platform Connection Abstraction
 
@@ -1201,29 +1223,30 @@ in each agent's file, or add the `.agent.md` content to your Copilot workspace s
 Prefix prompts with these for precise context:
 
 ```
-#file:src/Thiccdal.Infrastructure/Interfaces/IPlatformConnection.cs
+#file:src/Thiccdal.Infrastructure/Remotes/IPlatformConnection.cs
 #file:src/Thiccdal.Data/ApplicationDbContext.cs
-#file:src/Thiccdal.Data/Entities/PlatformEvent.cs
-#file:src/Thiccdal.Remote.Null/NullPlatformConnection.cs
+#file:src/Thiccdal.Infrastructure/Bot/Models/PlatformEvent.cs
+#file:src/Remote/Thiccdal.Remote.Null/NullPlatformConnection.cs
 ```
 
 ### Reusable Prompt Templates
 
 #### Scaffold a new platform adapter
 ```
-Using #file:src/Thiccdal.Infrastructure/Interfaces/IPlatformConnection.cs,
-scaffold Thiccdal.Remote.<Platform> implementing IPlatformConnection, IChatService,
-IStreamTarget and IEventSource. Use IOptions<<Platform>Options> for configuration.
-Add an EventMapper class with a unit-test in Thiccdal.Remote.<Platform>.Tests
-covering at least one known event type and the unknown-event fallback.
+Using #file:src/Thiccdal.Infrastructure/Remotes/IPlatformConnection.cs,
+scaffold Thiccdal.Remote.<Platform> under src/Remote/ implementing IPlatformConnection,
+IChatService, IStreamTarget and IEventSource. Use IOptions<<Platform>Options> for
+configuration. Add an EventMapper class with a unit-test in
+src/Tests/Remote/Thiccdal.Remote.<Platform>.Tests covering at least one known event type
+and the unknown-event fallback.
 ```
 
 #### Add a new domain event type
 ```
-Using #file:src/Thiccdal.Infrastructure/Events/PlatformEvent.cs as the base,
+Using #file:src/Thiccdal.Infrastructure/Bot/Models/PlatformEvent.cs as the base,
 add a new record <Platform><Name>Event with these properties: <list>.
 Register the discriminator value in #file:src/Thiccdal.Data/ApplicationDbContext.cs.
-Add it to #file:src/Thiccdal.Remote.<Platform>/EventMapper.cs.
+Add it to #file:src/Remote/Thiccdal.Remote.<Platform>/EventMapper.cs.
 Write a [Fact] test: given raw payload X, mapper returns correct typed event.
 ```
 
@@ -1237,7 +1260,7 @@ Write a bUnit [Fact] test verifying the rendered markup when given a sample inpu
 
 #### Add a new chatbot command handler
 ```
-Using #file:src/Thiccdal.Infrastructure/Interfaces/ICommandHandler.cs as the contract,
+Using #file:src/Thiccdal.Infrastructure/Bot/ICommandHandler.cs as the contract,
 scaffold a new <Name>CommandHandler that can be wired to a BotCommand row via its HandlerType column.
 Inject any dependencies via DI constructor injection.
 Write two [Fact] tests: happy-path response and an error/edge-case path.
