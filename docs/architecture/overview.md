@@ -93,18 +93,13 @@ stream output — without needing to switch between apps or screens.
     Services/
   Thiccdal.Modules.Control/             Command & Control operator UI (Razor Class Library)
     Components/
-      BotCommands/
-      LowerThird/
-      OverlayGallery/
-      Prompter/
-      Questions/
-      Restream/
-      TopBar/
     Layout/
     Pages/
+    Services/
   Thiccdal.Modules.Overlay/             OBS browser-source overlay (Razor Class Library)
     Components/
     Pages/
+    Services/
   Thiccdal.Modules.Teleprompter/        Teleprompter display (Razor Class Library)
     Components/
     Models/
