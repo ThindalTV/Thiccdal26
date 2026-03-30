@@ -36,8 +36,12 @@
     <Project Path="src/Tests/Thiccdal.Data.Tests/Thiccdal.Data.Tests.csproj" Id="78ed2f01-f84c-40ee-80eb-72991ee0fe8f" />
     <Project Path="src/Tests/Thiccdal.Tests/Thiccdal.Tests.csproj" Id="b0ec0490-49f9-48c8-8ede-e33a57b212da" />
   </Folder>
+  <Folder Name="/src/Tests/Modules/">
+    <Project Path="src/Tests/Modules/Thiccdal.Modules.ChatBot.Tests/Thiccdal.Modules.ChatBot.Tests.csproj" />
+    <Project Path="src/Tests/Modules/Thiccdal.Modules.Teleprompter.Tests/Thiccdal.Modules.Teleprompter.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Tests/Remote/">
-    <Project Path="src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/TestProject1/TestProject1.csproj" Id="34ac27cc-0c68-40db-937e-66539374ef8e" />
+    <Project Path="src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/Thiccdal.Remote.Twitch.Tests.csproj" Id="34ac27cc-0c68-40db-937e-66539374ef8e" />
   </Folder>
   <Project Path="docs/docs.csproj" Id="4ee1e30f-b64c-4f8c-be08-dfe195c51340" />
 </Solution>
