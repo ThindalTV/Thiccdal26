@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -22,9 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Remote\Thiccdal.Remote.Twitch\Thiccdal.Remote.Twitch.csproj" />
-    <ProjectReference Include="..\..\..\..\Thiccdal.Data\Thiccdal.Data.csproj" />
-    <ProjectReference Include="..\..\..\..\Thiccdal.Infrastructure\Thiccdal.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Remote\Thiccdal.Remote.Twitch\Thiccdal.Remote.Twitch.csproj" />
+    <ProjectReference Include="..\..\..\Thiccdal.Data\Thiccdal.Data.csproj" />
+    <ProjectReference Include="..\..\..\Thiccdal.Infrastructure\Thiccdal.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
