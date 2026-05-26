@@ -18,6 +18,10 @@ Kaylee owns backend services, persistence, and bot-side execution paths.
 
 - Backend work will center on Blazor-hosted services, EF Core data, and bot handlers.
 - Twitch bot behavior sits inside the larger streaming control architecture.
+- 2026-05-29: Keep `ITwitchService.RefreshConnectionState()` auth-only. If it also waits on Helix live-state lookups, the top-bar Twitch chip can stay non-interactive long enough to feel broken; refresh stream state separately after the auth state is visible.
+- 2026-05-29: SQLite startup recovery should run from `src\Thiccdal\Program.cs` via `app.Services.InitializeDatabase(...)`, using `IDbContextFactory<ApplicationDbContext>` plus `Database.MigrateAsync()` so a deleted `thiccdal.db` is recreated from real EF Core migrations.
+- 2026-05-29: Keep startup DB init logic in `src\Thiccdal.Data\ApplicationDbContextInitializationExtensions.cs`; ensure the configured SQLite directory exists before migrating so nested `Data Source=` paths work on first launch.
+- 2026-05-29: Regression coverage for missing SQLite files belongs in `src\Tests\Thiccdal.Data.Tests\ApplicationDbContextInitializationExtensionsTests.cs`, using repo-local test files under `AppContext.BaseDirectory` instead of temp directories.
 
 ### 2026-05-28: Helix Redesign Data Model Changes — Kaylee Lead on Infrastructure
 
@@ -106,3 +110,18 @@ Use this pattern for every new platform so the same instance is reachable both w
 - The Twitch test project belongs at `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\Thiccdal.Remote.Twitch.Tests.csproj`; an extra template-named child folder breaks the repo's solution-to-disk mirroring rule.
 - When moving a nested test project up to its solution-matching folder, update both the `.slnx` project path and any relative `ProjectReference` hops; the move changes `..\` depth even when code stays the same.
 - Validation for this fix passed with solution restore/build plus targeted test execution for `Thiccdal.Remote.Twitch.Tests`.
+
+### 2026-05-29: Stored Token Click Path Fix
+
+**Problem:** TopBar TWI chip click did nothing when operator already had a stored Twitch token.
+
+**Root cause:** Incomplete edits in `TopBar.razor` referencing undefined `_twitchIsAuthorized` field prevented compilation. The click handler (`OpenTwitchConnect`) correctly navigates to `/twitch/connect`, but the component never compiled.
+
+**Fix:** Removed broken `_twitchIsAuthorized` field references from `OnInitializedAsync` (line 64) and `OnTwitchStateChanged` (line 72). The navigation-based flow already handles all token states:
+- `NotAuthorized` → shows "Authorize with Twitch" button
+- `Authorized` → shows "Connect to IRC" button
+- `Connected` → shows "Disconnect" button
+
+**Key pattern confirmed:** Control module uses page navigation (`/twitch/connect`) for full auth/connection management, not modal dialogs. The `IntegrationConnector` chip is always clickable when `OnConnectClicked` has a delegate; state determines what the target page shows.
+
+**Testing:** 27 tests passing (25 Twitch, 1 Data, 1 host). Clean build confirmed no compilation errors.

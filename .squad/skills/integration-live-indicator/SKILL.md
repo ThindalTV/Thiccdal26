@@ -8,6 +8,7 @@
 2. Keep the UI component presentational by passing IsLive as a parameter.
 3. Render a small LIVE badge inside the existing chip instead of replacing the connection affordance.
 4. Refresh on load, after auth changes, and on a short timer when no push event exists yet.
+5. Keep auth-state refresh separate from live-state refresh so the connection chip becomes interactive immediately; never block the auth affordance on a network live-status lookup.
 
 ## Why it works
 - Preserves touch-friendly hit areas.

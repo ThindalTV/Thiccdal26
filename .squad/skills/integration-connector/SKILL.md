@@ -2,7 +2,7 @@
 
 ## What It Is
 
-A pattern for building reusable admin-side integration connection controls in Blazor Server. Provides a touch-friendly chip/pill in the TopBar that shows real-time connection state and opens an auth dialog when not connected.
+A pattern for building reusable admin-side integration connection controls in Blazor Server. Provides a touch-friendly chip/pill in the TopBar that shows real-time connection state and stays actionable for the real integration-management flow.
 
 ## Files (Thiccdal)
 
@@ -34,10 +34,13 @@ src/Modules/Thiccdal.Modules.Control/Components/Integrations/
 <IntegrationAuthDialog
     PlatformName="Twitch"
     Color="#9146FF"
+    AuthorizationUrl="@TwitchTokenManager.GetAuthorizationUrl()"
     IsOpen="_dialogOpen"
+    IsConnected="@(_twitchState == IntegrationConnectionState.Connected)"
     ErrorMessage="@_errorMsg"      @* null = no error shown *@
     OnClose="CloseDialog"
-    OnAuthorize="DoAuth" />
+    OnConnected="HandleConnected"
+    OnDisconnect="HandleDisconnect" />
 ```
 
 ## State Mapping Pattern (TopBar)
@@ -77,13 +80,22 @@ public interface ITwitchService : IChatSource
 
 For Twitch, back this with Helix `GET /helix/streams?user_id={BroadcasterId}` and keep `BroadcasterId` in `TwitchOptions`.
 
-## Auth Flow
+## Auth / Management Flow
 
-1. User taps "Not Connected" chip → `OpenTwitchDialog()` sets `_twitchDialogOpen = true`
-2. `IntegrationAuthDialog` renders as a fixed-position modal overlay
-3. User taps "Authorize with Twitch" → `AuthorizeTwitch()` calls `TwitchTokenManager.GetAuthorizationUrl()` and `Navigation.NavigateTo(url, forceLoad: true)`
-4. OAuth redirect returns to existing handler page (`/twitch/connect`)
-5. Connection state event fires on success → chip updates automatically
+1. **Not Connected → Connect:**
+   - User taps "Not Connected" chip → `OpenTwitchDialog()` sets `_twitchDialogOpen = true`
+   - `IntegrationAuthDialog` renders as a fixed-position modal overlay in "auth mode" (`IsConnected=false`)
+   - User taps "Authorize with Twitch" → dialog opens a new tab with `TwitchTokenManager.GetAuthorizationUrl()`
+   - User completes OAuth in the new tab, then clicks "Done — I'm Connected"
+   - `HandleConnected()` closes dialog and refreshes connection state
+   - Connection state event fires on success → chip updates automatically
+
+2. **Connected → Manage/Disconnect:**
+   - User taps connected TWI chip → `OpenTwitchDialog()` sets `_twitchDialogOpen = true`
+   - `IntegrationAuthDialog` renders in "manage mode" (`IsConnected=true`)
+   - Dialog shows "Twitch is connected and authorized. You can disconnect to revoke access or re-authorize with a different account."
+   - User taps "Disconnect" → `HandleDisconnect()` calls `TwitchTokenManager.Revoke()` then refreshes connection state
+   - Dialog closes; chip updates to NotConnected state
 
 ## Extending to Other Platforms
 
@@ -91,24 +103,68 @@ To add a new integration (e.g., YouTube):
 1. Create platform-specific `ConnectionState` → `IntegrationConnectionState` mapper
 2. Add `<IntegrationConnector>` + `<IntegrationAuthDialog>` pair in TopBar
 3. Subscribe to the platform service's state-changed event on init
-4. Implement `ITokenManager` equivalent for the platform's auth URL
+4. Implement `ITokenManager` equivalent for the platform's auth URL and `Revoke()` method
+5. Wire `OnDisconnect` callback to call platform token manager's `Revoke()` method
+
+**Example disconnect handler:**
+```csharp
+private async Task HandleYouTubeDisconnect()
+{
+    try
+    {
+        await YouTubeTokenManager.Revoke(_cts.Token);
+        await YouTubeService.RefreshConnectionState(_cts.Token);
+        _youtubeDialogOpen = false;
+    }
+    catch
+    {
+        _youtubeAuthError = "Failed to disconnect. Please try again.";
+    }
+}
+```
+
+### Planned-but-disabled platforms
+
+When a platform should be visible in the operator UI but must not be clickable yet, reuse `IntegrationConnector` instead of adding a separate placeholder component:
+
+```razor
+<IntegrationConnector
+    PlatformName="LinkedIn"
+    ShortName="LI"
+    Color="#0A66C2"
+    ConnectionState="IntegrationConnectionState.Unknown"
+    IsAvailable="false"
+    UnavailableLabel="Pending"
+    UnavailableReason="LinkedIn integration is intentionally unavailable until LinkedIn Live API access is approved." />
+```
+
+Use a short visible status label (`Soon`, `Pending`) and put the fuller explanation in `UnavailableReason` for tooltip and accessibility text.
 
 ## Visual States
 
 | State         | Visual                                          | Interactive |
 |---------------|------------------------------------------------|-------------|
-| Unknown       | Dim dot + platform name                        | No          |
-| NotConnected  | Amber dot + "Not Connected" label, glow border  | Yes (opens dialog) |
-| Connecting    | Pulsing colored dot + "…" label                | No          |
-| Connected     | Live colored dot + name + optional LIVE badge / viewer count | No          |
-| Error         | Red dot + "Error — Retry" label, glow border   | Yes (opens dialog) |
+| Unknown       | Dim dot + platform name                        | No |
+| NotConnected  | Amber dot + "Not Connected" label, glow border  | Yes (opens dialog in auth mode) |
+| Connecting    | Pulsing colored dot + "…" label                | No |
+| Connected     | Live colored dot + name + optional LIVE badge / viewer count | **Yes (opens dialog in manage mode)** |
+| Error         | Red dot + "Error — Retry" label, glow border   | Yes (opens dialog in auth mode) |
+| Disabled      | Muted chip + short `Soon` / `Pending` label    | No |
+
+**Connected-state interaction (new in 2026-05-29):**
+- Connected chips are now clickable buttons, not static spans
+- Clicking opens the dialog in "manage mode" showing connection status and offering Disconnect
+- Prevents "dead interaction" when user already has a stored token
+- Disconnect button styled as destructive action (red/danger theme)
 
 ## Touch UX Notes
 
 - All interactive elements have `min-height: 44px; min-width: 44px` touch targets
+- Disabled chips keep the same footprint so the header layout stays stable and touch-safe
 - Backdrop click dismisses the dialog (same as Cancel)
 - No hover-only affordances — all states are touch-safe
-- The entire chip is the tap target when not connected (button wraps all contents)
+- **All states (NotConnected, Connected, Error) render as clickable buttons** — no dead interaction zones
+- Connected state opens dialog in "manage mode" for safe disconnect/revoke flow
 
 ## CSS Variable Dependencies
 

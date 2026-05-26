@@ -221,3 +221,59 @@ collection.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredServi
 - Move to bus in Phase 19? ✅ Yes (as planned)
 - Define IEventBus interface in Phase 17? ⚠️ Optional but recommended
 **Conclusion:** The phased plan in `helix-redesign.md` is correct. Trust the plan.
+
+### 2026-05-29: SQLite Startup Database Initialization
+**Agent:** Kaylee (Backend Dev)
+**Status:** Implemented and Tested
+**What:** Added EF Core migrations as the only startup database initialization path for the Blazor host. On app launch, app resolves `IDbContextFactory<ApplicationDbContext>`, ensures the SQLite directory exists, and calls `Database.MigrateAsync()` before app begins serving requests.
+**Why:**
+- Recreates deleted SQLite file from real schema instead of `EnsureCreated`, which bypasses migrations
+- Matches existing repo pattern of `AddDbContextFactory<ApplicationDbContext>` for singleton-safe DB access
+- Handles both missing database file and missing configured parent directory
+**Validation:** 28 tests passing; build clean with zero warnings
+**Files:**
+- `src/Thiccdal.Data/ApplicationDbContextInitializationExtensions.cs` (new)
+- `src/Thiccdal/Program.cs` (updated)
+- `src/Tests/Thiccdal.Data.Tests/ApplicationDbContextInitializationExtensionsTests.cs` (new)
+
+### 2026-05-29: CVE Fix — OpenTelemetry Package Updates (Aspire Service Defaults)
+**Agent:** Kaylee (Backend Dev)
+**Status:** Complete
+**What:** Updated OpenTelemetry packages in `src/Aspire/Thiccdal.Aspire.ServiceDefaults/Thiccdal.Aspire.ServiceDefaults.csproj` from version `1.14.0` to current non-vulnerable versions:
+- `OpenTelemetry.Exporter.OpenTelemetryProtocol` → `1.15.3`
+- `OpenTelemetry.Extensions.Hosting` → `1.15.3`
+- `OpenTelemetry.Instrumentation.AspNetCore` → `1.15.2`
+- `OpenTelemetry.Instrumentation.Http` → `1.15.1`
+- `OpenTelemetry.Instrumentation.Runtime` → `1.15.1`
+**Why:** `dotnet build` failing with `NU1902` due to active advisories on v1.14.0; no central package management in repo, so fix point is service defaults
+**Validation:** `dotnet restore` and `dotnet build` both passing
+
+### 2026-05-29: Stored Token Click Path Fix (TopBar.razor)
+**Agent:** Kaylee (Backend Dev)
+**Status:** Complete
+**What:** Removed broken `_twitchIsAuthorized` field references from TopBar.razor that prevented component compilation. Component now correctly navigates to `/twitch/connect` for all token states.
+**Why:** TopBar chip appeared non-interactive when stored token existed. Root cause was incomplete edits leaving undefined field references (lines 64, 72).
+**Key Pattern Confirmed:** Control module uses page navigation for auth/connection management (not modals). `/twitch/connect` page handles all states: NotAuthorized → Authorize button, Authorized → Connect button, Connected → Disconnect button.
+**Impact:** 27 tests passing; clean build; click path works for all token states; generic pattern supports other platform chips
+**Files:** `src/Modules/Thiccdal.Modules.Control/Components/TopBar/TopBar.razor` (fixed)
+
+### 2026-05-29: Twitch Auth-State vs. Live-State Refresh Separation
+**Agent:** Kaylee (Backend Dev)
+**Status:** Implemented
+**What:** Keep Twitch auth-state refresh (token status) separate from live-state refresh (stream metadata via Helix). Top-left TWI connector refresh does NOT wait on Helix stream metadata.
+**Why:** Connector needs clickable auth state immediately. Waiting on Helix metadata during `RefreshConnectionState()` can delay chip response long enough that operator experiences UI as unresponsive.
+**Pattern Applied:** `ITwitchService.RefreshAuthStateAsync()` (token check) ≠ `RefreshConnectionState()` (Helix metadata); TopBar calls auth-state refresh on startup.
+**Files:**
+- `src/Remote/Thiccdal.Remote.Twitch/TwitchService.cs` (updated)
+- `src/Thiccdal.Infrastructure/Twitch/ITwitchService.cs` (updated)
+- `src/Modules/Thiccdal.Modules.Control/Components/TopBar/TopBar.razor` (updated)
+
+### 2026-05-29: Twitch Test Project Structure Correction
+**Agent:** Kaylee (Backend Dev)
+**Requested by:** ThindalTV
+**Status:** Pending Implementation
+**What:** Move Twitch test project from nested placeholder to folder root:
+- **Current:** `src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/TestProject1/Thiccdal.Remote.Twitch.Tests.csproj`
+- **Target:** `src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/Thiccdal.Remote.Twitch.Tests.csproj`
+**Why:** On-disk folder structure must mirror solution structure. Placeholder subfolder causes solution entry, assembly name, and test host display name to drift. Moving to folder root stabilizes identity and simplifies project references.
+**Next:** Remove TestProject1 subfolder, move project file to parent root, update solution references
