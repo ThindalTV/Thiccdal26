@@ -17,6 +17,105 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 
 ## Learnings
 
+### 2026-05-28: Helix EventSub Redesign Locked for Phase 17 Implementation
+
+**Work done:**
+- Completed comprehensive architecture document: `docs/architecture/helix-redesign.md`.
+- Analyzed 152 open GitHub issues and routed to squad members via `squad:` labels (Mal 48, Kaylee 28, Inara 48, River 28).
+- Closed Phase 5 IRC issues #24–31 as superseded by Helix redesign.
+- Created Phase 17–20 labels and staged 23 new implementation issues.
+- Orchestration log: `.squad/orchestration-log/2026-05-28T22-41-14-mal.md`.
+
+**Key architectural decisions locked:**
+- Use EventSub WebSocket (pure protocol, no IRC fallback).
+- ChatFragment hierarchy for structured chat rendering (TextFragment, EmoteFragment, CheermoteFragment).
+- Emote CDN URL strategy (deterministic, configurable static/animated).
+- Inline OAuth flow (operator login on first run, token persisted in SQLite).
+- Four-phase rollout: Foundation (EventSub ingest) → Rich Chat (fragments + emotes) → Full Events (typed events + event bus) → Stream Info (Helix metadata).
+
+**Data model changes confirmed:**
+- ChatEvent gains Fragments list, Color field, Badges list (backward-compat: Content stays as plain-text fallback).
+- New typed PlatformEvent subtypes: TwitchFollowEvent, TwitchSubscribeEvent, TwitchCheerEvent, TwitchRaidEvent, TwitchRedeemEvent.
+- New interfaces in Infrastructure: ITwitchHelixClient, ITwitchEventSubClient.
+- Entity migrations: PlatformEvent table, ChatMessage table, ChatFragment value converters.
+
+**Open questions preserved for user decision:**
+- Cheer bits threshold for overlay gold flash effect (suggested default: 100 bits).
+- Bot user mod status in broadcaster's channel (affects `moderator:read:followers` scope availability).
+- Animated vs static emotes default preference.
+
+**Migration risks and mitigations identified:**
+- Stored tokens with old scopes → startup scope validation + re-auth prompt in operator UI.
+- EventSub session_reconnect message → WebSocket manager handles reconnect + re-subscribe.
+- 6+ API calls per connect for subscriptions → all idempotent (check before create).
+
+**GitHub issue routing completed:**
+- Inara: 48 issues (frontend/UX: operator UI, overlay, teleprompter)
+- Kaylee: 28 issues (backend: data, chat, APIs, streaming, infrastructure)
+- Mal: 48 issues (testing/architecture: type/test, area/tests, cross-cutting)
+- River: 28 issues (integrations: platform adapters, phases 5–7e)
+- Zero duplicate assignments after cleanup pass.
+
+### 2026-05-28: Helix Redesign Brief Written
+
+**Work done:**
+- Created comprehensive architecture document: `docs/architecture/helix-redesign.md`.
+- Document covers: motivation (IRC → EventSub transition), current-state problems (no emote data, config-based auth), architectural decision (pure EventSub WebSocket), auth approach (inline OAuth), impacted projects, data model (PlatformEvent, ChatMessage, ChatFragment hierarchy), phased implementation (Phases 17–20), migration/compatibility, open questions, and links/references.
+- Preserved user directives: inline Twitch auth (not config-based), and open questions (bot mod status, cheer threshold, animated vs static emotes).
+- Document is ready for repo readers and developers on Phase 17+.
+
+**Key architectural decisions locked:**
+- Use EventSub WebSocket (pure protocol, no IRC fallback in initial rollout).
+- ChatFragment hierarchy for structured chat rendering.
+- Emote CDN URL strategy (deterministic, configurable static/animated).
+- Inline OAuth flow (operator login on first run, token persisted in SQLite).
+- Four-phase rollout: Foundation (EventSub ingest) → Fragments (emote rendering) → Coverage (full events + event bus) → Stream Info (Helix API metadata).
+
+**Open questions preserved for user decision:**
+- Bot moderator status in broadcaster's channel (affects `moderator:read:followers` scope availability).
+- Cheer bits threshold for overlay gold flash effect.
+- Default emote format (animated vs static).
+
+**File created:** `docs/architecture/helix-redesign.md` (17.8 KB).
+
+### 2026-05-28: GitHub Issue Routing + Twitch Helix Architecture
+
+**Work done:**
+- Created `squad:zoe` GitHub label (was missing).
+- Applied `squad:river` to 54 issues (all platform-specific phases 5–7e including Null platform tests).
+- Applied `squad:kaylee` to 61 issues (all backend/data/infrastructure/streaming/chatbot/API/hardening).
+- Applied `squad:inara` to 39 issues (all operator UI, overlay, teleprompter, and UI-side tests).
+- Closed issues #24–31 (Phase 5 IRC-based Twitch implementation) as superseded by Phase 17–20.
+- Created Phase 17–20 labels and 23 new issues for the Helix rewrite.
+- Wrote architecture decision to `.squad/decisions/inbox/mal-helix-plan.md`.
+
+**Key findings about current Twitch integration:**
+- `TwitchService` uses raw TCP IRC (port 6667), no TLS, no CAP REQ for tags. Plain text only.
+- `TwitchTokenManager` is solid — OAuth2 exchange + refresh + DB storage is good pattern to keep.
+- `ITwitchService` interface is empty placeholder.
+- OAuth scopes are `chat:read chat:edit` only — need ~7 new scopes for full Helix EventSub.
+- `ChatEvent.Content` is plain string; no emote, badge, or subscriber data anywhere in the model.
+- `Line` model in Teleprompter has `HtmlContent` field that exists but is unused — good hook for emote rendering.
+- `ApplicationDbContext` has only `TwitchToken` entity. ChatMessage, PlatformUser, PlatformEvent are all still open issues (10, 11, 14).
+- `PlatformEventSource` enum has only Twitch=1 and Null=2 — no YouTube, Discord, etc. yet.
+
+**Architecture decisions made:**
+- Use pure EventSub WebSocket (not IRC + EventSub) — single protocol, official Twitch path.
+- `channel.chat.message` EventSub subscription replaces IRC PRIVMSG.
+- ChatFragment hierarchy: TextFragment, EmoteFragment, CheermoteFragment.
+- ChatEvent.Content stays as plain-text fallback for backward compat.
+- Emote CDN: `https://static-cdn.jtvnw.net/emoticons/v2/{emoteId}/{default|animated}/dark/1.0` — deterministic, no HTTP call.
+- TwitchTokenManager kept as-is; scope validation added at startup.
+- Open questions for ThindalTV: cheer bits threshold for flash, animated vs static emotes preference, broadcaster vs bot token for follow scope.
+
+**File paths confirmed:**
+- Twitch service: `src/Remote/Thiccdal.Remote.Twitch/TwitchService.cs`
+- Twitch token manager: `src/Remote/Thiccdal.Remote.Twitch/TwitchTokenManager.cs`
+- Infrastructure contracts: `src/Thiccdal.Infrastructure/`
+- Teleprompter: `src/Modules/Thiccdal.Modules.Teleprompter/`
+- Line model: `src/Modules/Thiccdal.Modules.Teleprompter/Models/Line.cs`
+- Prompter page: `src/Modules/Thiccdal.Modules.Teleprompter/Pages/Prompter.razor`
+
 - `docs\architecture\overview.md` is the first-stop architecture document.
 - Zoe owns GitHub coordination; Ralph owns continuous monitoring.
 - Phase-based issue workflow is effective for visibility and sequencing.
