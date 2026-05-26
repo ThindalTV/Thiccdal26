@@ -17,6 +17,25 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 
 ## Learnings
 
+### 2026-05-29: Event Bus Architecture Decision
+
+**Question asked:** Should the project move to an event bus immediately, or stage that change?
+
+**Current state confirmed:**
+- Entire event propagation uses C# `EventHandler<T>` delegates on interfaces (`IChatService.OnChatMessageRecieved`, `IChatSource.OnChatMessageRecieved`, `ITeleprompterService.OnScrollRequested`)
+- `TwitchService` fires `OnChatMessageRecieved` from its IRC read loop; `ChatView.razor` subscribes directly and unsubscribes in `Dispose()`
+- One event type in production today: `ChatEvent`. `RawEvent` exists as a record but is unused at runtime.
+
+**Recommendation:** Do NOT introduce the event bus until Phase 19, exactly as planned in `helix-redesign.md`.
+
+**Key rationale:**
+- One event type = no fan-out problem; EventHandler<T> is fit-for-purpose through Phase 18
+- Phase 17 is already a large lift (EventSub WebSocket, 3 new EF entities, OAuth refactoring)
+- Bus design depends on the full typed event set, which isn't established until Phase 18
+- Optional: define `IEventBus` as an interface-only stub in Infrastructure during Phase 17 (no implementation, no wiring) to signal intent and prevent new EventHandler subscriptions for non-chat events
+
+**Decision file:** `.squad/decisions/inbox/mal-event-bus-decision.md`
+
 ### 2026-05-28: Helix EventSub Redesign Locked for Phase 17 Implementation
 
 **Work done:**

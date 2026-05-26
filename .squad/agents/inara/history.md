@@ -95,3 +95,28 @@ Inara owns the Blazor operator experience, UX polish, and UI ergonomics.
 - `.chat-event` — system event rendering
 
 **GitHub labeling:** All Inara's issues routed with `squad:inara` label (48 issues total). Phase 18–19 issues in queue for Phase 17 completion.
+
+### 2026-05-28: Integration Connector + Twitch Auth Admin UI
+
+**Implemented:**
+- New `Components/Integrations/` folder in `Thiccdal.Modules.Control`
+- `IntegrationConnectionState.cs` — generic 5-state enum (Unknown, NotConnected, Connecting, Connected, Error)
+- `IntegrationConnector.razor` — reusable chip/pill, presentational, drives all 5 states visually
+- `IntegrationAuthDialog.razor` — modal overlay for auth flow, presentational (no service injection)
+- `TopBar.razor` updated — injects `ITwitchService` + `ITwitchTokenManager`, subscribes to `ConnectionStateChanged` event, maps `TwitchConnectionState` → `IntegrationConnectionState`
+
+**Key patterns learned:**
+- Generic components stay presentational; platform-specific mapping lives in the consumer
+- `IntegrationConnector` uses `--plat-color` CSS variable for brand theming
+- Touch targets all set to `min-height: 44px; min-width: 44px`
+- State driven by events (`ConnectionStateChanged`), not polling
+- Auth flow: `GetAuthorizationUrl()` + `Navigation.NavigateTo(url, forceLoad: true)` → existing `/twitch/connect` handler
+
+**Bug fixed:** `ITwitchService.cs` re-declared members already in `IChatSource` (CS0108 error). Removed redundant declarations.
+
+**Key file paths:**
+- `src/Modules/Thiccdal.Modules.Control/Components/Integrations/` — all new integration UI components
+- `src/Modules/Thiccdal.Modules.Control/Components/TopBar/TopBar.razor` — wired Twitch connector
+- `src/Thiccdal.Infrastructure/Twitch/ITwitchService.cs` — fixed (removed duplicate members)
+
+**Reuse for next platforms:** Add `I{Platform}Service` injection + `Map{Platform}State()` + subscribe to state event. Components are ready as-is.

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Twitch;
@@ -16,7 +16,11 @@ public static class ChatBotRegistrationExtension
             collection.AddSingleton<IChatService, ChatServiceAggregator>();
 
             collection.AddSingleton<ITwitchTokenManager, TwitchTokenManager>();
-            collection.AddSingleton<IChatSource, TwitchService>();
+
+            // TwitchService satisfies both IChatSource and ITwitchService; share the same singleton.
+            collection.AddSingleton<TwitchService>();
+            collection.AddSingleton<IChatSource>(sp => sp.GetRequiredService<TwitchService>());
+            collection.AddSingleton<ITwitchService>(sp => sp.GetRequiredService<TwitchService>());
 
             collection.AddHostedService<BotCommandWorker>();
 

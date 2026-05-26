@@ -1,9 +1,19 @@
-@using Thiccdal.Shared.Components.Components.Primitives
+﻿@using Thiccdal.Shared.Components.Components.Primitives
+@using Thiccdal.Modules.Control.Components.Integrations
+@using Thiccdal.Infrastructure.Twitch
+@inject ITwitchService TwitchService
+@inject ITwitchTokenManager TwitchTokenManager
+@implements IAsyncDisposable
+
 <header class="topbar">
     <div class="topbar__left">
         <span class="topbar__brand">THICCDAL</span>
         <div class="topbar__platforms">
-            <PlatformIndicator Platform="TWI" ViewerCount="847" Color="#9146FF" IsLive="true" />
+            <IntegrationConnector PlatformName="Twitch"
+                                  ShortName="TWI"
+                                  Color="#9146FF"
+                                  ConnectionState="_twitchState"
+                                  OnConnectClicked="OpenTwitchDialog" />
             <PlatformIndicator Platform="YT" ViewerCount="312" Color="#FF4444" IsLive="true" />
             <PlatformIndicator Platform="KICK" Color="#53FC18" IsLive="false" />
         </div>
@@ -38,3 +48,64 @@
     </div>
 </header>
 
+<IntegrationAuthDialog PlatformName="Twitch"
+                       Color="#9146FF"
+                       AuthorizationUrl="@TwitchTokenManager.GetAuthorizationUrl()"
+                       IsOpen="_twitchDialogOpen"
+                       ErrorMessage="@_twitchAuthError"
+                       OnClose="CloseTwitchDialog"
+                       OnConnected="HandleTwitchConnected" />
+
+@code {
+    private IntegrationConnectionState _twitchState = IntegrationConnectionState.Unknown;
+    private bool _twitchDialogOpen;
+    private string? _twitchAuthError;
+    private readonly CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        TwitchService.ConnectionStateChanged += OnTwitchStateChanged;
+        await TwitchService.RefreshConnectionState(_cts.Token);
+        _twitchState = MapTwitchState(TwitchService.ConnectionState);
+    }
+
+    private void OnTwitchStateChanged(object? sender, TwitchConnectionState state)
+    {
+        _twitchState = MapTwitchState(state);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static IntegrationConnectionState MapTwitchState(TwitchConnectionState state) => state switch
+    {
+        TwitchConnectionState.Connected => IntegrationConnectionState.Connected,
+        TwitchConnectionState.Connecting => IntegrationConnectionState.Connecting,
+        TwitchConnectionState.Authorized or TwitchConnectionState.Disconnected => IntegrationConnectionState.NotConnected,
+        TwitchConnectionState.NotAuthorized => IntegrationConnectionState.NotConnected,
+        TwitchConnectionState.Error => IntegrationConnectionState.Error,
+        _ => IntegrationConnectionState.Unknown
+    };
+
+    private void OpenTwitchDialog()
+    {
+        _twitchAuthError = null;
+        _twitchDialogOpen = true;
+    }
+
+    private void CloseTwitchDialog()
+    {
+        _twitchDialogOpen = false;
+    }
+
+    private async Task HandleTwitchConnected()
+    {
+        _twitchDialogOpen = false;
+        await TwitchService.RefreshConnectionState(_cts.Token);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        TwitchService.ConnectionStateChanged -= OnTwitchStateChanged;
+        await _cts.CancelAsync();
+        _cts.Dispose();
+    }
+}

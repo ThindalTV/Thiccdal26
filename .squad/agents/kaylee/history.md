@@ -49,3 +49,32 @@ Kaylee owns backend services, persistence, and bot-side execution paths.
 - Configurable via IOptions<TwitchOptions> (optional; MVP can skip if simple enough)
 
 **GitHub labeling:** All Kaylee's issues routed with `squad:kaylee` label (28 issues total). Infrastructure work enables River (Phase 17) before Inara rendering work (Phase 18).
+
+### 2026-05-28: Twitch Auth + Integration Connection Monitor
+
+**Work completed:**
+- Added `IIntegrationConnectionMonitor` to `src\Thiccdal.Infrastructure\Integrations\` — generic interface for any platform's connection state. Inara can inject `IEnumerable<IIntegrationConnectionMonitor>` to render all platform statuses reusably.
+- Added `ITwitchConnectionMonitor : IIntegrationConnectionMonitor` to `src\Thiccdal.Infrastructure\Twitch\` — typed interface for Twitch-specific injection.
+- Added `TwitchConnectionMonitor` to `src\Remote\Thiccdal.Remote.Twitch\` — singleton; checks DB for a non-expired token; raises `ConnectionChanged` event when state flips. Blazor components subscribe and call `InvokeAsync(StateHasChanged)`.
+- Updated `ChatBotRegistrationExtension.AddChatBotServices()` to register `TwitchConnectionMonitor` as a shared singleton exposed as both `ITwitchConnectionMonitor` and `IIntegrationConnectionMonitor`.
+- Updated `/auth/twitch/callback` in `Program.cs` to inject `ITwitchConnectionMonitor` and call `RefreshConnectionState` after `StoreToken` — Blazor circuits are notified before redirect.
+- Added 10 real tests (all passing): 4 for `TwitchTokenManager`, 6 for `TwitchConnectionMonitor`.
+
+**Key DI pattern — shared singleton across typed/generic interfaces:**
+```csharp
+collection.AddSingleton<TwitchConnectionMonitor>();
+collection.AddSingleton<ITwitchConnectionMonitor>(sp => sp.GetRequiredService<TwitchConnectionMonitor>());
+collection.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredService<TwitchConnectionMonitor>());
+```
+Use this pattern for every new platform so the same instance is reachable both ways.
+
+**Key files:**
+- `src\Thiccdal.Infrastructure\Integrations\IIntegrationConnectionMonitor.cs`
+- `src\Thiccdal.Infrastructure\Twitch\ITwitchConnectionMonitor.cs`
+- `src\Remote\Thiccdal.Remote.Twitch\TwitchConnectionMonitor.cs`
+- `src\Modules\Thiccdal.Modules.ChatBot\ChatBotRegistrationExtension.cs`
+- `src\Thiccdal\Program.cs`
+- `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TestProject1\TwitchConnectionMonitorTests.cs`
+- `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TestProject1\TwitchTokenManagerTests.cs`
+
+**OAuth scopes note:** Current `GetAuthorizationUrl` only requests `chat:read chat:edit`. Helix redesign will need 6+ additional scopes — revisit when EventSub work begins.

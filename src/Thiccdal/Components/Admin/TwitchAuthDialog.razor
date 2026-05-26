@@ -1,0 +1,147 @@
+@*
+    Twitch authentication dialog (modal).
+    Shows when the operator clicks the Twitch status button.
+    Handles authorize / disconnect flows inline.
+*@
+
+@inject ITwitchTokenManager TokenManager
+@inject ITwitchService TwitchService
+@inject NavigationManager Navigation
+@inject ILogger<TwitchAuthDialog> Logger
+
+@using Thiccdal.Infrastructure.Twitch
+
+@if (IsVisible)
+{
+    <div class="modal-backdrop fade show" @onclick="Close" aria-hidden="true"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-label="Twitch Connection">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <span class="bi bi-twitch me-2" aria-hidden="true"></span>
+                        Twitch Integration
+                    </h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @_errorMessage
+                        </div>
+                    }
+
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="badge @GetStateBadgeClass() fs-6">@GetStateLabel()</span>
+                    </div>
+
+                    @if (TwitchService.ConnectionState == TwitchConnectionState.NotAuthorized)
+                    {
+                        <p class="text-muted">
+                            Authorize Thiccdal to access your Twitch account.
+                            You will be redirected to Twitch to grant the required permissions.
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-muted">
+                            Twitch account is authorized. You can disconnect to remove stored credentials.
+                        </p>
+                    }
+                </div>
+
+                <div class="modal-footer">
+                    @if (TwitchService.ConnectionState == TwitchConnectionState.NotAuthorized)
+                    {
+                        <button class="btn btn-primary" @onclick="Authorize">
+                            <span class="bi bi-twitch me-2" aria-hidden="true"></span>
+                            Authorize with Twitch
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-outline-danger" @onclick="RevokeAsync" disabled="@_isBusy">
+                            @if (_isBusy)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            }
+                            Disconnect Twitch
+                        </button>
+                    }
+
+                    <button class="btn btn-secondary" @onclick="Close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>Raised after a successful revoke so the parent can refresh state.</summary>
+    [Parameter] public EventCallback OnRevoked { get; set; }
+
+    private string? _errorMessage;
+    private bool _isBusy;
+
+    private string GetStateBadgeClass() => TwitchService.ConnectionState switch
+    {
+        TwitchConnectionState.Connected => "bg-success",
+        TwitchConnectionState.Authorized => "bg-info",
+        TwitchConnectionState.Connecting => "bg-warning text-dark",
+        TwitchConnectionState.NotAuthorized => "bg-secondary",
+        TwitchConnectionState.Error => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetStateLabel() => TwitchService.ConnectionState switch
+    {
+        TwitchConnectionState.Connected => "Connected",
+        TwitchConnectionState.Authorized => "Authorized",
+        TwitchConnectionState.Connecting => "Connecting…",
+        TwitchConnectionState.NotAuthorized => "Not Authorized",
+        TwitchConnectionState.Disconnected => "Disconnected",
+        TwitchConnectionState.Error => "Error",
+        _ => "Unknown"
+    };
+
+    private void Authorize()
+    {
+        var url = TokenManager.GetAuthorizationUrl();
+        Navigation.NavigateTo(url, forceLoad: true);
+    }
+
+    private async Task RevokeAsync()
+    {
+        _isBusy = true;
+        _errorMessage = null;
+
+        try
+        {
+            await TokenManager.Revoke();
+            await TwitchService.RefreshConnectionState();
+            await OnRevoked.InvokeAsync();
+            await Close();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to revoke Twitch token");
+            _errorMessage = "Failed to disconnect. Please try again.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task Close()
+    {
+        _errorMessage = null;
+        await OnClose.InvokeAsync();
+    }
+}

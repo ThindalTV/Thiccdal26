@@ -1,0 +1,108 @@
+@using Thiccdal.Modules.Control.Components.Integrations
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+@if (IsOpen)
+{
+    <div class="auth-dialog-backdrop" @onclick="HandleBackdropClick" role="presentation">
+        <div class="auth-dialog"
+             @onclick:stopPropagation="true"
+             role="dialog"
+             aria-modal="true"
+             aria-label="Connect @PlatformName">
+
+            <header class="auth-dialog__header">
+                <div class="auth-dialog__platform-pip" style="--plat-color: @Color" aria-hidden="true"></div>
+                <h2 class="auth-dialog__title">Connect @PlatformName</h2>
+                <button type="button" class="auth-dialog__close" @onclick="Close" aria-label="Close">✕</button>
+            </header>
+
+            <div class="auth-dialog__body">
+                @if (!_awaitingReturn)
+                {
+                    <p class="auth-dialog__desc">
+                        Authorize Thiccdal to access @PlatformName. A new browser tab will open for you to sign in —
+                        return here once you're done.
+                    </p>
+                }
+                else
+                {
+                    <p class="auth-dialog__desc">
+                        A @PlatformName sign-in tab was opened. Complete authorization there, then click
+                        <strong>Done</strong> to confirm.
+                    </p>
+                    <p class="auth-dialog__done-hint">
+                        You can close the authorization tab once Thiccdal confirms the connection.
+                    </p>
+                }
+
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="auth-dialog__error" role="alert">@ErrorMessage</div>
+                }
+            </div>
+
+            <footer class="auth-dialog__footer">
+                <button type="button" class="auth-dialog__btn auth-dialog__btn--cancel" @onclick="Close">
+                    Cancel
+                </button>
+                @if (!_awaitingReturn)
+                {
+                    <button type="button"
+                            class="auth-dialog__btn auth-dialog__btn--authorize"
+                            style="--plat-color: @Color"
+                            @onclick="OpenAuthTab">
+                        Authorize with @PlatformName
+                    </button>
+                }
+                else
+                {
+                    <button type="button"
+                            class="auth-dialog__btn auth-dialog__btn--done"
+                            style="--plat-color: @Color"
+                            @onclick="ConfirmConnected">
+                        Done — I'm Connected
+                    </button>
+                }
+            </footer>
+
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string PlatformName { get; set; } = string.Empty;
+    [Parameter] public string Color { get; set; } = "rgba(255,255,255,0.5)";
+    [Parameter] public string AuthorizationUrl { get; set; } = string.Empty;
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnConnected { get; set; }
+
+    private bool _awaitingReturn;
+
+    protected override void OnParametersSet()
+    {
+        if (!IsOpen) _awaitingReturn = false;
+    }
+
+    private async Task OpenAuthTab()
+    {
+        await JS.InvokeVoidAsync("open", AuthorizationUrl, "_blank");
+        _awaitingReturn = true;
+    }
+
+    private async Task ConfirmConnected()
+    {
+        _awaitingReturn = false;
+        await OnConnected.InvokeAsync();
+    }
+
+    private async Task Close()
+    {
+        _awaitingReturn = false;
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task HandleBackdropClick() => await Close();
+}

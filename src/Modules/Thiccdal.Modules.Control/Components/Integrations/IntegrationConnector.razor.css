@@ -1,0 +1,110 @@
+/* ── IntegrationConnector ── */
+
+.int-conn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border: 1px solid var(--plat-color, rgba(255, 255, 255, 0.2));
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    white-space: nowrap;
+}
+
+/* ── Dot states ── */
+
+.int-conn__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+.int-conn__dot--live {
+    background: var(--plat-color);
+    box-shadow: 0 0 5px var(--plat-color);
+}
+
+@keyframes int-conn-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+.int-conn__dot--pulse {
+    background: var(--plat-color);
+    animation: int-conn-pulse 1.2s ease-in-out infinite;
+}
+
+/* ── Label parts ── */
+
+.int-conn__name {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text);
+}
+
+.int-conn__count,
+.int-conn__status {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+/* ── Not-connected: button affordance ── */
+
+.int-conn--not-connected,
+.int-conn--error {
+    border-color: var(--plat-color, rgba(255, 170, 0, 0.45));
+    background: rgba(0, 0, 0, 0.0);
+}
+
+.int-conn__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1;
+    min-height: 44px; /* touch target */
+    min-width: 44px;
+}
+
+.int-conn--not-connected .int-conn__dot {
+    background: var(--plat-color, rgba(255, 170, 0, 0.6));
+    opacity: 0.6;
+}
+
+.int-conn--not-connected .int-conn__status {
+    color: var(--plat-color, rgba(255, 170, 0, 0.85));
+    opacity: 0.85;
+}
+
+.int-conn--error {
+    border-color: rgba(220, 60, 60, 0.45);
+}
+
+.int-conn--error .int-conn__dot {
+    background: rgba(255, 100, 100, 0.7);
+}
+
+.int-conn--error .int-conn__status {
+    color: rgba(255, 110, 110, 0.9);
+}
+
+/* ── Hover / active feedback ── */
+
+.int-conn--not-connected:hover,
+.int-conn--error:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.int-conn__btn:active .int-conn__name,
+.int-conn__btn:active .int-conn__status {
+    opacity: 0.7;
+}

@@ -1,0 +1,58 @@
+@using Thiccdal.Modules.Control.Components.Integrations
+
+<div class="int-conn int-conn--@GetStateClass()" style="--plat-color: @Color">
+    @if (ConnectionState is IntegrationConnectionState.NotConnected or IntegrationConnectionState.Error)
+    {
+        <button type="button" class="int-conn__btn" @onclick="OnConnectClicked"
+                aria-label="@(ConnectionState == IntegrationConnectionState.Error ? "Retry connecting" : "Connect") @PlatformName">
+            <span class="int-conn__dot"></span>
+            <span class="int-conn__name">@ShortName</span>
+            <span class="int-conn__status">@GetStatusLabel()</span>
+        </button>
+    }
+    else if (ConnectionState == IntegrationConnectionState.Connecting)
+    {
+        <span class="int-conn__dot int-conn__dot--pulse" aria-hidden="true"></span>
+        <span class="int-conn__name">@ShortName</span>
+        <span class="int-conn__status">…</span>
+    }
+    else if (ConnectionState == IntegrationConnectionState.Connected)
+    {
+        <span class="int-conn__dot int-conn__dot--live" aria-hidden="true"></span>
+        <span class="int-conn__name">@ShortName</span>
+        @if (ViewerCount.HasValue)
+        {
+            <span class="int-conn__count">@ViewerCount</span>
+        }
+    }
+    else
+    {
+        <span class="int-conn__dot" aria-hidden="true"></span>
+        <span class="int-conn__name">@ShortName</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string PlatformName { get; set; } = string.Empty;
+    [Parameter] public string ShortName { get; set; } = string.Empty;
+    [Parameter] public string Color { get; set; } = "rgba(255,255,255,0.5)";
+    [Parameter] public IntegrationConnectionState ConnectionState { get; set; } = IntegrationConnectionState.Unknown;
+    [Parameter] public int? ViewerCount { get; set; }
+    [Parameter] public EventCallback OnConnectClicked { get; set; }
+
+    private string GetStateClass() => ConnectionState switch
+    {
+        IntegrationConnectionState.Connected => "connected",
+        IntegrationConnectionState.Connecting => "connecting",
+        IntegrationConnectionState.NotConnected => "not-connected",
+        IntegrationConnectionState.Error => "error",
+        _ => "unknown"
+    };
+
+    private string GetStatusLabel() => ConnectionState switch
+    {
+        IntegrationConnectionState.NotConnected => "Not Connected",
+        IntegrationConnectionState.Error => "Error — Retry",
+        _ => string.Empty
+    };
+}

@@ -1,0 +1,47 @@
+@* 
+    Reusable platform connection status badge.
+    Displays a colored icon/button for any integration. When not connected, clicking
+    opens a platform-specific auth dialog via the OnConnectClicked callback.
+*@
+
+<button class="platform-status-btn @GetCssClass()" 
+        title="@GetTitle()"
+        @onclick="HandleClick">
+    <span class="@IconClass platform-icon" aria-hidden="true"></span>
+    <span class="platform-name">@PlatformName</span>
+    <span class="platform-status-label">@GetStatusLabel()</span>
+</button>
+
+@code {
+    [Parameter, EditorRequired] public string PlatformName { get; set; } = string.Empty;
+
+    /// <summary>Bootstrap icon class, e.g. "bi bi-twitch".</summary>
+    [Parameter, EditorRequired] public string IconClass { get; set; } = string.Empty;
+
+    [Parameter] public bool IsAuthenticated { get; set; }
+
+    [Parameter] public bool IsActive { get; set; }
+
+    [Parameter] public EventCallback OnConnectClicked { get; set; }
+
+    private string GetCssClass() => (IsAuthenticated, IsActive) switch
+    {
+        (_, true) => "status-connected",
+        (true, false) => "status-authorized",
+        _ => "status-disconnected"
+    };
+
+    private string GetStatusLabel() => (IsAuthenticated, IsActive) switch
+    {
+        (_, true) => "Connected",
+        (true, false) => "Authorized",
+        _ => "Not Connected"
+    };
+
+    private string GetTitle() => $"{PlatformName}: {GetStatusLabel()}. Click to manage.";
+
+    private async Task HandleClick()
+    {
+        await OnConnectClicked.InvokeAsync();
+    }
+}

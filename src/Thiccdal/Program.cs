@@ -44,11 +44,37 @@ var app = builder.Build();
 
 // Twitch OAuth callback
 app.MapGet("/auth/twitch/callback", async (
-    string code,
+    string? code,
+    string? state,
+    string? error,
+    string? error_description,
     ITwitchTokenManager tokenManager,
+    ITwitchService twitchService,
+    ILoggerFactory loggerFactory,
     CancellationToken cancellationToken) =>
 {
+    var logger = loggerFactory.CreateLogger("Thiccdal.TwitchCallback");
+
+    if (!string.IsNullOrEmpty(error))
+    {
+        logger.LogWarning("Twitch OAuth callback returned error: {Error} — {Description}", error, error_description);
+        return Results.Redirect("/twitch/connect?error=oauth_denied");
+    }
+
+    if (string.IsNullOrEmpty(code))
+    {
+        logger.LogWarning("Twitch OAuth callback received no code and no error — possible misconfiguration");
+        return Results.Redirect("/twitch/connect?error=missing_code");
+    }
+
+    if (string.IsNullOrEmpty(state) || !tokenManager.ValidateAndConsumeState(state))
+    {
+        logger.LogWarning("Twitch OAuth callback state validation failed — possible CSRF attempt (state={State})", state);
+        return Results.Redirect("/twitch/connect?error=invalid_state");
+    }
+
     await tokenManager.StoreToken(code, cancellationToken);
+    await twitchService.RefreshConnectionState(cancellationToken);
     return Results.Redirect("/twitch/connect");
 });
 

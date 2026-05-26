@@ -1,5 +1,6 @@
-using System;
+﻿using System.Collections.Concurrent;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -12,10 +13,16 @@ namespace Thiccdal.Remote.Twitch;
 
 public class TwitchTokenManager : ITwitchTokenManager
 {
+    private const string RequiredScopes = "user:read:chat user:write:chat chat:read chat:edit moderator:read:followers";
+
     private readonly TwitchOptions _options;
     private readonly ILogger<TwitchTokenManager> _logger;
     private readonly HttpClient _httpClient;
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
+
+    // Pending OAuth state tokens: value is the expiry time.
+    // Concurrent because the singleton may be accessed from multiple circuits.
+    private readonly ConcurrentDictionary<string, DateTime> _pendingStates = new();
 
     public TwitchTokenManager(
         IOptions<TwitchOptions> options,
@@ -46,6 +53,20 @@ public class TwitchTokenManager : ITwitchTokenManager
 
         _logger.LogInformation("Token expired, refreshing");
         return await RefreshStoredToken(context, storedToken, cancellationToken);
+    }
+
+    public async Task<bool> HasToken(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+            return await context.TwitchTokens.AnyAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unable to check token existence");
+            return false;
+        }
     }
 
     public async Task RefreshToken(CancellationToken cancellationToken = default)
@@ -98,16 +119,93 @@ public class TwitchTokenManager : ITwitchTokenManager
         };
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        // Replace any existing tokens — only one valid token per application at a time.
+        var existing = await context.TwitchTokens.ToListAsync(cancellationToken);
+        context.TwitchTokens.RemoveRange(existing);
         context.TwitchTokens.Add(token);
         await context.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Twitch token stored successfully");
     }
 
+    public async Task Revoke(CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Revoking stored Twitch tokens");
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var tokens = await context.TwitchTokens.ToListAsync(cancellationToken);
+
+        if (tokens.Count == 0)
+        {
+            _logger.LogDebug("No Twitch tokens to revoke");
+            return;
+        }
+
+        // Best-effort: call Twitch revocation API for each token before removing locally.
+        // Revoking the access token also invalidates the associated refresh token server-side.
+        foreach (var token in tokens)
+        {
+            try
+            {
+                var revokeData = new Dictionary<string, string>
+                {
+                    { "client_id", _options.ClientId },
+                    { "token", token.AccessToken }
+                };
+
+                using var revokeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                revokeTimeout.CancelAfter(TimeSpan.FromSeconds(5));
+
+                var response = await _httpClient.PostAsync(
+                    "https://id.twitch.tv/oauth2/revoke",
+                    new FormUrlEncodedContent(revokeData),
+                    revokeTimeout.Token);
+
+                if (!response.IsSuccessStatusCode)
+                    _logger.LogWarning("Twitch revocation API returned {StatusCode}; continuing with local removal", response.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                // Always remove locally even if the Twitch API is unreachable — operator must not be left in a stuck state.
+                _logger.LogWarning(ex, "Failed to call Twitch revocation API; proceeding with local removal");
+            }
+        }
+
+        context.TwitchTokens.RemoveRange(tokens);
+        await context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Revoked {Count} Twitch token(s)", tokens.Count);
+    }
+
     public string GetAuthorizationUrl()
     {
-        var scopes = "chat:read chat:edit";
-        return $"https://id.twitch.tv/oauth2/authorize?client_id={_options.ClientId}&redirect_uri={Uri.EscapeDataString(_options.RedirectUri)}&response_type=code&scope={Uri.EscapeDataString(scopes)}";
+        var now = DateTime.UtcNow;
+
+        // Prune expired states to prevent unbounded growth.
+        foreach (var (key, expiry) in _pendingStates)
+            if (expiry < now) _pendingStates.TryRemove(key, out _);
+
+        // URL-safe Base64 state token (256 bits of entropy).
+        var state = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+
+        _pendingStates[state] = now.AddMinutes(10);
+
+        return $"https://id.twitch.tv/oauth2/authorize" +
+               $"?client_id={_options.ClientId}" +
+               $"&redirect_uri={Uri.EscapeDataString(_options.RedirectUri)}" +
+               $"&response_type=code" +
+               $"&scope={Uri.EscapeDataString(RequiredScopes)}" +
+               $"&state={Uri.EscapeDataString(state)}";
+    }
+
+    public bool ValidateAndConsumeState(string state)
+    {
+        if (_pendingStates.TryRemove(state, out var expiry))
+            return expiry >= DateTime.UtcNow;
+
+        return false;
     }
 
     private async Task<string> RefreshStoredToken(ApplicationDbContext context, TwitchToken token, CancellationToken cancellationToken)
@@ -142,7 +240,7 @@ public class TwitchTokenManager : ITwitchTokenManager
         await context.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Token refreshed successfully");
-        
+
         return token.AccessToken;
     }
 
