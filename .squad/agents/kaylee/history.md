@@ -77,4 +77,32 @@ Use this pattern for every new platform so the same instance is reachable both w
 - `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TestProject1\TwitchConnectionMonitorTests.cs`
 - `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TestProject1\TwitchTokenManagerTests.cs`
 
-**OAuth scopes note:** Current `GetAuthorizationUrl` only requests `chat:read chat:edit`. Helix redesign will need 6+ additional scopes — revisit when EventSub work begins.
+**OAuth scopes note:** Current `GetAuthorizationUrl` now requests Phase 17 scopes: `user:read:chat user:write:chat chat:read chat:edit moderator:read:followers`.
+
+### 2026-05-29: Batch Completion — Twitch Auth + Integration Surface
+
+**Team summary:**
+- Inara built reusable `IntegrationConnector` + `IntegrationAuthDialog` components (generic, platform-agnostic)
+- River implemented `ITwitchService` state machine; owns connection state truth
+- Kaylee's `IIntegrationConnectionMonitor` pattern enables platform enumeration; complementary to River's service-level state
+- Jayne secured the OAuth flow and token management; 22 tests passing
+- Mal confirmed integration and no architectural issues
+
+**Key patterns confirmed for next platforms:**
+- DI registration: `AddSingleton<T>()` then forward to `IInterface1` and `IInterface2` via `sp.GetRequiredService<T>()`
+- Connection state lives in the service (River's layer); monitor is DB-only check for status queries
+- Event-driven Blazor updates: components subscribe to state change events, call `InvokeAsync(StateHasChanged)`
+
+**Status:** ✅ 10 tests from Kaylee's work passing (integration monitor + token manager). Infrastructure ready for Phase 17.
+
+### 2026-05-28: OpenTelemetry CVE Remediation
+
+- The Aspire/OpenTelemetry package versions are managed directly in `src\Aspire\Thiccdal.Aspire.ServiceDefaults\Thiccdal.Aspire.ServiceDefaults.csproj`; there is no central `Directory.Packages.props` file in this repo.
+- For OpenTelemetry package families, do not assume every sibling package ships the same latest patch version. Verify each package's exact published version before editing or restore can fail with `NU1102`.
+- The host build CVE failure was cleared by moving off `1.14.0` to the latest available safe versions per package: OTLP exporter and hosting `1.15.3`, AspNetCore instrumentation `1.15.2`, Http/runtime instrumentation `1.15.1`.
+
+### 2026-05-26: Twitch Test Project Structure Correction
+
+- The Twitch test project belongs at `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\Thiccdal.Remote.Twitch.Tests.csproj`; an extra template-named child folder breaks the repo's solution-to-disk mirroring rule.
+- When moving a nested test project up to its solution-matching folder, update both the `.slnx` project path and any relative `ProjectReference` hops; the move changes `..\` depth even when code stays the same.
+- Validation for this fix passed with solution restore/build plus targeted test execution for `Thiccdal.Remote.Twitch.Tests`.

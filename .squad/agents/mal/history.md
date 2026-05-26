@@ -140,6 +140,23 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 - Phase-based issue workflow is effective for visibility and sequencing.
 - Test-per-project structure is established and ready for extension.
 
+### 2026-05-29: Batch Completion — Cross-Cutting Review + Event Bus Decision
+
+**Work completed:**
+- Orchestration review: All 5 agents' parallel work (Inara, Kaylee, River, Jayne) integrated cleanly
+- Event Bus decision: Recommendation to defer to Phase 19 (phased plan is correct)
+- All 22 tests passing in Remote.Twitch.Tests
+- Control module builds cleanly; admin components ready
+- No architectural blockers for Phase 17 EventSub foundation
+
+**Key coordination findings:**
+- Inara's `IntegrationConnector` + River's `ITwitchService` state machine are complementary (both use same contract)
+- Kaylee's `IIntegrationConnectionMonitor` is distinct from River's service state machine (DB check vs. live state)
+- Jayne's CSRF/upsert/revoke fixes all in place
+- DI pattern (typed + generic forwarding) ready for multi-platform registration
+
+**Status:** ✅ Cross-cutting review passed. Architecture decisions documented. Ready for Phase 17 implementation with no blocking issues.
+
 ### 2026-05-26: Repository Structure Review — Repository-Architecture Alignment
 
 **Finding:** The on-disk directory structure is **well-aligned** with the documented architecture. The solution layout mirrors the intended module and platform separation cleanly.

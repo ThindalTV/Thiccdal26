@@ -24,6 +24,7 @@ src/Modules/Thiccdal.Modules.Control/Components/Integrations/
     ShortName="TWI"                @* 3-char uppercase abbreviation shown in pill *@
     Color="#9146FF"                @* Brand hex, drives --plat-color CSS var *@
     ConnectionState="_twitchState" @* IntegrationConnectionState enum *@
+    IsLive="_twitchIsLive"         @* Optional bool, renders compact LIVE badge *@
     ViewerCount="@null"            @* Optional int?, shown only when Connected *@
     OnConnectClicked="OpenDialog" />
 ```
@@ -44,8 +45,10 @@ src/Modules/Thiccdal.Modules.Control/Components/Integrations/
 ```csharp
 // Subscribe to live state changes on init
 TwitchService.ConnectionStateChanged += OnTwitchStateChanged;
+TwitchService.StreamLiveStateChanged += OnTwitchStreamLiveStateChanged;
 await TwitchService.RefreshConnectionState(_cts.Token);
 _twitchState = MapTwitchState(TwitchService.ConnectionState);
+_twitchIsLive = TwitchService.IsStreamLive;
 
 // Map platform-specific enum → generic IntegrationConnectionState
 private static IntegrationConnectionState MapTwitchState(TwitchConnectionState state) => state switch
@@ -58,6 +61,21 @@ private static IntegrationConnectionState MapTwitchState(TwitchConnectionState s
     _ => IntegrationConnectionState.Unknown
 };
 ```
+
+### Minimal Twitch live-state seam
+
+When a platform only needs a live/offline badge, keep the service contract small:
+
+```csharp
+public interface ITwitchService : IChatSource
+{
+    bool IsStreamLive { get; }
+    event EventHandler<bool>? StreamLiveStateChanged;
+    Task RefreshStreamState(CancellationToken cancellationToken = default);
+}
+```
+
+For Twitch, back this with Helix `GET /helix/streams?user_id={BroadcasterId}` and keep `BroadcasterId` in `TwitchOptions`.
 
 ## Auth Flow
 
@@ -82,7 +100,7 @@ To add a new integration (e.g., YouTube):
 | Unknown       | Dim dot + platform name                        | No          |
 | NotConnected  | Amber dot + "Not Connected" label, glow border  | Yes (opens dialog) |
 | Connecting    | Pulsing colored dot + "…" label                | No          |
-| Connected     | Live colored dot + name + optional viewer count | No          |
+| Connected     | Live colored dot + name + optional LIVE badge / viewer count | No          |
 | Error         | Red dot + "Error — Retry" label, glow border   | Yes (opens dialog) |
 
 ## Touch UX Notes

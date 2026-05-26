@@ -120,3 +120,30 @@ Inara owns the Blazor operator experience, UX polish, and UI ergonomics.
 - `src/Thiccdal.Infrastructure/Twitch/ITwitchService.cs` — fixed (removed duplicate members)
 
 **Reuse for next platforms:** Add `I{Platform}Service` injection + `Map{Platform}State()` + subscribe to state event. Components are ready as-is.
+
+### 2026-05-29: Batch Completion — Twitch Auth + Integration Surface
+
+**Team summary:**
+- Inara's `IntegrationConnector` + `IntegrationAuthDialog` components are production-ready and documented for reuse
+- River completed the complementary admin UI surface and `ITwitchService` state machine (state machine is source of truth)
+- Kaylee's `IIntegrationConnectionMonitor` pattern enables platform enumeration for future dashboard multi-platform status display
+- Jayne's CSRF hardening and token management fixes are all committed; 22 tests passing
+- Mal reviewed integration and confirmed no architectural blockers
+
+**Key learnings for Phase 18 onward:**
+- Both Inara's Control module components and River's admin components use the same `ITwitchService` contract
+- They operate independently but can coexist: Control module for dashboard layout; admin components for full-screen admin page
+- Future decisions needed (team): token encryption (DPAPI), duplicate auth dialog cleanup, exception handling in TopBar.razor
+- Phase 17 EventSub foundation is clear and blockers removed
+
+**Status:** ✅ 22 tests passing. All modules compile cleanly. Ready for Phase 17.
+
+### 2026-05-26: Twitch Top Bar Live Badge
+
+**Implemented:**
+- Added a compact LIVE badge to the reusable IntegrationConnector so the Twitch chip can show stream state without changing its touch target.
+- Wired TopBar.razor to refresh Twitch live state on load, after auth completes, and on a 30-second loop.
+- Extended ITwitchService/TwitchService to expose backend-driven live state via Twitch Helix instead of a UI-only placeholder.
+
+**Key UX note:**
+- Keep live affordances secondary to the connect state: brand dot still communicates platform connection, while the red badge communicates on-air risk/status.

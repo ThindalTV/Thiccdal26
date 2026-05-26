@@ -22,6 +22,7 @@ River handles platform adapters, integration seams, and external API contracts.
 - The architecture target in `docs\architecture\overview.md` expects EventSub-driven typed platform events, persisted chat/event records, and a combined chat+event prompter feed; the current code does not yet provide that seam.
 - The prompter path is currently `Modules.ChatBot` -> `IChatService` -> `Modules.Teleprompter\Pages\Prompter.razor`, and `ChatLine.razor` renders plain text only, so emotes/events need normalized fragments before they can reach the streamer-facing view cleanly.
 - GitHub Phase 5 Twitch issues (#24-#31) are still useful for routing, but their implementation assumptions are IRC/TwitchLib-centric and should be re-scoped toward Helix + EventSub, with chat work labeled through `area/chatbot` and downstream presentation work routed separately through teleprompter/overlay labels.
+- The smallest clean Twitch live indicator seam is a boolean `ITwitchService.IsStreamLive` plus a `StreamLiveStateChanged` event and `RefreshStreamState()`, backed by Helix `/streams` with `BroadcasterId` rather than a larger stream-info model.
 
 ### 2026-05-28: Helix EventSub Architecture Locked — River Lead on Phase 17
 
@@ -89,3 +90,20 @@ River handles platform adapters, integration seams, and external API contracts.
 **Inara's parallel work discovered:**
 - `IIntegrationConnectionMonitor` / `ITwitchConnectionMonitor` / `TwitchConnectionMonitor` in Infrastructure/Remote — DB token-only check; not yet registered in DI
 - `IntegrationConnector.razor`, `IntegrationAuthDialog.razor` in Control module — complementary dashboard widgets that use `ITwitchService` same surface
+
+### 2026-05-29: Batch Completion — Twitch Auth + Integration Surface
+
+**Team summary:**
+- River's `ITwitchService` state machine is the single source of truth for connection state
+- Inara's `IntegrationConnector` + `IntegrationAuthDialog` UI components use `ITwitchService` for all state queries
+- Kaylee's `IIntegrationConnectionMonitor` is a separate DB-only check for platform enumeration (complementary, not competitive)
+- Jayne's CSRF/token hardening all committed; OAuth flow is secure
+- Mal confirmed no architectural conflicts; both UI surfaces coexist cleanly
+
+**Key patterns locked:**
+- `TwitchService` implements `ITwitchService` with `SetState()` guarding transitions and firing events
+- State machine lives at service level; Blazor components subscribe to `ConnectionStateChanged`
+- No-throw `HasToken()` check safe for component `OnInitialized`
+- Admin pattern: `PlatformStatusButton` + `{Platform}AuthDialog` + card on `Integrations.razor`
+
+**Status:** ✅ 22 tests passing. Twitch auth/status surface production-ready. Phase 17 scopes in place. Ready for EventSub foundation work.
