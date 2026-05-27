@@ -396,6 +396,51 @@ collection.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredServi
 - `ChatterMemoryEnabled` setting (default: true per user directive)
 - `ChatterMemoryRetentionDays` optional setting (if unset, indefinite retention)
 - Manual clear/reset control: removes persisted chat rows backing memory for requested scope or all scopes
+
+### 2026-05-27: Chatter Memory Revision — Non-Destructive Reset & Operator Controls
+**Agent:** Mal (Lead Orchestrator / Architecture)
+**Requested by:** Jayne (Security)
+**Status:** Complete — Ready for Security Re-Review
+**What:** Revised chatter-memory implementation to resolve Jayne's operator-facing control blockers using non-destructive reset markers instead of destructive clear/delete semantics.
+**Blockers Addressed:**
+1. **Operator-Facing Reset Path:** Added new `ChatterMemoryReset` marker table storing reset timestamps for either one exact `{platform, channel, platformUserId}` scope or global reset across all scopes. New `/chatbot` Blazor page wires scoped and global reset controls to `IChatterMemoryService.Reset(...)` and `ResetAll(...)` with full operator visibility and control.
+2. **Non-Destructive Reset:** Replaced destructive clear/clear-all semantics with explicit non-destructive reset semantics. `ChatterMemoryService` now ignores chat messages older than the latest applicable reset marker while preserving `ChatMessages` and `PlatformEvents`. Source data audit trail remains intact for recovery and compliance.
+**Design Justification:**
+- Keeps existing architecture intact (memory derives directly from persisted chat history, no new persistent storage)
+- Avoids destructive deletes (data loss risk) while still enabling immediate memory suppression for operators
+- Reset markers enable auditable, non-destructive barrier to memory derivation
+- Platform/channel/user scoping preserved; cross-platform merging still forbidden
+**Key Changes:**
+- `IChatterMemoryService` interface updated: `Clear/ClearAll` removed, `Reset/ResetAll` added with explicit preservation semantics
+- `ChatterMemoryReset` record added to track reset timestamps per scope
+- `ChatterMemoryService` filtering logic updated to honor reset cutoffs during memory derivation
+- `/chatbot` route added with reset UI controls (scoped + global buttons)
+- Operator gains real, discoverable path to manage memory without source data loss
+**Files:** `Thiccdal.Infrastructure/Bot/IChatterMemoryService.cs`, `Thiccdal.Data/ChatterMemoryService.cs`, `Thiccdal/Components/Pages/Chatbot.razor`, `Thiccdal/Components/Layout/NavMenu.razor`
+**Related:** `.squad/orchestration-log/2026-05-27T22-55-44Z-mal-chatter-memory-revision.md`
+
+### 2026-05-27: Chatter Memory Security Re-Review & Approval
+**Agent:** Jayne (Security / Pen Testing)
+**Requested by:** ThindalTV
+**Status:** ✅ APPROVE FOR SHIPPING
+**What:** Performed comprehensive security re-review of Mal's revised chatter-memory implementation. Verified that both prior blockers (operator-facing reset path and non-destructive reset semantics) are resolved and all security guardrails remain in place.
+**Blockers Verified Resolved:**
+1. **✅ Real Operator-Facing Reset Path:** Main nav includes Chatbot entry (NavMenu.razor:53-56); `/chatbot` page exposes scoped and global reset controls wired to service methods (Chatbot.razor:1-15, 56-137); route coverage confirms page renders with reset controls (RouteRenderingTests.cs:69-80)
+2. **✅ Non-Destructive Reset:** Interface contract explicitly preserves source chat history (IChatterMemoryService.cs:24-46); Reset(...) and ResetAll(...) write markers not delete records (ChatterMemoryService.cs:132-184); memory reads honor reset cutoff (ChatterMemoryService.cs:197-213); tests verify row counts unchanged after reset (ChatterMemoryServiceTests.cs:58-105)
+**Six Security Guardrails Re-Verified:**
+1. **✅ Strict {platform, channel, user} Scoping:** Memory keyed by platform source + platform user ID (ChatterMemoryService.cs:81-109); channel filtered on platform event; PlatformUser uniqueness enforced (ApplicationDbContext.cs:130-145); no cross-platform merging
+2. **✅ Public-Info-Only Derived Memory:** Facts built from ChatMessage.Content only (ChatterMemoryService.cs:215-341); sanitized and filtered for sensitive markers/URLs/tokens before prompt use; no transcripts, moderation notes, or internal payloads
+3. **✅ No RawData/HtmlContent/Transcript Leakage:** Memory builder uses sanitized derived facts only; AI prompt injects only DisplayName, LastInteractionAt, Facts (ChatBotAiResponder.cs:170-186); no memory-path reads of RawData or HtmlContent found
+4. **✅ No Cross-Platform Identity Merging:** Lookup remains platform-qualified (ChatterMemoryService.cs:81-85); no join-by-display-name identity stitching; unique index on {Source, PlatformUserId} enforced (ApplicationDbContext.cs:130-132)
+5. **✅ AI Replies Stay on Originating Platform/Channel:** CommandDispatcher carries typed origin metadata into CommandContext (CommandDispatcher.cs:213-225); ChatServiceCommandResponseSink routes only to matching platform via context.ChannelId (ChatServiceCommandResponseSink.cs:32-50); coverage exists (ChatServiceCommandResponseSinkTests.cs:11-34)
+6. **✅ Reset is Real and Non-Destructive:** Immediately suppresses older context through reset barriers (ChatterMemoryService.cs:132-213); source records remain intact for audit trail and recovery (ChatterMemoryServiceTests.cs:58-105)
+**Test Results:**
+- `Thiccdal.Data.Tests`: 37/37 ✅
+- `Thiccdal.Tests` (ChatBot, routing, components): 29/29 ✅
+**Approval Rationale:** Both blocking issues are resolved; operator-facing reset is real, wired, and UI-discoverable; reset is non-destructive by design; all six guardrails remain intact and enforced; test coverage complete; no regressions identified.
+**Notes:** Non-blocking future watch item — channel-aware outbound adapter overrides still worth enforcing before any true multi-channel-per-platform send feature ships.
+**Files:** All chatter-memory implementation files across Thiccdal, Thiccdal.Data, Thiccdal.Infrastructure, and test projects; test coverage in Thiccdal.Data.Tests and Thiccdal.Tests
+**Related:** `.squad/orchestration-log/2026-05-27T22-55-44Z-jayne-chatter-memory-rereview.md`
 **Key Design Decision (Forced Adjustment):** Manual clear/reset removes persisted chat rows backing memory (for scope or all) instead of clearing separate summary table. Avoids schema expansion while maintaining reset semantics.
 **Content Safety:** Sanitized derived facts only; no OAuth tokens, moderation notes, metadata; prompt assembly never injects RawData or internal payloads
 **Testing:** Full unit test coverage for scoping, filtering, derivation correctness. Integration tests validate AI responder with/without memory. Manual clear/reset operations tested.

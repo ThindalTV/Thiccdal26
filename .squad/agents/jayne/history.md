@@ -132,3 +132,44 @@ Jayne owns security review, hardening, and pen-testing style analysis.
 **Pattern to remember:**
 - **AI memory must be derived, not replayed.** Persist a tiny, sanitized summary with expiry instead of handing the model raw historical chat.
 - **Public chat does not equal unlimited reuse.** Even when data was visible in chat, reusing it later in AI prompts changes the privacy and moderation risk profile.
+
+### 2026-05-27: Chatter Memory Security Re-Review & Approval for Shipping
+
+**Review scope:**
+- Comprehensive re-review of Mal's revised chatter-memory implementation
+- Verified both blockers resolved: operator-facing reset path + non-destructive reset semantics
+- Re-verified all six security guardrails remained intact
+
+**Blockers resolved:**
+1. **✅ Real operator-facing reset path:** Main nav includes Chatbot entry (NavMenu.razor:53-56); /chatbot page exposes scoped + global reset controls wired to IChatterMemoryService.Reset(...) and ResetAll(...) (Chatbot.razor:1-15, 56-137); route coverage confirms page renders with reset controls (RouteRenderingTests.cs:69-80)
+2. **✅ Non-destructive reset semantics:** Interface contract explicitly preserves source chat history (IChatterMemoryService.cs:24-46); Reset(...) and ResetAll(...) write markers not delete records (ChatterMemoryService.cs:132-184); memory reads honor reset cutoff (ChatterMemoryService.cs:197-213); tests verify chat/event row counts unchanged after reset (ChatterMemoryServiceTests.cs:58-105)
+
+**Six security guardrails re-verified:**
+1. **Strict {platform, channel, user} scoping** — Lookup keyed by platform source + platform user ID (ChatterMemoryService.cs:81-109); channel filtered on platform event; PlatformUser uniqueness enforced {Source, PlatformUserId} (ApplicationDbContext.cs:130-145) ✅
+2. **Public-info-only derived memory** — Facts built from ChatMessage.Content only (ChatterMemoryService.cs:215-341); sanitized for sensitive markers/URLs/tokens before prompt use; no transcripts, moderation notes, internal payloads ✅
+3. **No RawData/HtmlContent/transcript leakage** — Memory builder uses sanitized derived facts; AI prompt injects only DisplayName, LastInteractionAt, Facts (ChatBotAiResponder.cs:170-186); no memory-path reads of RawData or HtmlContent found ✅
+4. **No cross-platform identity merging** — Lookup remains platform-qualified (ChatterMemoryService.cs:81-85); no join-by-display-name identity stitching; unique index on {Source, PlatformUserId} enforced (ApplicationDbContext.cs:130-132) ✅
+5. **AI replies stay on originating platform/channel** — CommandDispatcher carries typed origin metadata into CommandContext (CommandDispatcher.cs:213-225); ChatServiceCommandResponseSink routes only to matching platform via context.ChannelId (ChatServiceCommandResponseSink.cs:32-50); coverage exists (ChatServiceCommandResponseSinkTests.cs:11-34) ✅
+6. **Reset is real and non-destructive** — Immediately suppresses older context through reset barriers (ChatterMemoryService.cs:132-213); source records remain intact for audit trail + recovery (ChatterMemoryServiceTests.cs:58-105) ✅
+
+**Test results:**
+- Thiccdal.Data.Tests: 37/37 ✅
+- Thiccdal.Tests (ChatBot, routing, components): 29/29 ✅
+
+**Approval rationale:**
+- Both blocking issues resolved
+- Operator-facing reset is real, wired, and UI-discoverable
+- Reset is non-destructive by design; audit trail preserved
+- All six guardrails remain intact and enforced
+- Complete test coverage; no regressions
+- Ready for shipping to production
+
+**Non-blocking future watch item:**
+- Channel-aware outbound adapter overrides worth enforcing before any true multi-channel-per-platform send feature ships
+
+**Verdict:** ✅ **APPROVE FOR SHIPPING**
+
+**Orchestration log:** .squad/orchestration-log/2026-05-27T22-55-44Z-jayne-chatter-memory-rereview.md
+
+**Status:** Chatter-memory approved for production deployment.
+

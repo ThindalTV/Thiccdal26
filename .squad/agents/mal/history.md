@@ -291,3 +291,31 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 **Reviewer conclusion:**
 - Judge `#34`, `#36`, `#37`, `#38`, and `#39` against the revised gate, not the old issue wording about direct Data types, direct EF writes, or mandatory Google SDK usage.
 - Hold `#35` and therefore `#40` open until the polling-state race is fixed and the YouTube test project is green.
+
+### 2026-05-27: Chatter Memory Revision & Operator Control Design
+
+**Work completed:**
+- Identified Jayne's two core blockers on chatter-memory implementation:
+  1. Missing operator-facing reset UI path
+  2. Destructive clear semantics (data loss risk)
+- Designed non-destructive reset using ChatterMemoryReset marker table (stores reset timestamps per scope or global)
+- Preserved existing memory derivation architecture (derives from ChatMessages + PlatformUsers, no new persistent storage)
+- Updated IChatterMemoryService interface: removed Clear/ClearAll (destructive), added Reset/ResetAll (non-destructive)
+- Implemented /chatbot Blazor page with scoped + global reset controls, wired to service methods
+- Verified all security guardrails remain intact (6-tuple scoping, public-facts-only, no cross-platform merging, no RawData/HtmlContent leakage, AI routing preserved, reset non-destructive)
+
+**Design rationale:**
+- Non-destructive reset is minimal adjustment; existing architecture derives memory from persisted chat, reset-marker design keeps that intact
+- Avoids data loss while enabling immediate memory suppression for operators
+- Reset timestamps enable auditable barrier to memory derivation; source records preserved for recovery + audit trail
+- Operator gains real, discoverable path to manage memory without destructive consequences
+
+**Key changes:**
+- Thiccdal.Infrastructure/Bot/IChatterMemoryService.cs: Reset/ResetAll interface
+- Thiccdal.Data/ChatterMemoryService.cs: Marker storage + filtering logic
+- Thiccdal/Components/Pages/Chatbot.razor: Operator UI with reset controls
+- Thiccdal/Components/Layout/NavMenu.razor: Chatbot nav entry
+- Orchestration log: .squad/orchestration-log/2026-05-27T22-55-44Z-mal-chatter-memory-revision.md
+
+**Status:** Revision complete; ready for Jayne's security re-review.
+
