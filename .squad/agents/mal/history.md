@@ -20,6 +20,76 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 
 ## Learnings
 
+### 2026-05-27: AI Chatter Memory Decision
+
+**Question asked:** Can the AI responder keep a memory of individual chatters, and what is the safest thin-slice design?
+
+**Current state confirmed:**
+- `src\Modules\Thiccdal.Modules.ChatBot\Services\ChatBotAiResponder.cs` builds a minimal two-message `AiChatCompletionRequest` and currently has no memory seam of its own.
+- `src\Thiccdal.Data\ChatPersistenceService.cs` already persists every `ChatEvent` into `PlatformEvents`, `ChatMessages`, and `PlatformUsers`, with identity resolved per platform by `src\Thiccdal.Data\PlatformUserIdResolver.cs`.
+- `src\Thiccdal.Infrastructure\Bot\Models\PlatformEvent.cs` already carries `Source` and `Channel`, so memory can and should be scoped to platform + channel, not just display name.
+
+**Recommendation:**
+- Yes: support chatter memory through a repo-owned `IChatterMemoryService` seam, with `Thiccdal.Data` as the persistence/query implementation.
+- Thin slice: derive a short bounded memory summary from existing `ChatMessages` + `PlatformUsers` first; do not introduce vendor-managed memory, vector search, or raw transcript replay.
+- `ChatBotAiResponder` should fetch that summary and append it as an extra system/context message before calling `IChatCompletionClient`; keep `IChatCompletionClient` unchanged.
+
+**Safety rules locked:**
+- Key memory by `{PlatformEventSource, Channel, PlatformUserId}`; never merge cross-platform identities by display name.
+- Store only compact reusable facts/preferences from public chat, with TTL/length caps and an operator clear/reset path.
+- Keep raw chat logs as the source of truth; a later summary table is optional only if prompt size/latency becomes a problem.
+
+### 2026-05-30: Phase 6 YouTube Final Reviewer Gate
+
+**Work completed:**
+- Ran the final strict reviewer pass for Phase 6 against the revised Twitch-aligned data strategy and the close-out target on issues `#35` and `#40`.
+- Verified current repo state with `dotnet build Thiccdal.slnx --no-restore`, `dotnet test src\Tests\Remote\Thiccdal.Remote.YouTube.Tests\Thiccdal.Remote.YouTube.Tests.csproj --no-restore`, and `dotnet test src\Tests\Thiccdal.Tests\Thiccdal.Tests.csproj --no-restore --filter YouTube`.
+- Recorded the closure verdict in `.squad/decisions/inbox/mal-phase6-final-review.md`.
+
+**Key findings:**
+- `src\Remote\Thiccdal.Remote.YouTube\Thiccdal.Remote.YouTube.csproj` stays Infrastructure-only and `src\Remote\Thiccdal.Remote.YouTube\YouTubeTokenManager.cs` persists tokens through `src\Thiccdal.Infrastructure\YouTube\IYouTubeTokenStore.cs`, keeping the adapter out of `Thiccdal.Data`.
+- `src\Remote\Thiccdal.Remote.YouTube\YouTubeLiveChatMessageMapper.cs` now preserves per-item raw JSON and `SourceEventType`, which matches `src\Thiccdal.Data\PlatformUserIdResolver.cs` and `src\Thiccdal.Data\PlatformEventRecordFactory.cs`.
+- `src\Remote\Thiccdal.Remote.YouTube\YouTubeService.cs` now leaves the no-broadcast path in `Error`, retries poll failures, and the YouTube test project is green, so the former `#35`/`#40` blocker is cleared.
+- `src\Tests\Remote\Thiccdal.Remote.YouTube.Tests\YouTubeTestData.cs` and `src\Tests\Remote\Thiccdal.Remote.YouTube.Tests\YouTubeLiveChatMessageMapperTests.cs` provide the expected Phase 6 mapping matrix, and `Thiccdal.slnx` includes the YouTube test project.
+
+**Reviewer conclusion:**
+- Under the revised reviewer basis, issues `#34`, `#35`, `#36`, `#37`, `#38`, `#39`, and `#40` are all honestly closable now.
+- Stale issue wording about mandatory Google SDK usage, Data-owned runtime types, or direct adapter persistence should not be used to hold Phase 6 open.
+
+### 2026-05-30: AI Reply Routing Decision (Issue #92)
+
+**Question asked:** Should AI mention replies broadcast to all connected platforms (matching incoming chat mirroring behavior), or stay scoped to the originating platform?
+
+**Current state confirmed:**
+- Incoming chat from all platforms is aggregated via `ChatAggregationService` and fanned out to subscribers (passive mirroring for operator visibility)
+- AI replies are sent via `ICommandResponseSink` → `ChatServiceCommandResponseSink` → `IChatService.SendMessage()`
+- `ChatAggregationService.SendMessage()` broadcasts to ALL connected `IPlatformConnection` instances (Twitch + YouTube + Discord + etc.)
+- `CommandContext` only has a display `Platform` string; no routable target or channel identifier
+
+**Recommendation:** AI responses must reply ONLY to the originating platform/channel. Do NOT broadcast.
+
+**Key rationale:**
+- Inbound chat mirroring is **passive monitoring** (operator sees unified chat); outbound replies are **active engagement** (different concern)
+- Broadcasting AI replies creates spam/confusion for users on platforms where they didn't interact with the bot
+- Platform ToS risk (cross-posting bots)
+- Attribution confusion (users expect replies where they asked)
+- Safety (problematic AI content is scoped, not amplified)
+
+**Implementation strategy:**
+1. Add `SourcePlatform` (PlatformEventSource) and `ChannelId` (string?) to `CommandContext`
+2. Add scoped-send overload to `IChatSource`: `SendMessage(string message, string? channelId, CancellationToken)`
+3. Update `ChatServiceCommandResponseSink` to resolve the originating platform and call ONLY that platform's `SendMessage()`
+4. Update `ChatEvent` to include `ChannelId` property; update platform adapters to populate it
+5. Update `CommandDispatcher.CreateContext()` to populate new fields from `ChatEvent`
+
+**Nuanced rule preserved:**
+- **Incoming chat:** Continue mirroring across all platforms (passive aggregation for operator visibility)
+- **Outgoing bot replies:** Route ONLY to originating platform/channel (active engagement, respect boundaries)
+
+**Decision file:** `.squad/decisions/inbox/mal-ai-routing-decision.md`
+
+**Status:** Architecture decision complete. Ready for implementation (Kaylee: interface/routing updates; River: platform adapter changes).
+
 ### 2026-05-29: Event Bus Architecture Decision
 
 **Question asked:** Should the project move to an event bus immediately, or stage that change?
@@ -187,3 +257,37 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 - When adding new modules or platforms, replicate the test-per-project structure.
 - Configuration follows IOptions<T> pattern consistently; no IConfiguration magic strings observed.
 - Glassmorphic CSS conventions are defined in architecture doc (§6) — future CSS work should reference this.
+
+### 2026-05-29: Phase 6 YouTube Reviewer Gate
+
+**Work completed:**
+- Converted the earlier YouTube audit into an issue-by-issue reviewer checklist for `#34-#40`.
+- Ran verification against current repo state: `dotnet build Thiccdal.slnx --no-restore` and targeted YouTube tests both passed.
+- Recorded the lead gate in `.squad/decisions/inbox/mal-phase6-plan.md`.
+
+**Key findings:**
+- `src\Remote\Thiccdal.Remote.YouTube\Thiccdal.Remote.YouTube.csproj` still references `Thiccdal.Data`, so issue `#34` is not closable against its original contract.
+- `src\Remote\Thiccdal.Remote.YouTube\YouTubeLiveChatMessageMapper.cs` serializes the entire poll payload into each event; this breaks `src\Thiccdal.Data\PlatformUserIdResolver.cs`, which expects item-level `authorDetails` at the raw payload root.
+- `Thiccdal.Remote.YouTube.Tests` exists and passes, but it is still not listed in `Thiccdal.slnx`, and no `YouTubeTestData` helper exists, so issue `#40` remains open.
+- `docs\architecture\overview.md` remains the architecture baseline for remote adapter boundaries and normalization expectations.
+
+**Reviewer conclusion:**
+- None of `#34-#40` are honestly closable yet.
+- The fastest follow-up wins are `#35` (explicit no-broadcast error state), `#39` (complete `YouTubeOptions` OAuth docs), and `#40` (solution wiring + helper + full mapping matrix).
+
+### 2026-05-27: Phase 6 Data Strategy Gate Revision
+
+**Work completed:**
+- Updated the Phase 6 reviewer gate to match ThindalTV's explicit direction: no hard `Thiccdal.Data` dependency in the YouTube adapter and review against the current remote/data seams, not stale issue wording.
+- Wrote the correction gate to `.squad/decisions/inbox/mal-phase6-data-gate.md`.
+- Re-ran current verification: `dotnet build Thiccdal.slnx --no-restore` succeeded; `dotnet test src\Tests\Remote\Thiccdal.Remote.YouTube.Tests\Thiccdal.Remote.YouTube.Tests.csproj --no-build` failed in `WhenPollingFails_ThenStateTransitionsToError`.
+
+**Key findings:**
+- `src\Remote\Thiccdal.Remote.YouTube\Thiccdal.Remote.YouTube.csproj` is already back to an Infrastructure-only dependency boundary.
+- The correct YouTube persistence seam is `IYouTubeTokenStore` in `src\Thiccdal.Infrastructure\YouTube\IYouTubeTokenStore.cs`, implemented by `src\Thiccdal.Data\YouTubeTokenStore.cs`; River should not bypass that seam.
+- The correct chat persistence path is `YouTubeService` → `IEventBus` → `ChatPersistenceService`, with item-level `RawData` preserved so `src\Thiccdal.Data\PlatformUserIdResolver.cs` can read `authorDetails.channelId`.
+- Current remaining blocker is behavioral, not structural: `src\Remote\Thiccdal.Remote.YouTube\YouTubeService.cs` can set `Connected` after the poll loop already set `Error`, which is why `src\Tests\Remote\Thiccdal.Remote.YouTube.Tests\YouTubeServiceTests.cs` is red.
+
+**Reviewer conclusion:**
+- Judge `#34`, `#36`, `#37`, `#38`, and `#39` against the revised gate, not the old issue wording about direct Data types, direct EF writes, or mandatory Google SDK usage.
+- Hold `#35` and therefore `#40` open until the polling-state race is fixed and the YouTube test project is green.

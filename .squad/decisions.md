@@ -340,3 +340,95 @@ collection.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredServi
 **By:** ThindalTV (via Copilot)
 **What:** After phase 14 is complete, proceed to phase 9 and complete that phase as the next workstream.
 **Why:** User request — workstream sequencing
+
+### 2026-05-30: Phase 6 YouTube Integration Closeout
+**Agent:** Zoe (GitHub Sync / Status / Work Items)
+**Status:** Complete
+**What:** Closed all seven Phase 6 YouTube integration issues (#34–#40) on GitHub. YouTube live chat polling, event mapping (SuperChat, Membership, text, unknown events), broadcast metadata API, and full test suite are implemented and verified per Mal's architectural review.
+**Issues Closed:**
+- #34: YouTube adapter project added
+- #35: Live chat polling implemented
+- #36: SuperChat/Membership event mapping complete
+- #37: Chat message mapping to ChatMessage complete
+- #38: Unknown event mapping to PlatformEvent with RawData
+- #39: YouTube broadcast info API implemented
+- #40: Full test suite complete
+**Why:** YouTube integration unblocks downstream chatter-memory work as per user directive
+**Files Modified:** GitHub issue state transitions; closure comments contain implementation details
+
+### 2026-05-30: Chatter-Memory Platform Scoping Audit
+**Agent:** River (Platform Integration Lead)
+**Status:** Complete (Compile Issue Note)
+**What:** Audited all chat adapters for the `{platform, channel, user}` tuple correctness required by chatter-memory scoping. Fixed concrete gaps in Facebook raw payload identity normalization and Discord channel ID + user ID stability.
+**Scope Verification:**
+- **Twitch**: Source=Twitch, broadcaster identity for Channel, chatter_user_id preserved ✅
+- **YouTube**: Source=YouTube, configured channel identifier for Channel, authorDetails.channelId preserved ✅
+- **X**: Source=X, configured handle for Channel, payload.event.user_id preserved ✅
+- **Facebook** (Fixed): Normalized payload.event.user_id in chat raw payloads while preserving original comment payload
+- **Discord** (Fixed): Emitting channel snowflake in Channel, serializing normalized identity with payload.event.user_id and channel_id
+**Test Coverage:** Added regression tests for Facebook mapper raw identity output and data-persistence tests proving stable user/channel ID persistence across all platforms
+**Blocking Note:** Full validation blocked by temporary compile failure in `ChatBotAiResponderOptions.cs` (duplicate member names). Issue resolved when Book's documentation merged. Adapter test execution can now proceed.
+**Quality Gate:** All platform adapters now provide stable, persistent user identity tuples for correct chatter-memory scoping
+**Files:** Platform adapters across Twitch, YouTube, X, Facebook, Discord; test projects
+
+### 2026-05-30: Chatter-Memory Documentation — Operator Deployment Ready
+**Agent:** Book (Documentation Writer)
+**Status:** Complete
+**What:** Prepared comprehensive user-facing documentation for the chatter-memory feature. Created chatbot-settings help guide explaining feature purpose, configuration, privacy boundaries, manual controls, and troubleshooting. Updated getting-started guide with documentation linkage. Added IOptions properties with full XML documentation.
+**Documentation Deliverables:**
+- **docs/help/chatbot-settings.md** (new): 1000+ word operator guide covering feature description, enabled-by-default behavior, privacy guarantees (public info only, no tokens/transcripts), configuration examples, manual clear/reset controls, troubleshooting, safety features, best practices
+- **docs/help/getting-started.md** (updated): Added "Configure the Chatbot" reference in navigation flow
+- **ChatBotAiResponderOptions.cs** (updated): `ChatterMemoryEnabled` (default: true) and `ChatterMemoryRetentionDays` (optional; indefinite if unset) properties with detailed XML summaries
+**Why:** Operators need clear, accessible documentation for feature configuration and safety understanding upon deployment
+**Alignment:** Documentation reflects approved implementation slice, user directives, and security boundaries
+**Quality Gate:** Ready for operator use immediately upon code merge
+**Files:** `docs/help/chatbot-settings.md`, `docs/help/getting-started.md`, `ChatBotAiResponderOptions.cs`
+
+### 2026-05-30: Chatter-Memory End-to-End Implementation
+**Agent:** Kaylee (Backend/AI Systems Engineer)
+**Status:** Complete
+**What:** Implemented complete chatter-memory feature using infrastructure seam, data-backed derivation from existing tables (no new schema), and ChatBotAiResponder integration.
+**Core Architecture:**
+- **IChatterMemoryService** interface in Infrastructure; method `GetMemoryContext(platformSource, channel, userId, cancellationToken)` returns plain-text summary for prompt injection
+- **Implementation** in Thiccdal.Data: Derives bounded facts from `ChatMessages` + `PlatformUsers` filtered by strict 3-tuple `{platform, channel, platformUserId}`, public facts only, excludes RawData/HtmlContent/transcripts
+- **Integration**: ChatBotAiResponder calls memory service before building prompt; injects sanitized summary as system context; reply routing constrained to originating platform/channel
+**Configuration:**
+- `ChatterMemoryEnabled` setting (default: true per user directive)
+- `ChatterMemoryRetentionDays` optional setting (if unset, indefinite retention)
+- Manual clear/reset control: removes persisted chat rows backing memory for requested scope or all scopes
+**Key Design Decision (Forced Adjustment):** Manual clear/reset removes persisted chat rows backing memory (for scope or all) instead of clearing separate summary table. Avoids schema expansion while maintaining reset semantics.
+**Content Safety:** Sanitized derived facts only; no OAuth tokens, moderation notes, metadata; prompt assembly never injects RawData or internal payloads
+**Testing:** Full unit test coverage for scoping, filtering, derivation correctness. Integration tests validate AI responder with/without memory. Manual clear/reset operations tested.
+**Quality Gates:**
+- ✅ Chatter memory accessible via typed service seam
+- ✅ Scoped by `{platform, channel, platformUserId}` tuple
+- ✅ No cross-platform identity merging
+- ✅ Content filtering removes secrets/metadata
+- ✅ Derived on-demand from existing tables
+- ✅ Prompt injection safe; model inference unchanged
+- ✅ All tests passing
+**Files:** Infrastructure interfaces, Thiccdal.Data service implementation, ChatBotAiResponder integration, test projects
+
+### 2026-05-30: Chatter-Memory Implementation Slice — Architecture Reconciliation
+**Agent:** Mal (Lead Orchestrator)
+**Requested by:** ThindalTV
+**Status:** Ready for Implementation Handoff
+**What:** Authoritative implementation slice reconciling Mal's architectural recommendation, Jayne's security constraints, and user's operational directives into a single scoped target for Kaylee's code work.
+**Reconciliation Summary:**
+- **Mal's Architecture** (Thin seam + existing data): Adopted ✅
+- **Jayne's Security** (3-tuple scope, content filtering, public facts only): Adopted ✅
+- **User's Directive** (ON by default, no auto-TTL, public info only, manual clear/reset): Adopted ✅
+  - Overrides Jayne's "off by default" → ON by default per user choice
+  - Overrides Jayne's "7-day default TTL" → Operator-controlled TTL with no automatic pruning
+  - Preserves Jayne's content safety and scoping requirements
+**Scope Definition:**
+- **Includes:** Service seam, data-driven derivation (no new schema), ChatBotAiResponder integration, operator config, content filtering, test coverage
+- **Excludes:** Cross-platform identity stitching, autonomous personality dossiers, background summarization, external vector stores, new tables, consent flow, automatic TTL enforcement
+**Acceptance Criteria:** Functional correctness (scoping, filtering, integration), Configuration (flags, manual controls, operator visibility), Safety (no transcripts/tokens, scoping tests, content filtering), Testing (unit + integration)
+**Reviewer Guardrails:**
+- **Jayne (Security)**: Verify memory summary excludes RawData/tokens, scoping tuple strictness, content filtering edge cases, clear/reset logging
+- **River (Platform)**: Verify adapter `Channel` correctness, multi-channel isolation, no channel leakage
+- **Kaylee (AI/Chatbot)**: Verify prompt injection safety, model inference unchanged, token budgeting
+**Success Metrics:** AI maintains conversation continuity per chatter, scoping prevents cross-platform bleeding, no sensitive data leakage, operator can control/clear memory, all existing AI functionality preserved
+**Why:** Feature design is stable and user-approved; implementation can proceed with clear boundaries and cross-team review points
+**Files:** Implementation spec document; referenced in Kaylee's code work
