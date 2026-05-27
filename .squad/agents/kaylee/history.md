@@ -125,3 +125,33 @@ Use this pattern for every new platform so the same instance is reachable both w
 **Key pattern confirmed:** Control module uses page navigation (`/twitch/connect`) for full auth/connection management, not modal dialogs. The `IntegrationConnector` chip is always clickable when `OnConnectClicked` has a delegate; state determines what the target page shows.
 
 **Testing:** 27 tests passing (25 Twitch, 1 Data, 1 host). Clean build confirmed no compilation errors.
+
+- 2026-05-29: For Helix/EventSub groundwork, keep Twitch config typed and transport-aware: `TwitchOptions` now owns `BotUserId`, `OAuthBaseAddress`, `Helix`, and `EventSub` sub-options so host code and adapters share one validated shape.
+- 2026-05-29: Split Twitch remote HTTP boundaries with named clients (`Twitch.OAuth`, `Twitch.Helix`) in `src\Remote\Thiccdal.Remote.Twitch\TwitchRegistrationExtensions.cs`; bind/validate them there, then keep `Program.cs` at composition-only level.
+- 2026-05-29: `TwitchChatConnectionProfile` must carry both `BotUserId` and `BroadcasterId`; EventSub subscriptions need the authenticated bot identity and target broadcaster identity separately even after the UI-selected target channel override.
+- 2026-05-29: Helix contract coverage currently lives in `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TwitchRegistrationExtensionsTests.cs`, `TwitchTargetChannelServiceTests.cs`, and `TwitchServiceTests.cs`; validated with `dotnet test src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\Thiccdal.Remote.Twitch.Tests.csproj` plus `dotnet build src\Thiccdal\Thiccdal.csproj`.
+
+### 2026-05-29: Helix Contract Groundwork — Typed Options and Identity Separation
+
+**Requested by:** Squad coordination (River needs stable seam before implementing ITwitchHelixClient)
+
+**What landed:**
+- `TwitchOptions` expanded to carry `BotUserId`, `OAuthBaseAddress`, and dedicated `Helix` + `EventSub` sub-options
+- `TwitchChatConnectionProfile` now includes both `BotUserId` and `BroadcasterId` (required for separate EventSub identities)
+- `AddTwitchIntegration()` moved to own all OAuth, Helix, and EventSub validation + named HttpClient setup (`Twitch.OAuth` vs `Twitch.Helix`)
+
+**Why this matters:**
+- EventSub subscription APIs need authenticated bot user ID and broadcaster ID independently to set up stream topic subscriptions correctly
+- Host and UI code read one stable, typed config shape instead of inheriting adapter-internal constants or hard-coded strings
+- River's ITwitchHelixClient work can proceed without re-laying DI boundaries or moving auth setup again
+
+**Key Files:**
+- `src\Thiccdal.Infrastructure\Twitch\TwitchOptions.cs` (updated)
+- `src\Thiccdal.Infrastructure\Twitch\TwitchHelixOptions.cs` (new)
+- `src\Thiccdal.Infrastructure\Twitch\TwitchEventSubOptions.cs` (new)
+- `src\Thiccdal.Infrastructure\Twitch\TwitchChatConnectionProfile.cs` (updated)
+- `src\Remote\Thiccdal.Remote.Twitch\TwitchRegistrationExtensions.cs` (updated)
+
+**Tests:** ✅ Host build, ✅ Twitch adapter tests
+
+**Next:** River can now implement ITwitchHelixClient without worrying about option shape or DI changes.

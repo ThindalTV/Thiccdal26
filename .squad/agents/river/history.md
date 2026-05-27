@@ -23,6 +23,20 @@ River handles platform adapters, integration seams, and external API contracts.
 - The prompter path is currently `Modules.ChatBot` -> `IChatService` -> `Modules.Teleprompter\Pages\Prompter.razor`, and `ChatLine.razor` renders plain text only, so emotes/events need normalized fragments before they can reach the streamer-facing view cleanly.
 - GitHub Phase 5 Twitch issues (#24-#31) are still useful for routing, but their implementation assumptions are IRC/TwitchLib-centric and should be re-scoped toward Helix + EventSub, with chat work labeled through `area/chatbot` and downstream presentation work routed separately through teleprompter/overlay labels.
 - The smallest clean Twitch live indicator seam is a boolean `ITwitchService.IsStreamLive` plus a `StreamLiveStateChanged` event and `RefreshStreamState()`, backed by Helix `/streams` with `BroadcasterId` rather than a larger stream-info model.
+- `ITwitchTokenManager.GetToken()` now returns `null` when no Twitch token has ever been stored, and startup paths in `src\Remote\Thiccdal.Remote.Twitch\TwitchService.cs` must treat that as the explicit first-run `NotAuthorized` state instead of throwing.
+- The first-run no-token regression is covered in `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TwitchTokenManagerTests.cs` and `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TwitchServiceTests.cs`; real token refresh and network failures still remain exception paths.
+- Twitch startup wiring now lives in `src\Remote\Thiccdal.Remote.Twitch\TwitchRegistrationExtensions.cs`; `Program.cs` should call `AddTwitchIntegration(builder.Configuration)` and `MapTwitchEndpoints()` rather than owning Twitch callback or DI details.
+- Platform-specific DI ownership belongs in the adapter project, not feature modules; `src\Modules\Thiccdal.Modules.ChatBot\ChatBotRegistrationExtension.cs` now stays platform-agnostic and the module no longer references `Thiccdal.Remote.Twitch`.
+- `TwitchConnectionMonitor` is registered from the Twitch adapter beside `ITwitchService` and `ITwitchTokenManager`, so OAuth callbacks can refresh both the service state machine and the generic integration monitor from one boundary.
+- Extraction coverage lives in `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TwitchRegistrationExtensionsTests.cs`, alongside the existing Twitch token/service tests.
+- Runtime-editable Twitch channel targeting should persist in SQLite, not by rewriting `appsettings.json`; the UI-safe seam is now `src\Thiccdal\Services\TwitchSettingsService.cs` delegating to `src\Remote\Thiccdal.Remote.Twitch\TwitchTargetChannelService.cs`.
+- Keep Twitch bot identity and target broadcaster identity explicit: `TwitchOptions.BotUsername` identifies the authenticated bot account, while `DefaultTargetChannel`/`DefaultBroadcasterId` seed the target channel owner until a UI override is saved.
+- `TwitchService` should always resolve a `TwitchChatConnectionProfile` before connecting or calling Helix so IRC login uses the bot username while stream-state lookups use the target broadcaster ID; live target switches flow through `ITwitchTargetChannelService.ConnectionProfileChanged`.
+- Verification for configurable target-channel work: `dotnet build src\Thiccdal\Thiccdal.csproj`, `dotnet test src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\Thiccdal.Remote.Twitch.Tests.csproj`, and `dotnet test src\Tests\Thiccdal.Data.Tests\Thiccdal.Data.Tests.csproj`.
+- Phase 17 Helix foundation now has a dedicated seam: `src\Thiccdal.Infrastructure\Twitch\ITwitchHelixClient.cs` with `src\Remote\Thiccdal.Remote.Twitch\TwitchHelixClient.cs` owning Helix REST calls instead of embedding raw HTTP in `TwitchService`.
+- `TwitchService` still keeps IRC receive/connect behavior for now, but `RefreshStreamState()` and `SendMessage()` should prefer the typed Helix client; outbound chat falls back to IRC only when Helix cannot be used yet.
+- Twitch config now carries Helix/EventSub foundation knobs in `src\Thiccdal.Infrastructure\Twitch\TwitchOptions.cs`, `TwitchHelixOptions.cs`, and `TwitchEventSubOptions.cs`; moderator-required EventSub and animated emotes are the defaults, and OAuth scopes are configured from options rather than a hard-coded string.
+- Coverage for the Helix foundation slice lives in `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TwitchHelixClientTests.cs`, `TwitchServiceTests.cs`, and `TwitchRegistrationExtensionsTests.cs`.
 
 ### 2026-05-28: Helix EventSub Architecture Locked — River Lead on Phase 17
 
@@ -107,3 +121,34 @@ River handles platform adapters, integration seams, and external API contracts.
 - Admin pattern: `PlatformStatusButton` + `{Platform}AuthDialog` + card on `Integrations.razor`
 
 **Status:** ✅ 22 tests passing. Twitch auth/status surface production-ready. Phase 17 scopes in place. Ready for EventSub foundation work.
+
+### 2026-05-29: Helix Foundation Slice — ITwitchHelixClient Seam
+
+**Requested by:** Squad coordination (deliver first Helix integration slice after Kaylee's contract work)
+
+**What landed:**
+- `ITwitchHelixClient` interface in Infrastructure with REST methods for Helix API calls
+- `TwitchHelixClient` implementation (`src\Remote\Thiccdal.Remote.Twitch\`) owns all Helix HTTP calls
+- `TwitchService.RefreshStreamState()` now routes through typed Helix client instead of bare HTTP
+- `TwitchService.SendMessage()` prefers Helix chat send when bot user ID + broadcaster ID available
+- IRC retained only for current inbound chat/connect behavior and temporary outbound fallback
+
+**Why:**
+- Gives the adapter a real Helix boundary without forcing EventSub or persistence work into same change
+- Reduces future churn when EventSub replaces IRC inbound flow — `TwitchService` already talks to a typed seam instead of owning raw Helix request construction
+- Transport layers can evolve independently; `TwitchService` contract stays stable
+
+**Key Files:**
+- `src\Thiccdal.Infrastructure\Twitch\ITwitchHelixClient.cs` (new)
+- `src\Remote\Thiccdal.Remote.Twitch\TwitchHelixClient.cs` (new)
+- `src\Remote\Thiccdal.Remote.Twitch\TwitchService.cs` (refactored to use client)
+- `src\Remote\Thiccdal.Remote.Twitch\TwitchTokenManager.cs` (updated)
+
+**Tests:** ✅ Twitch adapter tests, ✅ Host build
+
+**Learnings:**
+- Seam-based design prevents transport rewrites from rippling upstream
+- Typed clients are preferable to extension methods on generic HttpClient
+- RefreshStreamState and SendMessage now have clear Helix-backed paths; IRC is explicit fallback
+
+**Next:** EventSub WebSocket manager can now plug in beside ITwitchHelixClient without disturbing these paths.

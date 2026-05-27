@@ -277,3 +277,44 @@ collection.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredServi
 - **Target:** `src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/Thiccdal.Remote.Twitch.Tests.csproj`
 **Why:** On-disk folder structure must mirror solution structure. Placeholder subfolder causes solution entry, assembly name, and test host display name to drift. Moving to folder root stabilizes identity and simplifies project references.
 **Next:** Remove TestProject1 subfolder, move project file to parent root, update solution references
+
+### 2026-05-29: Helix Contract Groundwork — Typed Options and Identity Separation
+**Agent:** Kaylee (Backend Dev)
+**Status:** Implemented
+**What:** Locked Twitch Helix/EventSub boundary around typed options and split identities before River reimplements the adapter transport layer.
+**Key Changes:**
+- `TwitchOptions` now carries `BotUserId`, `OAuthBaseAddress`, and separate `Helix` and `EventSub` sub-options
+- `TwitchChatConnectionProfile` now includes both `BotUserId` and `BroadcasterId`
+- `AddTwitchIntegration()` owns validation for OAuth, Helix, and EventSub endpoints with separate named `HttpClient` registrations (OAuth vs Helix traffic)
+**Why:**
+- EventSub subscription APIs need authenticated bot user ID and broadcaster ID independently
+- Host/UI code reads one stable, typed config shape instead of inheriting adapter-only constants
+- River can rework transport internals without moving `Program.cs` or re-laying DI boundaries again
+**Tests:** Host build ✅, Twitch adapter tests ✅
+**Files:**
+- `src/Thiccdal.Infrastructure/Twitch/TwitchOptions.cs` (updated)
+- `src/Thiccdal.Infrastructure/Twitch/TwitchHelixOptions.cs` (new)
+- `src/Thiccdal.Infrastructure/Twitch/TwitchEventSubOptions.cs` (new)
+- `src/Thiccdal.Infrastructure/Twitch/TwitchChatConnectionProfile.cs` (updated)
+- `src/Remote/Thiccdal.Remote.Twitch/TwitchRegistrationExtensions.cs` (updated)
+
+### 2026-05-29: Helix Foundation Slice — ITwitchHelixClient Seam
+**Agent:** River (Integrations)
+**Status:** Implemented
+**What:** Opened the Helix foundation layer inside the Twitch adapter boundary. Introduced dedicated `ITwitchHelixClient` typed seam and moved stream-state + outbound chat paths behind it.
+**Key Changes:**
+- `ITwitchHelixClient` interface in Infrastructure with REST methods for Helix
+- `TwitchHelixClient` implementation owning Helix HTTP calls
+- `TwitchService.RefreshStreamState()` now uses typed Helix client
+- `TwitchService.SendMessage()` prefers Helix chat send when bot user ID + broadcaster ID available
+- IRC retained for current inbound chat/connect behavior and temporary outbound fallback
+**Why:**
+- Gives adapter real Helix boundary without forcing EventSub or persistence work into same change
+- Reduces future churn: EventSub can replace IRC receive later without disturbing typed REST seam
+- `TwitchService` already talks to a seam instead of owning raw Helix request construction
+**Tests:** Twitch adapter tests ✅, Host build ✅
+**Files:**
+- `src/Thiccdal.Infrastructure/Twitch/ITwitchHelixClient.cs` (new)
+- `src/Remote/Thiccdal.Remote.Twitch/TwitchHelixClient.cs` (new)
+- `src/Remote/Thiccdal.Remote.Twitch/TwitchService.cs` (refactored)
+- `src/Remote/Thiccdal.Remote.Twitch/TwitchTokenManager.cs` (updated)

@@ -89,3 +89,10 @@ Inara owns the Blazor operator experience, UX polish, and UI ergonomics.
 **Pattern reuse:** The `IntegrationConnector` component now cleanly expresses both actionable connection management (Twitch active/clicked) and non-actionable planned availability (YouTube, Discord, Facebook, X, LinkedIn, TikTok disabled/muted). No platform-specific logic moved into the shared component.
 
 **Status:** ✅ Production-ready; ready for Phase 17 EventSub foundation.
+
+## Learnings
+
+- The Twitch operator flow should stay on `src\Thiccdal\Components\Pages\TwitchConnect.razor` so channel targeting, authorization, and connection live in one safe operator surface instead of split settings islands.
+- `TwitchChatConnectionProfile` is the seam between UI and backend Twitch chat behavior: `BotUsername` is the authenticated bot login, while `TargetChannel` is the broadcaster room the bot joins.
+- `ITwitchTargetChannelService` already persists channel overrides and raises `ConnectionProfileChanged`; UI should save through that service instead of writing configuration directly.
+- Operators may paste `#channel` or `@channel`; `TwitchTargetChannelService` now normalizes both prefixes before persisting the target channel.
