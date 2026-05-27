@@ -152,3 +152,8 @@ River handles platform adapters, integration seams, and external API contracts.
 - RefreshStreamState and SendMessage now have clear Helix-backed paths; IRC is explicit fallback
 
 **Next:** EventSub WebSocket manager can now plug in beside ITwitchHelixClient without disturbing these paths.
+- EventSub inbound is now owned by `src\Remote\Thiccdal.Remote.Twitch\TwitchEventSubClient.cs`, with payload mapping isolated in `TwitchEventSubNotificationMapper.cs` and subscription CRUD living in `TwitchHelixClient.cs`.
+- Rich Twitch chat should stay platform-agnostic at the consumer boundary: `ChatEvent` now carries `ChatMessagePart`, `ChatBadge`, color, and HTML fallback, while typed follow/subscribe/cheer/raid/redeem records derive from `PlatformEvent`.
+- The fastest safe bridge to overlay/prompter is the shared activity feed seam (`IActivityFeedService` + `PlatformActivityFormatter`), which lets Twitch events surface downstream before a formal `IEventBus` exists.
+- Raw Twitch payloads are now persisted through `src\Thiccdal.Data\Models\PlatformEventRecord.cs` and dispatched from `TwitchService` only after persistence, giving downstream consumers diagnostics without depending on Helix/EventSub JSON directly.
+- Validation for the Helix/EventSub slice currently means: `dotnet build src\Thiccdal\Thiccdal.csproj`, `dotnet test src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\Thiccdal.Remote.Twitch.Tests.csproj`, and `dotnet test src\Tests\Thiccdal.Data.Tests\Thiccdal.Data.Tests.csproj`.

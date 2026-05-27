@@ -318,3 +318,25 @@ collection.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredServi
 - `src/Remote/Thiccdal.Remote.Twitch/TwitchHelixClient.cs` (new)
 - `src/Remote/Thiccdal.Remote.Twitch/TwitchService.cs` (refactored)
 - `src/Remote/Thiccdal.Remote.Twitch/TwitchTokenManager.cs` (updated)
+
+### 2026-05-29: Phase 11 Remediation — Overlay Architecture Closure
+**Agent:** Mal (Lead / Remediation Owner)
+**Status:** Complete
+**What:** Completed remediation pass for remaining phase 11 overlay gaps, converging on architecture documented in `docs\architecture\overview.md`. Introduced `IOperatorStateService` as shared multi-session seam for overlay test flashes, question-driven UI reactions, and in-memory Stream Info reminder state. Reworked `/overlay` to render registered overlay components dynamically from `IOverlayService`. Replaced drifted overlay component contracts with `ChatFeedOverlayComponent`, `LowerThirdOverlayComponent`, and corrected `EventTickerOverlayComponent`. Moved prompter flashes to split behavior: cyan for new questions, gold for significant events only. Wired `StreamInfoDialog` into operator top bar; hid LinkedIn/TikTok reminders when disabled.
+**Trade-off:** Did NOT relocate overlay project from `src\Modules\Thiccdal.Modules.Overlay` to `src\Thiccdal.Overlay`. Repository structure standardizes on `Modules` location; remaining gap treated as #107 naming/wording drift rather than architectural blocker.
+**Why:**
+- Functional blockers were behavior and wiring mismatches, not architecture
+- `IOperatorStateService` seam enables Phase 11+ multi-operator state without regressing question overlay service
+- Narrow isolation: remaining mismatch isolated to #107 naming/path contract, not active behavior drift
+**Build Status:** ✅ Clean build, 185 tests passing
+**Files:** `src\Modules\Thiccdal.Modules.Control\`, `src\Modules\Thiccdal.Modules.Overlay\`, `src\Thiccdal.Overlay\`, `src\Thiccdal.Infrastructure\`, `src\Tests\`, `docs\architecture\`
+
+### 2026-05-27T19:17:28+02:00: User Directive — Phase 12 and 14 Completion Order
+**By:** ThindalTV (via Copilot)
+**What:** After phase 11 review fully passes, proceed directly to complete phase 12 entirely, then complete phase 14 entirely.
+**Why:** User request — workstream sequencing
+
+### 2026-05-27T19:27:28+02:00: User Directive — Phase 9 Completion After Phase 14
+**By:** ThindalTV (via Copilot)
+**What:** After phase 14 is complete, proceed to phase 9 and complete that phase as the next workstream.
+**Why:** User request — workstream sequencing

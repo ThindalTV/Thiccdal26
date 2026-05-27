@@ -12,6 +12,9 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 
 ## Recent Updates
 
+📌 **Phase 11 Remediation Complete** — 2026-05-27  
+   Overlay architecture converged on established module boundaries. `IOperatorStateService` seam introduced; dynamic component registration via `IOverlayService`. #107 naming caveat documented; remaining gap isolated to wording drift. Build ✅ clean; 185 tests ✅ passing.
+
 📌 Firefly squad configured on 2026-05-27
 📌 Orchestration and decision logs created on 2026-05-26
 

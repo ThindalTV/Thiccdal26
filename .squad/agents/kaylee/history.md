@@ -155,3 +155,9 @@ Use this pattern for every new platform so the same instance is reachable both w
 **Tests:** ✅ Host build, ✅ Twitch adapter tests
 
 **Next:** River can now implement ITwitchHelixClient without worrying about option shape or DI changes.
+- 2026-05-29: For Blazor route surfaces, keep the Router and `MapRazorComponents<App>()` in sync via a shared route-assembly catalog (`src\Thiccdal\RouteAssemblyCatalog.cs`); otherwise module pages can hydrate differently from direct requests.
+- 2026-05-29: Routable Razor pages should own their own `CancellationTokenSource` field instead of injecting one from DI. `src\Thiccdal\Components\Pages\TwitchConnect.razor` now uses a private `_cts`, which prevents route activation failures when navigating from the dashboard chip.
+- 2026-05-29: Host route smoke coverage now lives in `src\Tests\Thiccdal.Tests\RouteRenderingTests.cs` with `ThiccdalApplicationFactory`; use WebApplicationFactory + repo-local SQLite config overrides to prove `/dashboard` and `/twitch/connect` both render.
+- 2026-05-29: Use a singleton `IActivityFeedService` plus `PlatformActivityFormatter` to centralize chat/event rendering for `/prompter` and `/overlay`; this avoids each page reformatting Twitch follows, raids, cheers, badges, and emotes independently.
+- 2026-05-29: When a Blazor surface needs background event history, register the same singleton as both its app-facing interface and `IHostedService` so subscriptions are active before the bot connection starts (`src\Modules\Thiccdal.Modules.ChatBot\Services\ActivityFeedService.cs`).
+- 2026-05-29: Rich Twitch rendering now relies on normalized `ChatMessagePart` + `ChatBadge` data from `src\Remote\Thiccdal.Remote.Twitch\TwitchEventSubNotificationMapper.cs`; downstream UI should prefer those contracts over reparsing raw payload text.
