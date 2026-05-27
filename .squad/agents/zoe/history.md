@@ -36,3 +36,22 @@ Zoe handles GitHub coordination, work-item clarity, and delivery status.
 - **Operator UI redesign (2026-05-30, phase 10.1):** TopBar.razor has evolved from the original spec. The unified top bar now features: platform indicators (left), restream destinations with per-platform bitrate/fps stats and go/stop buttons (center), and timer/stream info/end actions (right). Dashboard.razor implements 3-column layout with Prompter+BotCommands (left), QuestionQueue (center), LowerThird+OverlayGallery (right). Mode-switching UI (Pre-Live checklist vs. Live operations) is structurally ready but conditional rendering logic is still in progress. Updated issue #93 to reflect actual implementation state.
 - **Issue alignment pattern (2026-05-30):** When issue descriptions become misaligned with implementation (e.g., referencing old design instead of current code), reframe future refinement sections to explicitly cite the current structure as the *basis*, not as a placeholder. This keeps scope realistic for dependent issues and clarifies that refinement is enhancement, not replacement. Documented in `.squad/decisions/inbox/zoe-phase10-live-mode-basis.md`.
 - **Scope clarity pattern (2026-05-30):** When future refinement sections duplicate or dilute focus from the core acceptance criteria, consider removing them in favor of keeping only the active-phase enhancements (e.g., Pre-Live in issue #93). This keeps GitHub issues focused and prevents scope sprawl. Removed "Live Mode Regions (future refinement)" from issue #93 per ThindalTV directive; documented in `.squad/decisions/inbox/zoe-remove-live-mode-refinement.md`.
+
+### 2026-05-28: Issue #92 GitHub Text Update & Closure Prep
+
+**What was done:**
+- Updated GitHub issue #92 to reflect actual shipped implementation of mention-gated AI replies
+- Removed outdated references: non-existent `AiFreeFormHandler` class, old flat `ChatbotOptions` config shape, wildcard `"*"` command trigger
+- Added current implementation details: nested `ChatBotOptions.AiResponder`, service registration as `IChatBotAiResponder`, mention-gating regex in `CommandDispatcher`, origin-only chatter memory integration, safety controls (5-second timeout, output normalization)
+- Updated all acceptance criteria checkboxes to `[x]` (complete)
+- Left issue open pending re-review from Jayne
+
+**Why:** Issue descriptions drift from implementation over time. Keeping GitHub text in sync prevents downstream teams from chasing phantom features and clarifies what's actually shipped for future refinement work.
+
+**Blocker released for next phase:** Jayne's security re-review approved issue #92 for closure; no blocking issues remain.
+
+**Key files:**
+- `src/Thiccdal.Infrastructure/Bot/ChatBotAiResponderOptions.cs` (config)
+- `src/Modules/Thiccdal.Modules.ChatBot/Services/ChatBotAiResponder.cs` (service)
+- `src/Modules/Thiccdal.Modules.ChatBot/Services/CommandDispatcher.cs` (dispatch routing)
+- `src/Modules/Thiccdal.Modules.ChatBot/Services/ChatServiceCommandResponseSink.cs` (origin-only routing)

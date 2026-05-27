@@ -439,6 +439,68 @@ collection.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredServi
 - `Thiccdal.Tests` (ChatBot, routing, components): 29/29 ✅
 **Approval Rationale:** Both blocking issues are resolved; operator-facing reset is real, wired, and UI-discoverable; reset is non-destructive by design; all six guardrails remain intact and enforced; test coverage complete; no regressions identified.
 **Notes:** Non-blocking future watch item — channel-aware outbound adapter overrides still worth enforcing before any true multi-channel-per-platform send feature ships.
+
+### 2026-05-28: Issue #92 GitHub Text Update — Implementation Alignment
+**Agent:** Zoe (GitHub Sync / Status / Work Items)
+**Status:** Complete
+**What:** Updated GitHub issue #92 to reflect the actual shipped implementation of mention-gated AI replies and bounded chatter memory. Removed outdated references to non-existent classes (`AiFreeFormHandler`), old configuration shapes, and wildcard command triggers. Added current implementation details with service names, config structure, and routing patterns.
+**Changes Made:**
+- Removed: `AiFreeFormHandler` class reference (never implemented)
+- Removed: Old `ChatbotOptions` flat config shape (EnableAiResponder, AiProvider, AiEndpoint, AiApiKey, AiModel)
+- Removed: Wildcard `"*"` command trigger references
+- Added: Nested `ChatBotOptions.AiResponder` with `ChatBotAiResponderOptions` shape
+- Added: Configuration properties (Enabled, ChatterMemoryEnabled, ChatterMemoryRetentionDays, Model, MaxOutputTokenCount, Temperature, SystemPrompt)
+- Added: Service registration as `IChatBotAiResponder` interface
+- Added: Mention-gating via case-insensitive regex matching on bot name
+- Added: Dispatch flow via `SendAiFallback()` in `CommandDispatcher`
+- Added: Bounded origin-only chatter memory integration
+- Updated: All acceptance criteria checkboxes to `[x]` (complete)
+**Why:** Issue text must remain in sync with actual shipped code to avoid misleading future work (Phase 17+) and maintain accurate GitHub context for the team.
+**Left Open:** Per request; no changes to open/closed state; pending re-review from Jayne.
+**Files:** Issue #92 body updated on GitHub; detailed reference in `.squad/orchestration-log/2026-05-28T01-17-55-zoe.md`
+
+### 2026-05-28: Issue #92 Final Security Re-Review & Closure Approval
+**Agent:** Jayne (Security / Pen Testing)
+**Status:** ✅ APPROVED FOR CLOSURE
+**What:** Performed final re-review of issue #92 after Zoe's implementation alignment update. Verified that all material blockers are resolved and issue text now accurately describes shipped code.
+**Blockers Verified Resolved:**
+1. **AI Reply Routing:** Previously blocking issue (cross-platform mirroring via `IChatService`) is resolved. AI replies now route **only to originating platform/channel** using `CommandContext.SourcePlatform` + `ChannelId` + `ChatServiceCommandResponseSink` pattern. No cross-platform mirroring of bot-generated content.
+2. **Issue Body Accuracy:** Current issue text matches shipped implementation on all material points: nested config structure, mention-gating, origin-only chatter memory, 5-second timeout, normalized output.
+**Test Validation:**
+- `Thiccdal.Tests`: 115 tests ✅
+- `Thiccdal.Data.Tests`: 37 tests ✅
+- ChatBot module build: ✅ clean, zero warnings
+**Security Guardrails Re-Verified:**
+1. ✅ Strict {platform, channel, user} scoping in memory derivation
+2. ✅ Public-info-only memory (no RawData, HtmlContent, transcripts)
+3. ✅ No cross-platform identity merging
+4. ✅ AI replies constrained to originating platform/channel
+5. ✅ Reset semantics non-destructive (operator-facing controls intact)
+6. ✅ All six guardrails remain intact and enforced
+**Approval Rationale:** Blocking issue is resolved; issue body accurately describes shipped implementation; all acceptance criteria can be marked complete; no remaining security blockers identified; test coverage complete; zero regressions.
+**Note:** Issue body simplifies one dispatch detail (unknown/disabled `!` commands also fall through to AI fallback) but responder remains mention-gated, so shipped behavior stays within described feature scope. Future watch item: channel-aware outbound adapter overrides before any true multi-channel-per-platform send feature ships.
+**Next:** Zoe to close issue #92 on GitHub
+**Files:** Full re-review in `.squad/orchestration-log/2026-05-28T01-17-55-jayne.md`
+
+### 2026-05-28: Issue #92 Closure — Mention-Gated AI Responder Shipped
+**Agent:** Zoe (GitHub Sync / Status / Work Items)
+**Status:** ✅ CLOSED
+**What:** Closed GitHub issue #92 (mention-gated AI responder) after Jayne's final security re-review approved closure. Issue body updated to reflect actual shipped implementation. All acceptance criteria complete and verified.
+**Closure Basis:**
+1. **Implementation Complete:** Mention-gated AI replies with bounded chatter memory fully shipped and tested
+2. **Blocker Resolved:** Cross-platform routing concern addressed via origin-only dispatch pattern (AI replies route only to originating platform/channel via `ChatServiceCommandResponseSink`)
+3. **Verification Complete:** 115 tests in `Thiccdal.Tests`, 37 tests in `Thiccdal.Data.Tests`, ChatBot module builds clean, zero warnings
+4. **Security Approved:** All six guardrails re-verified intact by Jayne; no remaining blockers
+5. **GitHub Synchronized:** Issue body accurately describes shipped services, config, and routing patterns
+**Why:** Issue has been fully delivered, tested, and security-approved. Closure reflects shipped state and clears the work item from active tracking. Future refinements (multi-channel isolation, channel-aware routing) will spawn separate issues if needed.
+**Related Documentation:**
+- Implementation: `src/Modules/Thiccdal.Modules.ChatBot/Services/ChatBotAiResponder.cs`, `CommandDispatcher.cs`, `ChatServiceCommandResponseSink.cs`
+- Config: `src/Thiccdal.Infrastructure/Bot/ChatBotAiResponderOptions.cs`
+- Architecture: `.squad/decisions/inbox/mal-ai-routing-decision.md` (origin-only routing rationale)
+- Orchestration: `.squad/orchestration-log/2026-05-28T01-17-55-zoe.md`, `.squad/orchestration-log/2026-05-28T01-17-55-jayne.md`
+- Session log: `.squad/log/2026-05-28T01-17-55-issue92-closeout.md`
+**Next:** Zoe to close issue #92 on GitHub
+**Files:** Full re-review in `.squad/orchestration-log/2026-05-28T01-17-55-jayne.md`
 **Files:** All chatter-memory implementation files across Thiccdal, Thiccdal.Data, Thiccdal.Infrastructure, and test projects; test coverage in Thiccdal.Data.Tests and Thiccdal.Tests
 **Related:** `.squad/orchestration-log/2026-05-27T22-55-44Z-jayne-chatter-memory-rereview.md`
 **Key Design Decision (Forced Adjustment):** Manual clear/reset removes persisted chat rows backing memory (for scope or all) instead of clearing separate summary table. Avoids schema expansion while maintaining reset semantics.
