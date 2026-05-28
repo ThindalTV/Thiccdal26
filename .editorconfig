@@ -9,3 +9,9 @@ dotnet_diagnostic.IDE0090.severity = none
 
 # IDE0305: Collection initialization can be simplified
 dotnet_diagnostic.IDE0305.severity = none
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true

@@ -1,0 +1,72 @@
+.event-ticker {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+}
+
+.event-ticker__item {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(99, 102, 241, 0.95));
+    color: #fff;
+    padding: 16px 24px;
+    border-radius: 12px;
+    font-size: 1.25rem;
+    font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
+}
+
+.event-ticker__item--in {
+    animation: slideInRight 0.5s ease-out;
+}
+
+.event-ticker__item--out {
+    animation: fadeOut 0.5s ease-out;
+    opacity: 0;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes border-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 4px #00ff00;
+    }
+    50% {
+        box-shadow: 0 0 0 8px #00ff00aa;
+    }
+}
+
+.test-flash-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: border-pulse 1s infinite;
+    z-index: 9999;
+}
+
+.test-flash-label {
+    color: #fff;
+    font-size: 2rem;
+    font-weight: bold;
+}

@@ -10,6 +10,7 @@ public static class TeleprompterRegistrationExtension
     {
         public IServiceCollection AddTeleprompterServices()
         {
+            collection.AddOptions<PrompterOptions>();
             collection.AddSingleton<ITeleprompterService, TeleprompterService>();
             return collection;
         }

@@ -10,4 +10,8 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Thiccdal.Infrastructure\Thiccdal.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

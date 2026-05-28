@@ -1,6 +1,15 @@
+@using Microsoft.AspNetCore.Components
 @using Thiccdal.Modules.Teleprompter.Models
 
-<div class="message">@Line.Content</div>
+@if (!string.IsNullOrWhiteSpace(Line.HtmlContent))
+{
+    <div class="message">@((MarkupString)Line.HtmlContent)</div>
+}
+else
+{
+    <div class="message">@Line.Content</div>
+}
+
 @code {
     [Parameter] public required Line Line { get; set; }
 }

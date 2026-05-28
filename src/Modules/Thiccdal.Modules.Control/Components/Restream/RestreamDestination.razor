@@ -1,19 +1,29 @@
 @using Thiccdal.Shared.Components.Components.Primitives
-<div class="restream-dest" style="--plat-color: @PlatformColor">
+<div class="restream-dest @(IsSelected ? "restream-dest--selected" : string.Empty)" style="--plat-color: @PlatformColor">
     <div class="restream-dest__info">
         <span class="restream-dest__name">@PlatformName</span>
-        <span class="restream-dest__user">@Username</span>
-        <span class="restream-dest__stats">@Stats</span>
+        <span class="restream-dest__user">@PrimaryText</span>
+        <span class="restream-dest__stats">@SecondaryText</span>
     </div>
     <div class="restream-dest__controls">
-        @if (IsLive)
+        @if (ShowStatusPulse)
         {
-            <DangerButton>■ Stop</DangerButton>
             <span class="restream-dest__status"></span>
+        }
+
+        @if (IsDangerAction)
+        {
+            <DangerButton OnClick="OnAction"
+                          disabled="@IsActionDisabled">
+                @ActionText
+            </DangerButton>
         }
         else
         {
-            <PrimaryButton>▶ Go Live</PrimaryButton>
+            <PrimaryButton OnClick="OnAction"
+                           disabled="@IsActionDisabled">
+                @ActionText
+            </PrimaryButton>
         }
     </div>
 </div>
@@ -21,7 +31,12 @@
 @code {
     [Parameter] public string PlatformName { get; set; } = string.Empty;
     [Parameter] public string PlatformColor { get; set; } = "rgba(255,255,255,0.3)";
-    [Parameter] public string Username { get; set; } = string.Empty;
-    [Parameter] public string Stats { get; set; } = string.Empty;
-    [Parameter] public bool IsLive { get; set; }
+    [Parameter] public string PrimaryText { get; set; } = string.Empty;
+    [Parameter] public string SecondaryText { get; set; } = string.Empty;
+    [Parameter] public string ActionText { get; set; } = string.Empty;
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public bool IsDangerAction { get; set; }
+    [Parameter] public bool IsActionDisabled { get; set; }
+    [Parameter] public bool ShowStatusPulse { get; set; }
+    [Parameter] public EventCallback OnAction { get; set; }
 }

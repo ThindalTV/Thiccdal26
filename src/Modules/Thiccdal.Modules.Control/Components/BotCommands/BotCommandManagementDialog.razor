@@ -1,0 +1,194 @@
+@using Thiccdal.Infrastructure.Bot.Models
+
+@if (IsOpen)
+{
+    <div class="bot-command-dialog-backdrop" @onclick="Close" role="presentation">
+        <div class="bot-command-dialog"
+             @onclick:stopPropagation="true"
+             role="dialog"
+             aria-modal="true"
+             aria-label="Manage bot commands">
+            <header class="bot-command-dialog__header">
+                <div>
+                    <h2 class="bot-command-dialog__title">Manage Commands</h2>
+                    <p class="bot-command-dialog__subtitle">Keep chatbot edits in a deliberate modal so live operators do not change commands by accident.</p>
+                </div>
+                <button type="button" class="bot-command-dialog__close" @onclick="Close" aria-label="Close">✕</button>
+            </header>
+
+            <div class="bot-command-dialog__body">
+                <section class="bot-command-dialog__catalog">
+                    <div class="bot-command-dialog__catalog-header">
+                        <div>
+                            <div class="bot-command-dialog__catalog-title">Command Library</div>
+                            <div class="bot-command-dialog__catalog-meta">@Commands.Count command(s)</div>
+                        </div>
+                        <button type="button" class="bot-command-dialog__action bot-command-dialog__action--ghost" @onclick="CreateNew">
+                            + New Command
+                        </button>
+                    </div>
+
+                    @if (Commands.Count == 0)
+                    {
+                        <div class="bot-command-dialog__empty">
+                            No commands yet. Add one to give chat a reliable operator-approved response.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="bot-command-dialog__list" role="list">
+                            @foreach (BotCommandDefinition command in Commands)
+                            {
+                                <button type="button"
+                                        class="bot-command-dialog__list-item @(command.Id == SelectedCommandId ? "bot-command-dialog__list-item--selected" : string.Empty)"
+                                        @onclick="() => SelectCommand(command.Id)">
+                                    <div class="bot-command-dialog__list-row">
+                                        <span class="bot-command-dialog__trigger">@command.Trigger</span>
+                                        <span class="bot-command-dialog__status @(command.IsEnabled ? "bot-command-dialog__status--enabled" : "bot-command-dialog__status--disabled")">
+                                            @(command.IsEnabled ? "Enabled" : "Disabled")
+                                        </span>
+                                    </div>
+                                    <p class="bot-command-dialog__preview">@command.ResponseTemplate</p>
+                                    <div class="bot-command-dialog__meta-row">
+                                        <span>Used @command.UseCount time(s)</span>
+                                        <span>@(string.IsNullOrWhiteSpace(command.HandlerType) ? "Template only" : "Handler + fallback")</span>
+                                    </div>
+                                </button>
+                            }
+                        </div>
+                    }
+                </section>
+
+                <section class="bot-command-dialog__editor">
+                    <div class="bot-command-dialog__editor-header">
+                        <div class="bot-command-dialog__catalog-title">Command Details</div>
+                        <div class="bot-command-dialog__catalog-meta">
+                            @(SelectedCommandId.HasValue ? "Editing saved command" : "Creating new command")
+                        </div>
+                    </div>
+
+                    <label class="bot-command-dialog__field">
+                        <span class="bot-command-dialog__label">Trigger</span>
+                        <input type="text"
+                               class="bot-command-dialog__input"
+                               value="@Draft.Trigger"
+                               maxlength="50"
+                               placeholder="!raid"
+                               @oninput="HandleTriggerChanged" />
+                    </label>
+
+                    <label class="bot-command-dialog__field">
+                        <span class="bot-command-dialog__label">Response template</span>
+                        <textarea class="bot-command-dialog__input bot-command-dialog__input--textarea"
+                                  rows="6"
+                                  placeholder="Thanks for the raid, {user}!"
+                                  @oninput="HandleResponseChanged">@Draft.ResponseTemplate</textarea>
+                    </label>
+
+                    <label class="bot-command-dialog__field">
+                        <span class="bot-command-dialog__label">Handler type (optional)</span>
+                        <input type="text"
+                               class="bot-command-dialog__input"
+                               value="@Draft.HandlerType"
+                               placeholder="Thiccdal.Modules.ChatBot.Commands.RaidHandler"
+                               @oninput="HandleHandlerTypeChanged" />
+                    </label>
+
+                    <label class="bot-command-dialog__toggle">
+                        <input type="checkbox" checked="@Draft.IsEnabled" @onchange="HandleEnabledChanged" />
+                        <span>
+                            <strong>Command enabled</strong>
+                            <small>Keep this off if you want the response saved but not live.</small>
+                        </span>
+                    </label>
+
+                    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+                    {
+                        <div class="bot-command-dialog__error" role="alert">@ErrorMessage</div>
+                    }
+                </section>
+            </div>
+
+            <footer class="bot-command-dialog__footer">
+                <div class="bot-command-dialog__footer-hint">
+                    Tokens like <code>{user}</code>, <code>{platform}</code>, <code>{count}</code>, and <code>{uptime}</code> stay available in responses.
+                </div>
+                <div class="bot-command-dialog__footer-actions">
+                    <button type="button"
+                            class="bot-command-dialog__action bot-command-dialog__action--danger"
+                            disabled="@(!SelectedCommandId.HasValue || IsBusy)"
+                            @onclick="Delete">
+                        Delete
+                    </button>
+                    <button type="button"
+                            class="bot-command-dialog__action bot-command-dialog__action--primary"
+                            disabled="@IsBusy"
+                            @onclick="Save">
+                        @(IsBusy ? "Saving..." : "Save Command")
+                    </button>
+                </div>
+            </footer>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public IReadOnlyList<BotCommandDefinition> Commands { get; set; } = Array.Empty<BotCommandDefinition>();
+    [Parameter] public BotCommandDefinitionInput Draft { get; set; } = new(string.Empty, string.Empty, null, true);
+    [Parameter] public long? SelectedCommandId { get; set; }
+    [Parameter] public bool IsBusy { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnCreateNew { get; set; }
+    [Parameter] public EventCallback<long> OnSelectCommand { get; set; }
+    [Parameter] public EventCallback<BotCommandDefinitionInput> OnDraftChanged { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private Task Close()
+    {
+        return OnClose.InvokeAsync();
+    }
+
+    private Task CreateNew()
+    {
+        return OnCreateNew.InvokeAsync();
+    }
+
+    private Task SelectCommand(long commandId)
+    {
+        return OnSelectCommand.InvokeAsync(commandId);
+    }
+
+    private Task Save()
+    {
+        return OnSave.InvokeAsync();
+    }
+
+    private Task Delete()
+    {
+        return OnDelete.InvokeAsync();
+    }
+
+    private Task HandleTriggerChanged(ChangeEventArgs args)
+    {
+        return OnDraftChanged.InvokeAsync(Draft with { Trigger = args.Value?.ToString() ?? string.Empty });
+    }
+
+    private Task HandleResponseChanged(ChangeEventArgs args)
+    {
+        return OnDraftChanged.InvokeAsync(Draft with { ResponseTemplate = args.Value?.ToString() ?? string.Empty });
+    }
+
+    private Task HandleHandlerTypeChanged(ChangeEventArgs args)
+    {
+        return OnDraftChanged.InvokeAsync(Draft with { HandlerType = args.Value?.ToString() });
+    }
+
+    private Task HandleEnabledChanged(ChangeEventArgs args)
+    {
+        bool isEnabled = args.Value is bool boolValue && boolValue;
+        return OnDraftChanged.InvokeAsync(Draft with { IsEnabled = isEnabled });
+    }
+}

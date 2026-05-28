@@ -1,0 +1,370 @@
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Infrastructure.Overlay
+@using Microsoft.JSInterop
+@inject IPreLiveChecklistService PreLiveChecklistService
+@inject IOperatorStateService OperatorStateService
+@inject IOverlayService OverlayService
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="ctrl-panel prelive-checklist-panel">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Pre-Live Checklist</span>
+        <span class="prelive-checklist-panel__summary">@_checklistState.CompletedCount of @_checklistState.TotalCount complete</span>
+    </div>
+
+    <div class="ctrl-panel__body prelive-checklist-panel__body">
+        <div class="prelive-checklist-panel__progress">
+            <div class="prelive-checklist-panel__progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="@_checklistState.TotalCount" aria-valuenow="@_checklistState.CompletedCount">
+                <div class="prelive-checklist-panel__progress-fill" style="width: @GetProgressWidth()"></div>
+            </div>
+            <div class="prelive-checklist-panel__progress-meta">
+                <span>@_checklistState.RequiredUncheckedCount required remaining</span>
+                <span>@_checklistState.OptionalUncheckedCount optional remaining</span>
+            </div>
+        </div>
+
+        <button type="button" class="prelive-checklist-panel__phone-link" @onclick="OpenFullChecklist">
+            Open full checklist
+        </button>
+
+        @foreach (IGrouping<string, ChecklistItemState> category in GetCategories())
+        {
+            <section class="prelive-checklist-panel__category">
+                <div class="prelive-checklist-panel__category-header">
+                    <div class="prelive-checklist-panel__category-heading">
+                        <h3>@category.Key</h3>
+                        @if (CanManagePersonalPrep(category.Key))
+                        {
+                            <button type="button"
+                                    class="prelive-checklist-panel__manage-button"
+                                    aria-label="Manage personal prep items"
+                                    @onclick="OpenPersonalPrepDialog">
+                                ⚙
+                            </button>
+                        }
+                    </div>
+                    <span>@category.Count(static item => item.IsChecked) / @category.Count()</span>
+                </div>
+
+                <div class="prelive-checklist-panel__items">
+                    @foreach (ChecklistItemState item in category)
+                    {
+                        <div class="@GetItemClass(item)">
+                            <div class="prelive-checklist-panel__item-main">
+                                @if (item.Definition.Type == ChecklistItemType.Manual)
+                                {
+                                    <label class="prelive-checklist-panel__toggle">
+                                        <input type="checkbox"
+                                               checked="@item.IsChecked"
+                                               @onchange="@(args => HandleCheckedChanged(item.Definition.Id, (bool)(args.Value ?? false)))" />
+                                        <span class="prelive-checklist-panel__item-copy">
+                                            <span class="prelive-checklist-panel__item-label">@item.Definition.Label</span>
+                                            <span class="prelive-checklist-panel__item-meta">@GetMetaText(item)</span>
+                                        </span>
+                                    </label>
+                                }
+                                else
+                                {
+                                    <div class="prelive-checklist-panel__auto-status">
+                                        <span class="prelive-checklist-panel__auto-dot" aria-hidden="true"></span>
+                                        <span class="prelive-checklist-panel__item-copy">
+                                            <span class="prelive-checklist-panel__item-label">@item.Definition.Label</span>
+                                            <span class="prelive-checklist-panel__item-meta">@GetMetaText(item)</span>
+                                        </span>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(item.Definition.Hint))
+                                {
+                                    <p class="prelive-checklist-panel__hint">@item.Definition.Hint</p>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(item.WarningMessage))
+                                {
+                                    <p class="prelive-checklist-panel__warning" role="status">@item.WarningMessage</p>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(item.Definition.InlineValue))
+                                {
+                                    <div class="prelive-checklist-panel__inline-value">
+                                        <input type="text"
+                                               class="prelive-checklist-panel__inline-value-input"
+                                               readonly
+                                               value="@item.Definition.InlineValue"
+                                               aria-label="@($"{item.Definition.Label} value")" />
+                                        @if (item.Definition.CanCopyInlineValue)
+                                        {
+                                            <button type="button"
+                                                    class="prelive-checklist-panel__inline-value-action"
+                                                    @onclick="() => CopyInlineValue(item)">
+                                                Copy
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            @if (item.Definition.Type == ChecklistItemType.Action)
+                            {
+                                <button type="button"
+                                        class="prelive-checklist-panel__action"
+                                        disabled="@IsActionPending(item.Definition.Id)"
+                                        @onclick="@(() => TriggerAction(item))">
+                                    @GetActionLabel(item)
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (ShouldRenderEmptyPersonalPrepCategory())
+        {
+            <section class="prelive-checklist-panel__category">
+                <div class="prelive-checklist-panel__category-header">
+                    <div class="prelive-checklist-panel__category-heading">
+                        <h3>@PersonalPrepCategory</h3>
+                        <button type="button"
+                                class="prelive-checklist-panel__manage-button"
+                                aria-label="Manage personal prep items"
+                                @onclick="OpenPersonalPrepDialog">
+                            ⚙
+                        </button>
+                    </div>
+                    <span>0 / 0</span>
+                </div>
+
+                <div class="prelive-checklist-panel__items">
+                    <div class="prelive-checklist-panel__empty-category">
+                        No personal prep items are enabled yet. Use the gear to add or re-enable operator reminders.
+                    </div>
+                </div>
+            </section>
+        }
+    </div>
+</div>
+
+<PersonalPrepManageDialog @ref="_personalPrepManageDialog" />
+
+@code {
+    private const string PersonalPrepCategory = "Personal Prep";
+
+    [Parameter]
+    public EventCallback OnOpenStreamInfoRequested { get; set; }
+
+    [Parameter]
+    public EventCallback OnOpenFullChecklistRequested { get; set; }
+
+    private IReadOnlyDictionary<string, string> _overlayActionMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private PreLiveChecklistState _checklistState = new();
+    private readonly HashSet<string> _pendingActionIds = new(StringComparer.OrdinalIgnoreCase);
+    private PersonalPrepManageDialog? _personalPrepManageDialog;
+
+    protected override void OnInitialized()
+    {
+        _checklistState = PreLiveChecklistService.GetState();
+        _overlayActionMap = OverlayService.GetComponents()
+            .ToDictionary(
+                static component => BuildOverlayItemId(component.ComponentName),
+                static component => component.ComponentName,
+                StringComparer.OrdinalIgnoreCase);
+
+        PreLiveChecklistService.StateChanged += HandleChecklistChanged;
+        OperatorStateService.StateChanged += HandleOperatorStateChanged;
+    }
+
+    public void Dispose()
+    {
+        PreLiveChecklistService.StateChanged -= HandleChecklistChanged;
+        OperatorStateService.StateChanged -= HandleOperatorStateChanged;
+    }
+
+    private void HandleChecklistChanged(object? sender, EventArgs args)
+    {
+        _checklistState = PreLiveChecklistService.GetState();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleOperatorStateChanged(object? sender, EventArgs args)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            if (!CanManagePersonalPrep() && _personalPrepManageDialog is not null)
+            {
+                await _personalPrepManageDialog.Close();
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private IEnumerable<IGrouping<string, ChecklistItemState>> GetCategories()
+    {
+        return _checklistState.Items.GroupBy(static item => item.Definition.Category);
+    }
+
+    private string GetProgressWidth()
+    {
+        if (_checklistState.TotalCount == 0)
+        {
+            return "0%";
+        }
+
+        double width = (_checklistState.CompletedCount / (double)_checklistState.TotalCount) * 100;
+        return $"{Math.Clamp(width, 0, 100):0.#}%";
+    }
+
+    private void HandleCheckedChanged(string itemId, bool isChecked)
+    {
+        PreLiveChecklistService.SetItemChecked(itemId, isChecked);
+    }
+
+    private async Task CopyInlineValue(ChecklistItemState item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Definition.InlineValue))
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", item.Definition.InlineValue);
+        PreLiveChecklistService.SetItemChecked(item.Definition.Id, true);
+    }
+
+    private async Task TriggerAction(ChecklistItemState item)
+    {
+        if (item.Definition.Id == "stream-info.manual-reminders")
+        {
+            await OnOpenStreamInfoRequested.InvokeAsync();
+            return;
+        }
+
+        if (!_overlayActionMap.ContainsKey(item.Definition.Id))
+        {
+            return;
+        }
+
+        if (!_pendingActionIds.Add(item.Definition.Id))
+        {
+            return;
+        }
+
+        try
+        {
+            await PreLiveChecklistService.TriggerAction(item.Definition.Id);
+        }
+        finally
+        {
+            _pendingActionIds.Remove(item.Definition.Id);
+        }
+    }
+
+    private static string GetItemClass(ChecklistItemState item)
+    {
+        List<string> classes = ["prelive-checklist-panel__item"];
+
+        if (item.IsChecked)
+        {
+            classes.Add("prelive-checklist-panel__item--checked");
+        }
+
+        if (item.IsBlocked)
+        {
+            classes.Add("prelive-checklist-panel__item--blocked");
+        }
+        else if (item.IsWarning)
+        {
+            classes.Add("prelive-checklist-panel__item--warning");
+        }
+
+        return string.Join(' ', classes);
+    }
+
+    private static string GetMetaText(ChecklistItemState item)
+    {
+        List<string> values =
+        [
+            item.Definition.IsRequired ? "Required" : "Optional",
+            item.Definition.Type switch
+            {
+                ChecklistItemType.Action => "Action",
+                ChecklistItemType.Auto => "Auto",
+                ChecklistItemType.AutoWithWarn => "Auto monitor",
+                _ => "Manual"
+            }
+        ];
+
+        if (item.IsBlocked)
+        {
+            values.Add("Blocked");
+        }
+        else if (item.IsWarning)
+        {
+            values.Add("Warning");
+        }
+
+        if (item.CheckedAt is DateTimeOffset checkedAt)
+        {
+            values.Add($"Checked {checkedAt.ToLocalTime():t}");
+        }
+        else if (item.IsAutoChecked)
+        {
+            values.Add("System verified");
+        }
+
+        return string.Join(" · ", values);
+    }
+
+    private bool IsActionPending(string itemId)
+    {
+        return _pendingActionIds.Contains(itemId);
+    }
+
+    private string GetActionLabel(ChecklistItemState item)
+    {
+        return IsActionPending(item.Definition.Id)
+            ? "Testing…"
+            : item.Definition.ActionLabel ?? "Open";
+    }
+
+    private Task OpenFullChecklist()
+    {
+        return OnOpenFullChecklistRequested.InvokeAsync();
+    }
+
+    private async Task OpenPersonalPrepDialog()
+    {
+        if (!CanManagePersonalPrep() || _personalPrepManageDialog is null)
+        {
+            return;
+        }
+
+        await _personalPrepManageDialog.Open();
+    }
+
+    private bool CanManagePersonalPrep(string? category = null)
+    {
+        return OperatorStateService.Mode == OperatorMode.PreLive &&
+               (category is null || string.Equals(category, PersonalPrepCategory, StringComparison.Ordinal));
+    }
+
+    private bool ShouldRenderEmptyPersonalPrepCategory()
+    {
+        return CanManagePersonalPrep() &&
+               !_checklistState.Items.Any(item => string.Equals(item.Definition.Category, PersonalPrepCategory, StringComparison.Ordinal));
+    }
+
+    private static string BuildOverlayItemId(string componentName)
+    {
+        return $"overlay.{BuildSlug(componentName)}";
+    }
+
+    private static string BuildSlug(string value)
+    {
+        return string.Join(
+            '-',
+            value.Split([' ', '/', '\\', '.', ':'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .ToLowerInvariant();
+    }
+}

@@ -1,20 +1,53 @@
 @using Thiccdal.Shared.Components.Components.Primitives
-<div class="on-air">
+<div class="on-air @VariantCssClass">
     <div class="on-air__header">
-        <span class="on-air__indicator">▶ ON AIR</span>
-        <span class="on-air__dismiss-hint">tap anywhere to dismiss</span>
+        <span class="on-air__indicator">@Indicator</span>
+        <span class="on-air__dismiss-hint">@HeaderHint</span>
     </div>
     <div class="on-air__body">
         <div class="on-air__meta">
-            <Badge Color="pending">TWITCH</Badge>
-            <span class="on-air__user">StreamerFan99</span>
-            <span class="on-air__time">2 min ago</span>
+            <Badge Color="@PlatformColor">@Platform</Badge>
+            <span class="on-air__user">@Username</span>
+            <span class="on-air__time">@TimeAgo</span>
         </div>
-        <p class="on-air__text">"What's your streaming setup? Which mic do you use?"</p>
+        <p class="on-air__text">"@Text"</p>
     </div>
     <div class="on-air__footer">
-        <span class="on-air__showing">Showing: 0:42</span>
-        <PrimaryButton>LIVE ON OVERLAY</PrimaryButton>
-        <span class="on-air__card-hint">tap card to dismiss</span>
+        <div class="on-air__actions">
+            @if (!string.IsNullOrWhiteSpace(PrimaryActionLabel))
+            {
+                <PrimaryButton OnClick="OnPrimaryAction">@PrimaryActionLabel</PrimaryButton>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(SecondaryActionLabel))
+            {
+                if (SecondaryActionIsDanger)
+                {
+                    <DangerButton OnClick="OnSecondaryAction">@SecondaryActionLabel</DangerButton>
+                }
+                else
+                {
+                    <GhostButton OnClick="OnSecondaryAction">@SecondaryActionLabel</GhostButton>
+                }
+            }
+        </div>
+        <span class="on-air__card-hint">@FooterHint</span>
     </div>
 </div>
+
+@code {
+    [Parameter] public string Indicator { get; set; } = "SELECTED QUESTION";
+    [Parameter] public string HeaderHint { get; set; } = "tap a queue card to change focus";
+    [Parameter] public string Platform { get; set; } = string.Empty;
+    [Parameter] public string PlatformColor { get; set; } = "default";
+    [Parameter] public string Username { get; set; } = string.Empty;
+    [Parameter] public string TimeAgo { get; set; } = string.Empty;
+    [Parameter] public string Text { get; set; } = string.Empty;
+    [Parameter] public string PrimaryActionLabel { get; set; } = string.Empty;
+    [Parameter] public string SecondaryActionLabel { get; set; } = string.Empty;
+    [Parameter] public string FooterHint { get; set; } = string.Empty;
+    [Parameter] public string VariantCssClass { get; set; } = "on-air--selected";
+    [Parameter] public bool SecondaryActionIsDanger { get; set; }
+    [Parameter] public EventCallback OnPrimaryAction { get; set; }
+    [Parameter] public EventCallback OnSecondaryAction { get; set; }
+}

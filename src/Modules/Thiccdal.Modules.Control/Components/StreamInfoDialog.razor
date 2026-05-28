@@ -1,0 +1,121 @@
+@using Microsoft.Extensions.Options
+@using Thiccdal.Infrastructure.LinkedIn
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Infrastructure.Remotes
+@using Thiccdal.Infrastructure.TikTok
+@using Thiccdal.Shared.Components.Components.Primitives
+@inject IPlatformManualReminderProvider ReminderProvider
+@inject IOperatorStateService OperatorStateService
+@inject IOptions<LinkedInOptions> LinkedInOptions
+@inject IOptions<TikTokOptions> TikTokOptions
+
+@implements IDisposable
+
+<div class="stream-info-dialog">
+    <div class="stream-info-dialog__header">
+        <h2>Stream Settings Checklist</h2>
+        <p class="stream-info-dialog__description">
+            Review these platform-specific settings before going live. These cannot be controlled via API and must be configured in each platform's web dashboard.
+        </p>
+    </div>
+
+    <div class="stream-info-dialog__content">
+        @foreach (var platformGroup in GetGroupedReminders())
+        {
+            <div class="stream-info-dialog__platform">
+                <h3>@platformGroup.Key</h3>
+                <div class="stream-info-dialog__reminders">
+                    @foreach (var reminder in platformGroup.Value)
+                    {
+                        var key = $"{reminder.Platform}:{reminder.Setting}";
+                        <div class="stream-info-dialog__reminder">
+                            <label class="stream-info-dialog__checkbox">
+                                <input type="checkbox"
+                                       checked="@GetReminderChecked(reminder)"
+                                       @onchange="@(e => HandleReminderChecked(reminder, (bool)(e.Value ?? false)))" />
+                                <span>@reminder.ReminderText</span>
+                            </label>
+                            <span class="stream-info-dialog__setting">@reminder.Setting</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="stream-info-dialog__footer">
+        <p class="stream-info-dialog__status">
+            @if (AllRemindersChecked)
+            {
+                <span class="stream-info-dialog__status--complete">✓ All reminders reviewed</span>
+            }
+            else
+            {
+                <span class="stream-info-dialog__status--pending">@UncheckedCount reminders remaining</span>
+            }
+        </p>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<bool> AllCheckedChanged { get; set; }
+
+    public bool AllRemindersChecked => OperatorStateService.AreAllManualRemindersReviewed(GetVisibleReminders());
+
+    private int UncheckedCount => GetVisibleReminders().Count(r => !GetReminderChecked(r));
+
+    protected override async Task OnInitializedAsync()
+    {
+        OperatorStateService.StateChanged += HandleOperatorStateChanged;
+        await AllCheckedChanged.InvokeAsync(AllRemindersChecked);
+    }
+
+    public void Dispose()
+    {
+        OperatorStateService.StateChanged -= HandleOperatorStateChanged;
+    }
+
+    private IEnumerable<PlatformManualReminder> GetVisibleReminders()
+    {
+        var reminders = ReminderProvider.GetReminders();
+        return reminders.Where(r => IsPlatformVisible(r.Platform));
+    }
+
+    private Dictionary<string, List<PlatformManualReminder>> GetGroupedReminders()
+    {
+        return GetVisibleReminders()
+            .GroupBy(r => r.Platform)
+            .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private bool GetReminderChecked(PlatformManualReminder reminder)
+    {
+        return OperatorStateService.IsManualReminderReviewed(reminder.Platform, reminder.Setting);
+    }
+
+    private async Task HandleReminderChecked(PlatformManualReminder reminder, bool isChecked)
+    {
+        OperatorStateService.SetManualReminderReviewed(reminder.Platform, reminder.Setting, isChecked);
+        await AllCheckedChanged.InvokeAsync(AllRemindersChecked);
+    }
+
+    private void HandleOperatorStateChanged(object? sender, EventArgs args)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await AllCheckedChanged.InvokeAsync(AllRemindersChecked);
+            StateHasChanged();
+        });
+    }
+
+    private bool IsPlatformVisible(string platform)
+    {
+        return platform switch
+        {
+            "LinkedIn" => LinkedInOptions.Value.IsEnabled,
+            "TikTok" => TikTokOptions.Value.IsEnabled,
+            _ => true
+        };
+    }
+}

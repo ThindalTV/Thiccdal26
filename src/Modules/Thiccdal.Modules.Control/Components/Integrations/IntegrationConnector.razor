@@ -1,0 +1,140 @@
+@using Thiccdal.Modules.Control.Components.Integrations
+
+@if (OnConnectClicked.HasDelegate && IsAvailable)
+{
+    <button type="button"
+            class="@GetConnectorClasses()"
+            style="--plat-color: @Color"
+            @onclick="HandleClick"
+            aria-label="@GetAriaLabel()"
+            title="@GetTitle()">
+        @RenderContent()
+    </button>
+}
+else
+{
+    <div class="@GetConnectorClasses()"
+         style="--plat-color: @Color"
+         aria-label="@GetAriaLabel()"
+         aria-disabled="@(!IsAvailable)"
+         title="@GetTitle()">
+        @RenderContent()
+    </div>
+}
+
+@code {
+    [Parameter] public string PlatformName { get; set; } = string.Empty;
+    [Parameter] public string ShortName { get; set; } = string.Empty;
+    [Parameter] public string Color { get; set; } = "rgba(255,255,255,0.5)";
+    [Parameter] public IntegrationConnectionState ConnectionState { get; set; } = IntegrationConnectionState.Unknown;
+    [Parameter] public bool IsLive { get; set; }
+    [Parameter] public int? ViewerCount { get; set; }
+    [Parameter] public bool IsAvailable { get; set; } = true;
+    [Parameter] public string UnavailableLabel { get; set; } = "Planned";
+    [Parameter] public string? UnavailableReason { get; set; }
+    [Parameter] public EventCallback OnConnectClicked { get; set; }
+
+    private RenderFragment RenderContent() => @<text>
+        @if (!IsAvailable)
+        {
+            <span class="int-conn__dot" aria-hidden="true"></span>
+            <span class="int-conn__name">@ShortName</span>
+            <span class="int-conn__status">@UnavailableLabel</span>
+        }
+        else if (ConnectionState == IntegrationConnectionState.Connecting)
+        {
+            <span class="int-conn__dot int-conn__dot--pulse" aria-hidden="true"></span>
+            <span class="int-conn__name">@ShortName</span>
+            <span class="int-conn__status">…</span>
+        }
+        else if (ConnectionState == IntegrationConnectionState.Connected)
+        {
+            <span class="int-conn__dot int-conn__dot--live" aria-hidden="true"></span>
+            <span class="int-conn__name">@ShortName</span>
+            @if (IsLive)
+            {
+                <span class="int-conn__badge int-conn__badge--live">LIVE</span>
+            }
+            @if (ViewerCount.HasValue)
+            {
+                <span class="int-conn__count">@ViewerCount</span>
+            }
+        }
+        else
+        {
+            <span class="int-conn__dot" aria-hidden="true"></span>
+            <span class="int-conn__name">@ShortName</span>
+            @if (!string.IsNullOrEmpty(GetStatusLabel()))
+            {
+                <span class="int-conn__status">@GetStatusLabel()</span>
+            }
+        }
+    </text>;
+
+    private string GetConnectorClasses()
+    {
+        string classes = $"int-conn int-conn--{GetStateClass()}";
+        if (OnConnectClicked.HasDelegate && IsAvailable)
+        {
+            classes += " int-conn--actionable";
+        }
+
+        return classes;
+    }
+
+    private string GetStateClass()
+    {
+        if (!IsAvailable)
+        {
+            return "disabled";
+        }
+
+        return ConnectionState switch
+        {
+            IntegrationConnectionState.Connected => "connected",
+            IntegrationConnectionState.Connecting => "connecting",
+            IntegrationConnectionState.NotConnected => "not-connected",
+            IntegrationConnectionState.Error => "error",
+            _ => "unknown"
+        };
+    }
+
+    private string GetStatusLabel() => ConnectionState switch
+    {
+        IntegrationConnectionState.NotConnected => "Not Connected",
+        IntegrationConnectionState.Error => "Error — Retry",
+        _ => string.Empty
+    };
+
+    private string GetAriaLabel()
+    {
+        if (!IsAvailable)
+        {
+            return string.IsNullOrWhiteSpace(UnavailableReason)
+                ? $"{PlatformName} integration is not yet available."
+                : $"{PlatformName} integration is not yet available. {UnavailableReason}";
+        }
+
+        return ConnectionState switch
+        {
+            IntegrationConnectionState.Connected when IsLive => $"Manage {PlatformName} connection. Stream is live.",
+            IntegrationConnectionState.Connected => $"Manage {PlatformName} connection.",
+            IntegrationConnectionState.Connecting => $"Open {PlatformName} connection details while connection is in progress.",
+            IntegrationConnectionState.Error => $"Retry {PlatformName} connection.",
+            IntegrationConnectionState.NotConnected => $"Connect {PlatformName}.",
+            _ => $"Open {PlatformName} connection."
+        };
+    }
+
+    private string GetTitle()
+    {
+        if (!IsAvailable && !string.IsNullOrWhiteSpace(UnavailableReason))
+        {
+            return UnavailableReason;
+        }
+
+        return GetAriaLabel();
+    }
+
+    private Task HandleClick() => OnConnectClicked.InvokeAsync();
+}

@@ -1,9 +1,22 @@
-<button type="button" class="bot-cmd-btn">
-    <span class="bot-cmd-btn__cmd">@Command</span>
-    <span class="bot-cmd-btn__desc">@Description</span>
-</button>
+@if (IsInteractive)
+{
+    <button type="button" class="bot-cmd-btn @(IsEnabled ? string.Empty : "bot-cmd-btn--disabled")" @onclick="OnClick">
+        <span class="bot-cmd-btn__cmd">@Command</span>
+        <span class="bot-cmd-btn__desc">@Description</span>
+    </button>
+}
+else
+{
+    <div class="bot-cmd-btn bot-cmd-btn--readonly @(IsEnabled ? string.Empty : "bot-cmd-btn--disabled")">
+        <span class="bot-cmd-btn__cmd">@Command</span>
+        <span class="bot-cmd-btn__desc">@Description</span>
+    </div>
+}
 
 @code {
     [Parameter] public string Command { get; set; } = string.Empty;
     [Parameter] public string Description { get; set; } = string.Empty;
+    [Parameter] public bool IsEnabled { get; set; } = true;
+    [Parameter] public bool IsInteractive { get; set; } = true;
+    [Parameter] public EventCallback OnClick { get; set; }
 }

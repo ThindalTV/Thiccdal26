@@ -1,8 +1,33 @@
-﻿@page "/overlay"
+@page "/overlay"
 @layout Thiccdal.Shared.Components.Layout.NullLayout
-@using Thiccdal.Modules.Overlay.Components
+@using Microsoft.AspNetCore.Components
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Infrastructure.Overlay
+@implements IDisposable
 
-<ChatView />
-<QuestionLowerThird Visible="true" />
-@* <MessageLowerThird Visible="false" /> *@
+@inject IOperatorStateService OperatorStateService
+@inject IOverlayService OverlayService
 
+<div class="overlay-container overlay-root">
+    @foreach (IOverlayComponent component in OverlayService.GetComponents())
+    {
+        <DynamicComponent Type="component.ComponentType" />
+    }
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        OperatorStateService.StateChanged += HandleOperatorStateChanged;
+    }
+
+    public void Dispose()
+    {
+        OperatorStateService.StateChanged -= HandleOperatorStateChanged;
+    }
+
+    private void HandleOperatorStateChanged(object? sender, EventArgs args)
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+}

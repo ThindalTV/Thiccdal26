@@ -1,0 +1,99 @@
+.lower-third-overlay-host {
+    position: absolute;
+    left: 32px;
+    bottom: 32px;
+    width: min(720px, calc(100vw - 64px));
+    min-height: 132px;
+}
+
+.lower-third-overlay {
+    --platform-accent: rgba(255, 255, 255, 0.38);
+    display: grid;
+    gap: 10px;
+    padding: 18px 22px;
+    border-left: 8px solid var(--platform-accent);
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.82);
+    color: #ffffff;
+    backdrop-filter: blur(10px);
+}
+
+.lower-third-overlay--twitch {
+    --platform-accent: #9146ff;
+}
+
+.lower-third-overlay--youtube {
+    --platform-accent: #ff4444;
+}
+
+.lower-third-overlay--discord {
+    --platform-accent: #5865f2;
+}
+
+.lower-third-overlay--facebook {
+    --platform-accent: #1877f2;
+}
+
+.lower-third-overlay--x {
+    --platform-accent: #d1d5db;
+}
+
+.lower-third-overlay--linkedin {
+    --platform-accent: #0a66c2;
+}
+
+.lower-third-overlay--tiktok {
+    --platform-accent: #25f4ee;
+}
+
+.lower-third-overlay--manual {
+    --platform-accent: #38bdf8;
+}
+
+.lower-third-overlay--default {
+    --platform-accent: rgba(255, 255, 255, 0.38);
+}
+
+.lower-third-overlay__meta {
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.lower-third-overlay__text {
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1.32;
+}
+
+.lower-third-overlay--enter {
+    animation: lower-third-slide-up 300ms ease-out;
+}
+
+.lower-third-overlay--exit {
+    animation: lower-third-slide-down 300ms ease-in forwards;
+}
+
+@keyframes lower-third-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(32px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes lower-third-slide-down {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(32px);
+    }
+}

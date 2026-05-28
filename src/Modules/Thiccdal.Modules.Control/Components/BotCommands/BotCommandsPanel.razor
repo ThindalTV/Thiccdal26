@@ -1,25 +1,278 @@
-@using Thiccdal.Shared.Components.Components.Primitives
+@using Thiccdal.Infrastructure.Bot
+@using Thiccdal.Infrastructure.Bot.Models
+@inject IBotCommandManagementService CommandManagementService
+@implements IAsyncDisposable
+
 <div class="ctrl-panel bot-cmds-stretch">
     <div class="ctrl-panel__header">
         <span class="ctrl-panel__title">Bot Commands</span>
-        <span class="ctrl-panel__spacer"></span>
-        <ToggleSwitch Label="Auto-reply" Checked="true" />
+        <span class="bot-cmds__summary">@GetSummaryText()</span>
     </div>
     <div class="ctrl-panel__body bot-cmds__body">
-        <div class="bot-cmds__grid">
-            <BotCommandButton Command="!shoutout" Description="username $0" />
-            <BotCommandButton Command="!discord" Description="Post invite link" />
-            <BotCommandButton Command="!socials" Description="Post all links" />
-            <BotCommandButton Command="!clip" Description="Create clip now" />
-            <BotCommandButton Command="!schedule" Description="Next stream info" />
-            <BotCommandButton Command="!lurk" Description="!acknowledge" />
-            <BotCommandButton Command="!uptime" Description="Stream duration" />
-            <BotCommandButton Command="!poll" Description="Start a poll" />
+        <div class="bot-cmds__stats">
+            <div class="bot-cmds__stat">
+                <span class="bot-cmds__stat-label">Enabled</span>
+                <strong class="bot-cmds__stat-value">@_commands.Count(static command => command.IsEnabled)</strong>
+            </div>
+            <div class="bot-cmds__stat">
+                <span class="bot-cmds__stat-label">Disabled</span>
+                <strong class="bot-cmds__stat-value">@_commands.Count(static command => !command.IsEnabled)</strong>
+            </div>
+            <div class="bot-cmds__stat">
+                <span class="bot-cmds__stat-label">Most Used</span>
+                <strong class="bot-cmds__stat-value">@GetMostUsedCommand()</strong>
+            </div>
         </div>
-        <div class="bot-cmds__message">
-            <input type="text" class="ctrl-input bot-cmds__msg-input" placeholder="Custom message..." />
-            <PrimaryButton>Send All</PrimaryButton>
-        </div>
-        <p class="bot-cmds__hint">Sends to all active platforms</p>
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <div class="bot-cmds__error" role="alert">@_errorMessage</div>
+        }
+
+        @if (_commands.Count == 0)
+        {
+            <div class="bot-cmds__empty">
+                No commands are configured yet. Use <strong>Manage Commands</strong> to add operator-approved responses before you go live.
+            </div>
+        }
+        else
+        {
+            <div class="bot-cmds__grid">
+                @foreach (BotCommandDefinition command in _commands.Take(8))
+                {
+                    <BotCommandButton Command="@command.Trigger"
+                                      Description="@BuildButtonDescription(command)"
+                                      IsEnabled="@command.IsEnabled"
+                                      IsInteractive="false" />
+                }
+            </div>
+        }
+
+        <p class="bot-cmds__hint">Use the live controls bar to open command management when you need a deliberate mid-stream edit.</p>
     </div>
 </div>
+
+<BotCommandManagementDialog IsOpen="_isDialogOpen"
+                            Commands="_commands"
+                            Draft="_draft"
+                            SelectedCommandId="_selectedCommandId"
+                            IsBusy="_isBusy"
+                            ErrorMessage="_errorMessage"
+                            OnClose="CloseManagementDialog"
+                            OnCreateNew="CreateNewCommand"
+                            OnSelectCommand="SelectCommand"
+                            OnDraftChanged="UpdateDraft"
+                            OnSave="SaveCommand"
+                            OnDelete="DeleteCommand" />
+
+@code {
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private IReadOnlyList<BotCommandDefinition> _commands = Array.Empty<BotCommandDefinition>();
+    private BotCommandDefinitionInput _draft = CreateEmptyDraft();
+    private long? _selectedCommandId;
+    private bool _isDialogOpen;
+    private bool _isBusy;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshCommands();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _cancellationTokenSource.Cancel();
+        _cancellationTokenSource.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+    public async Task OpenManagementDialog()
+    {
+        _errorMessage = null;
+        _isDialogOpen = true;
+        await RefreshCommands();
+    }
+
+    private Task CloseManagementDialog()
+    {
+        _isDialogOpen = false;
+        _errorMessage = null;
+        return Task.CompletedTask;
+    }
+
+    private Task CreateNewCommand()
+    {
+        _selectedCommandId = null;
+        _draft = CreateEmptyDraft();
+        _errorMessage = null;
+        return Task.CompletedTask;
+    }
+
+    private Task SelectCommand(long commandId)
+    {
+        BotCommandDefinition? selectedCommand = _commands.FirstOrDefault(command => command.Id == commandId);
+        if (selectedCommand is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _selectedCommandId = selectedCommand.Id;
+        _draft = CreateDraft(selectedCommand);
+        _errorMessage = null;
+        return Task.CompletedTask;
+    }
+
+    private Task UpdateDraft(BotCommandDefinitionInput draft)
+    {
+        _draft = draft;
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveCommand()
+    {
+        _isBusy = true;
+        _errorMessage = null;
+
+        try
+        {
+            if (_selectedCommandId.HasValue)
+            {
+                BotCommandDefinition? updatedCommand = await CommandManagementService.Update(
+                    _selectedCommandId.Value,
+                    _draft,
+                    _cancellationTokenSource.Token);
+
+                await RefreshCommands(updatedCommand?.Id);
+            }
+            else
+            {
+                BotCommandDefinition createdCommand = await CommandManagementService.Create(
+                    _draft,
+                    _cancellationTokenSource.Token);
+
+                await RefreshCommands(createdCommand.Id);
+            }
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task DeleteCommand()
+    {
+        if (!_selectedCommandId.HasValue)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _errorMessage = null;
+
+        try
+        {
+            await CommandManagementService.Delete(_selectedCommandId.Value, _cancellationTokenSource.Token);
+            _selectedCommandId = null;
+            _draft = CreateEmptyDraft();
+            await RefreshCommands();
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task RefreshCommands(long? preferredCommandId = null)
+    {
+        try
+        {
+            _commands = await CommandManagementService.List(_cancellationTokenSource.Token);
+            BotCommandDefinition? selectedCommand = null;
+
+            if (preferredCommandId.HasValue)
+            {
+                selectedCommand = _commands.FirstOrDefault(command => command.Id == preferredCommandId.Value);
+            }
+
+            if (selectedCommand is null && _selectedCommandId.HasValue)
+            {
+                selectedCommand = _commands.FirstOrDefault(command => command.Id == _selectedCommandId.Value);
+            }
+
+            if (selectedCommand is null && _commands.Count > 0)
+            {
+                selectedCommand = _commands[0];
+            }
+
+            if (selectedCommand is null)
+            {
+                _selectedCommandId = null;
+                _draft = CreateEmptyDraft();
+            }
+            else
+            {
+                _selectedCommandId = selectedCommand.Id;
+                _draft = CreateDraft(selectedCommand);
+            }
+        }
+        catch (Exception exception)
+        {
+            _commands = Array.Empty<BotCommandDefinition>();
+            _selectedCommandId = null;
+            _draft = CreateEmptyDraft();
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private string GetSummaryText()
+    {
+        if (_commands.Count == 0)
+        {
+            return "No commands configured";
+        }
+
+        return $"{_commands.Count(static command => command.IsEnabled)} live · {_commands.Count(static command => !command.IsEnabled)} paused";
+    }
+
+    private string GetMostUsedCommand()
+    {
+        BotCommandDefinition? mostUsedCommand = _commands
+            .OrderByDescending(command => command.UseCount)
+            .ThenBy(command => command.Trigger, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+        return mostUsedCommand is null ? "—" : mostUsedCommand.Trigger;
+    }
+
+    private static string BuildButtonDescription(BotCommandDefinition command)
+    {
+        string status = command.IsEnabled ? "Live" : "Paused";
+        return $"{status} · Used {command.UseCount}×";
+    }
+
+    private static BotCommandDefinitionInput CreateDraft(BotCommandDefinition command)
+    {
+        return new BotCommandDefinitionInput(
+            command.Trigger,
+            command.ResponseTemplate,
+            command.HandlerType,
+            command.IsEnabled);
+    }
+
+    private static BotCommandDefinitionInput CreateEmptyDraft()
+    {
+        return new BotCommandDefinitionInput(
+            string.Empty,
+            string.Empty,
+            null,
+            true);
+    }
+}

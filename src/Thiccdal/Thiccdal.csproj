@@ -19,10 +19,17 @@
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Control\Thiccdal.Modules.Control.csproj" />
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Overlay\Thiccdal.Modules.Overlay.csproj" />
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Teleprompter\Thiccdal.Modules.Teleprompter.csproj" />
+    <ProjectReference Include="..\Remote\Thiccdal.Remote.Discord\Thiccdal.Remote.Discord.csproj" />
+    <ProjectReference Include="..\Remote\Thiccdal.Remote.LinkedIn\Thiccdal.Remote.LinkedIn.csproj" />
+    <ProjectReference Include="..\Remote\Thiccdal.Remote.TikTok\Thiccdal.Remote.TikTok.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.Twitch\Thiccdal.Remote.Twitch.csproj" />
+    <ProjectReference Include="..\Remote\Thiccdal.Remote.YouTube\Thiccdal.Remote.YouTube.csproj" />
     <ProjectReference Include="..\Shared\Thiccdal.Shared.Components\Thiccdal.Shared.Components.csproj" />
     <ProjectReference Include="..\Aspire\Thiccdal.Aspire.ServiceDefaults\Thiccdal.Aspire.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Thiccdal.API\Thiccdal.API.csproj" />
     <ProjectReference Include="..\Thiccdal.Infrastructure\Thiccdal.Infrastructure.csproj" />
+    <ProjectReference Include="..\Thiccdal.Streaming\Thiccdal.Streaming.csproj" />
+    <ProjectReference Include="..\Thiccdal.AI\Thiccdal.AI.csproj" />
   </ItemGroup>
 
 </Project>

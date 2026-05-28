@@ -1,194 +1,26 @@
 @page "/twitch/connect"
-@inject IChatService ChatService
-@inject ITwitchTokenManager TokenManager
 @inject NavigationManager Navigation
-@inject ILogger<TwitchConnect> Logger
-@inject CancellationTokenSource Cts
 
-@using Thiccdal.Infrastructure.Bot
-@using Thiccdal.Infrastructure.Bot.Models
 @using Thiccdal.Infrastructure.Twitch
-@implements IAsyncDisposable
 
-<PageTitle>Twitch Connection</PageTitle>
+@*
+    Legacy redirect shim for /twitch/connect
+    This page now redirects to /integrations where Twitch setup is handled via TwitchSetupDialog.
+    OAuth error query params are preserved.
+*@
 
-<div class="container mt-4">
-    <h1>Twitch Connection</h1>
-
-    <div class="card mt-3">
-        <div class="card-body">
-            <h5 class="card-title">Status: <span class="badge @GetStatusBadgeClass()">@_connectionStatus</span></h5>
-
-            @if (!string.IsNullOrEmpty(_errorMessage))
-            {
-                <div class="alert alert-danger mt-3" role="alert">
-                    @_errorMessage
-                </div>
-            }
-
-            <div class="mt-3">
-                @if (_connectionStatus == "Not Authorized")
-                {
-                    <button class="btn btn-primary" @onclick="Authorize">
-                        <i class="bi bi-twitch"></i> Authorize with Twitch
-                    </button>
-                }
-                else if (_connectionStatus == "Authorized" || _connectionStatus == "Disconnected")
-                {
-                    <button class="btn btn-success" @onclick="Connect" disabled="@_isConnecting">
-                        @if (_isConnecting)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        }
-                        Connect to IRC
-                    </button>
-                }
-                else if (_connectionStatus == "Connected")
-                {
-                    <button class="btn btn-danger" @onclick="Disconnect">
-                        Disconnect
-                    </button>
-                }
-            </div>
-        </div>
-    </div>
-
-    @if (_connectionStatus == "Connected")
-    {
-        <div class="card mt-3">
-            <div class="card-body">
-                <h5 class="card-title">Recent Messages</h5>
-                <div class="message-list" style="max-height: 400px; overflow-y: auto;">
-                    @foreach (var message in _recentMessages)
-                    {
-                        <div class="message mb-2">
-                            <small class="text-muted">@message.Source<text>:</text> @message.Author</small> @message.Content
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <div class="">
-            <input @bind-value="_messageToSend"  />
-            <button class="btn btn-primary" @onclick="SendMessage">Send</button>
-        </div>
-    }
-</div>
+<PageTitle>Redirecting to Integrations</PageTitle>
 
 @code {
-    private string _connectionStatus = "Checking...";
-    private string? _errorMessage;
-    private bool _isConnecting;
-    private List<ChatEvent> _recentMessages = new();
-    private const int MaxMessages = 50;
-    private string _messageToSend = string.Empty;
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? CallbackError { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        await CheckTokenStatus();
-        ChatService.OnChatMessageRecieved += HandleMessage;
-    }
-
-    private async Task CheckTokenStatus()
-    {
-        try
-        {
-            var token = await TokenManager.GetToken();
-            _connectionStatus = "Authorized";
-        }
-        catch (InvalidOperationException)
-        {
-            _connectionStatus = "Not Authorized";
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error checking token status");
-            _errorMessage = "Failed to check authorization status";
-            _connectionStatus = "Error";
-        }
-    }
-
-    private void Authorize()
-    {
-        var authUrl = TokenManager.GetAuthorizationUrl();
-        Navigation.NavigateTo(authUrl, forceLoad: true);
-    }
-
-    private async Task Connect()
-    {
-        try
-        {
-            _isConnecting = true;
-            _errorMessage = null;
-            await InvokeAsync(StateHasChanged);
-
-            await ChatService.Connect(Cts.Token);
-
-            _connectionStatus = "Connected";
-            Logger.LogInformation("Successfully connected to Twitch IRC");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to connect to Twitch IRC");
-            _errorMessage = $"Connection failed: {ex.Message}";
-            _connectionStatus = "Error";
-        }
-        finally
-        {
-            _isConnecting = false;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    private async Task Disconnect()
-    {
-        try
-        {
-            await ChatService.Disconnect(Cts.Token);
-            _connectionStatus = "Disconnected";
-            Logger.LogInformation("Disconnected from Twitch IRC");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error disconnecting from Twitch IRC");
-            _errorMessage = $"Disconnect failed: {ex.Message}";
-        }
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private void SendMessage()
-    {
-        ChatService.SendMessage(_messageToSend, Cts.Token);
-    }
-
-    private void HandleMessage(object? sender, ChatEvent message)
-    {
-        InvokeAsync(() =>
-        {
-            _recentMessages.Insert(0, message);
-            if (_recentMessages.Count > MaxMessages)
-            {
-                _recentMessages.RemoveAt(_recentMessages.Count - 1);
-            }
-            StateHasChanged();
-        });
-    }
-
-    private string GetStatusBadgeClass() => _connectionStatus switch
-    {
-        "Connected" => "bg-success",
-        "Connecting..." => "bg-info",
-        "Disconnected" => "bg-secondary",
-        "Not Authorized" => "bg-warning",
-        "Authorized" => "bg-info",
-        "Error" => "bg-danger",
-        _ => "bg-secondary"
-    };
-
-    public async ValueTask DisposeAsync()
-    {
-        ChatService.OnChatMessageRecieved -= HandleMessage;
+        var targetUrl = string.IsNullOrWhiteSpace(CallbackError)
+            ? "/integrations"
+            : $"/integrations?error={Uri.EscapeDataString(CallbackError)}";
+        
+        Navigation.NavigateTo(targetUrl, replace: true);
     }
 }

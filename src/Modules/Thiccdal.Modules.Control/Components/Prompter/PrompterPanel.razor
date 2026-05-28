@@ -1,9 +1,10 @@
+@using Thiccdal.Infrastructure.Operators
 @using Thiccdal.Infrastructure.Teleprompter
-@inject ITeleprompterService PrompterService
+@inject IOperatorStateService OperatorStateService
 <div class="ctrl-panel">
     <div class="ctrl-panel__header">
         <span class="ctrl-panel__title">Prompter</span>
-        <span class="ctrl-panel__subtitle">Chat-to-script</span>
+        <span class="ctrl-panel__subtitle">Chat + Twitch activity</span>
     </div>
     <div class="ctrl-panel__body prompter__body">
         <button type="button" class="prompter__scroll" @onclick="ScrollReset">
@@ -24,20 +25,18 @@
 </div>
 
 @code {
-    private int _scrollAmount = 100;
-
     private void ScrollReset()
     {
-        PrompterService.RequestScroll(this, ScrollDirection.Reset, 0);
+        OperatorStateService.ScrollTeleprompter(ScrollDirection.Reset);
     }
 
     private void ScrollUp()
     {
-        PrompterService.RequestScroll(this, ScrollDirection.Up, _scrollAmount);
+        OperatorStateService.ScrollTeleprompter(ScrollDirection.Up);
     }
 
     private void ScrollDown()
     {
-        PrompterService.RequestScroll(this, ScrollDirection.Down, _scrollAmount);
+        OperatorStateService.ScrollTeleprompter(ScrollDirection.Down);
     }
 }

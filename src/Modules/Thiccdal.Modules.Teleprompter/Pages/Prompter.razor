@@ -1,74 +1,250 @@
 @page "/prompter"
 @using Thiccdal.Infrastructure.Bot
 @using Thiccdal.Infrastructure.Bot.Models
-@using Thiccdal.Infrastructure.Teleprompter
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Infrastructure.Questions
+@using Thiccdal.Infrastructure.Remotes
+@using Microsoft.JSInterop
 @using Thiccdal.Modules.Teleprompter.Components
 @using Thiccdal.Modules.Teleprompter.Models
 @layout Thiccdal.Shared.Components.Layout.NullLayout
 
-@implements IDisposable
+@implements IAsyncDisposable
 
-@inject CancellationTokenSource Cts
+@inject IActivityFeedService ActivityFeedService
 @inject IChatService ChatService
-@inject ITeleprompterService PrompterService
+@inject IEventBus EventBus
+@inject IJSRuntime JS
+@inject IOperatorStateService OperatorStateService
+@inject IQuestionOverlayService QuestionOverlayService
 
 <div id="prompterBackground">
-    <div id="chatList" style="top: @($"{_scrollPosition}px"); transition: top 0.4s ease-in-out;">
-        @foreach (var line in _lines)
-        {
-            <PrompterLine Line="@line" />
-        }
+    @if (_showQuestionFlash)
+    {
+        <div class="prompter-flash prompter-flash--question"></div>
+        <div class="prompter-attention" role="status" aria-live="polite" aria-atomic="true">
+            <span class="prompter-attention__dot"></span>
+            <span>New question ready</span>
+        </div>
+    }
+
+    @if (_showEventFlash)
+    {
+        <div class="prompter-flash prompter-flash--event"></div>
+    }
+
+    <header class="prompter-heading">
+        <span class="prompter-heading__label">Staged Stream Title</span>
+        <h1 class="prompter-heading__title">@GetPrompterTitle()</h1>
+    </header>
+
+    <div class="prompter-content">
+        <div id="chatList">
+            @foreach (var line in _lines)
+            {
+                <PrompterLine Line="@line" />
+            }
+        </div>
     </div>
 </div>
 
 @code {
-    private List<Line> _lines = new List<Line>();
+    private readonly CancellationTokenSource _cts = new();
+    private List<Line> _lines = [];
 
-    private int _scrollPosition = 0;
+    private int _scrollPosition;
+    private bool _showEventFlash;
+    private bool _showQuestionFlash;
+    private int _eventFlashVersion;
+    private int _questionFlashVersion;
+    private long _lastQuestionAttentionSequence;
+    private Task? _significantEventSubscriptionTask;
 
     protected override async Task OnInitializedAsync()
     {
-        await ChatService.Connect(Cts.Token);
-        ChatService.OnChatMessageRecieved += HandleChatMessage;
-
-        PrompterService.OnScrollRequested += PrompterService_ScrollRequested;
-
-        var now = DateTime.Now;
-        _lines = new List<Line>
+        ActivityFeedService.EntryAdded += HandleEntryAdded;
+        OperatorStateService.StateChanged += HandleOperatorStateChanged;
+        _lines = ActivityFeedService
+            .GetEntries()
+            .Select(CreateLine)
+            .ToList();
+        _lastQuestionAttentionSequence = QuestionOverlayService.GetState().AttentionSequence;
+        _scrollPosition = OperatorStateService.TeleprompterScrollPosition;
+        if (_lastQuestionAttentionSequence > 0)
         {
-            new("SYSTEM", "Joined channel", "<b>Joined channel!</b>", "Twitch", now),
-        };
+            ShowQuestionFlash();
+        }
 
-        _scrollPosition = 0;
+        await ChatService.Connect(_cts.Token);
+        _significantEventSubscriptionTask = ListenForSignificantEvents(_cts.Token);
 
         await base.OnInitializedAsync();
     }
 
-    private void HandleChatMessage(object? sender, ChatEvent message)
+    private void HandleEntryAdded(object? sender, ActivityFeedEntry entry)
     {
-        _lines.Insert(0, new Line(message.Author, message.Content, message.Content, message.Source.ToString(), DateTime.Now));
+        _lines.Insert(0, CreateLine(entry));
+        TrimLines();
         InvokeAsync(StateHasChanged);
     }
 
-    private void PrompterService_ScrollRequested(object? sender, ScrollEventArgs args)
+    public async ValueTask DisposeAsync()
     {
-        _scrollPosition = args.Direction switch
+        ActivityFeedService.EntryAdded -= HandleEntryAdded;
+        OperatorStateService.StateChanged -= HandleOperatorStateChanged;
+        _cts.Cancel();
+
+        if (_significantEventSubscriptionTask is not null)
         {
-            ScrollDirection.Up => _scrollPosition + args.ScrollAmount,
-            ScrollDirection.Down => _scrollPosition - args.ScrollAmount,
-            ScrollDirection.Reset => 0,
-            _ => _scrollPosition
-        };
-        _scrollPosition = Math.Min(_scrollPosition, 0);
-        InvokeAsync(StateHasChanged);
+            try
+            {
+                await _significantEventSubscriptionTask;
+            }
+            catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+            {
+            }
+        }
+
+        _cts.Dispose();
     }
 
-    public void Dispose()
+    private void TrimLines()
     {
-        ChatService.OnChatMessageRecieved -= HandleChatMessage;
-        PrompterService.OnScrollRequested -= PrompterService_ScrollRequested;
+        if (_lines.Count > 150)
+        {
+            _lines.RemoveRange(150, _lines.Count - 150);
+        }
+    }
+
+    private static Line CreateLine(ActivityFeedEntry entry)
+    {
+        return new Line(
+            entry.Sender,
+            entry.Content,
+            entry.HtmlContent,
+            entry.Source.ToString(),
+            entry.Timestamp,
+            entry.Type,
+            AccentColor: string.IsNullOrWhiteSpace(entry.AccentColor) ? null : entry.AccentColor,
+            SenderColor: string.IsNullOrWhiteSpace(entry.SenderColor) ? null : entry.SenderColor,
+            Badges: entry.Badges,
+            Parts: entry.Parts);
+    }
+
+    private void HandleOperatorStateChanged(object? sender, EventArgs args)
+    {
+        long questionAttentionSequence = QuestionOverlayService.GetState().AttentionSequence;
+        if (questionAttentionSequence > _lastQuestionAttentionSequence)
+        {
+            ShowQuestionFlash();
+        }
+
+        _lastQuestionAttentionSequence = questionAttentionSequence;
+        _scrollPosition = OperatorStateService.TeleprompterScrollPosition;
+        _ = InvokeAsync(async () =>
+        {
+            await ApplyScrollPosition();
+            StateHasChanged();
+        });
+    }
+
+    private async Task ListenForSignificantEvents(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (PlatformEvent platformEvent in EventBus.Subscribe(cancellationToken))
+            {
+                if (ShouldTriggerEventFlash(platformEvent))
+                {
+                    await TriggerEventFlash();
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private static bool ShouldTriggerEventFlash(PlatformEvent platformEvent) => platformEvent.Type switch
+    {
+        PlatformEventType.Subscribe => true,
+        PlatformEventType.Raid => true,
+        PlatformEventType.SuperChat => true,
+        PlatformEventType.Membership => true,
+        _ => false
+    };
+
+    private void ShowQuestionFlash()
+    {
+        int flashVersion = Interlocked.Increment(ref _questionFlashVersion);
+        _showQuestionFlash = true;
+        _ = InvokeAsync(StateHasChanged);
+        _ = HideQuestionFlash(flashVersion);
+    }
+
+    private async Task HideQuestionFlash(int flashVersion)
+    {
+        try
+        {
+            await Task.Delay(600, _cts.Token);
+
+            if (flashVersion == _questionFlashVersion && !_cts.IsCancellationRequested)
+            {
+                _showQuestionFlash = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task TriggerEventFlash()
+    {
+        try
+        {
+            int flashVersion = Interlocked.Increment(ref _eventFlashVersion);
+            _showEventFlash = true;
+            await InvokeAsync(StateHasChanged);
+
+            await Task.Delay(600, _cts.Token);
+
+            if (flashVersion == _eventFlashVersion && !_cts.IsCancellationRequested)
+            {
+                _showEventFlash = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ApplyScrollPosition();
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private string GetPrompterTitle()
+    {
+        return string.IsNullOrWhiteSpace(OperatorStateService.StreamTitle)
+            ? "Waiting for staged stream title"
+            : OperatorStateService.StreamTitle;
+    }
+
+    private async Task ApplyScrollPosition()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("scrollPrompter", _scrollPosition);
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 }
-
-
-

@@ -1,7 +1,7 @@
 @using Thiccdal.Modules.Teleprompter.Models
+@using Thiccdal.Infrastructure.Bot.Models
 
-<!-- TODO: There could be multiple different types of lines. Right now we're only building ChatLine-->
-<div class="line">
+<div class="@GetLineCssClass()" style="@GetAccentStyle()">
     <div class="platform">
         @switch (Line.Platform)
         {
@@ -19,13 +19,63 @@
                 break;
         }
     </div>
-    <time>@Line.Timestamp.ToString("HH:mm:ss")</time>
-    <div class="sender">@Line.Sender</div>
+    <time>@Line.Timestamp.ToLocalTime().ToString("HH:mm:ss")</time>
+    <div class="sender">
+        @if (Line.Type != PlatformEventType.ChatMessage && Line.Type != PlatformEventType.Raw)
+        {
+            <span class="event-pill">@Line.Type.ToString().ToUpperInvariant()</span>
+        }
+
+        @if (Line.Badges is { Count: > 0 })
+        {
+            foreach (ChatBadge badge in Line.Badges)
+            {
+                <span class="badge-pill">@FormatBadge(badge)</span>
+            }
+        }
+
+        <span class="sender__name" style="@GetSenderStyle()">@Line.Sender</span>
+    </div>
     <div class="promptContent">
-        <ChatLine Line="@Line" />
+        @if (Line.Type == PlatformEventType.ChatMessage)
+        {
+            <ChatLine Line="@Line" />
+        }
+        else
+        {
+            <div class="activity">@Line.Content</div>
+        }
     </div>
 </div>
 @code {
     [Parameter]
     public required Line Line { get; set; }
+
+    private string GetLineCssClass()
+    {
+        return Line.Type == PlatformEventType.ChatMessage
+            ? "line"
+            : "line line--activity";
+    }
+
+    private string? GetAccentStyle()
+    {
+        return string.IsNullOrWhiteSpace(Line.AccentColor)
+            ? null
+            : $"--line-accent: {Line.AccentColor};";
+    }
+
+    private string? GetSenderStyle()
+    {
+        return string.IsNullOrWhiteSpace(Line.SenderColor)
+            ? null
+            : $"color: {Line.SenderColor};";
+    }
+
+    private static string FormatBadge(ChatBadge badge)
+    {
+        return string.IsNullOrWhiteSpace(badge.Version)
+            ? badge.SetId
+            : $"{badge.SetId}:{badge.Version}";
+    }
 }

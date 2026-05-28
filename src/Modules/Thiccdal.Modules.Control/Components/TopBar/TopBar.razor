@@ -1,40 +1,177 @@
-@using Thiccdal.Shared.Components.Components.Primitives
-<header class="topbar">
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Modules.Control.Components.Dialogs
+@using Microsoft.AspNetCore.Hosting
+@using Microsoft.Extensions.Logging
+@inject IOperatorStateService OperatorStateService
+@inject IPreLiveChecklistService PreLiveChecklistService
+@inject IGoLiveActionService GoLiveActionService
+@inject IWebHostEnvironment HostEnvironment
+@inject ILogger<TopBar> Logger
+@implements IDisposable
+
+<header class="topbar topbar--@(_mode == OperatorMode.Live ? "live" : "prelive")">
     <div class="topbar__left">
         <span class="topbar__brand">THICCDAL</span>
-        <div class="topbar__platforms">
-            <PlatformIndicator Platform="TWI" ViewerCount="847" Color="#9146FF" IsLive="true" />
-            <PlatformIndicator Platform="YT" ViewerCount="312" Color="#FF4444" IsLive="true" />
-            <PlatformIndicator Platform="KICK" Color="#53FC18" IsLive="false" />
-        </div>
-    </div>
-
-    <div class="topbar__restream">
-        <div class="topbar__restream-dest" style="--plat-color: #9146FF">
-            <span class="topbar__restream-name">Twitch</span>
-            <span class="topbar__restream-stats">6,008 Kbps · 60fps</span>
-            <button type="button" class="topbar__restream-btn topbar__restream-btn--stop">■ Stop</button>
-            <span class="topbar__restream-dot"></span>
-        </div>
-        <div class="topbar__restream-dest" style="--plat-color: #FF4444">
-            <span class="topbar__restream-name">YouTube</span>
-            <span class="topbar__restream-stats">4,500 Kbps · 80fps</span>
-            <button type="button" class="topbar__restream-btn topbar__restream-btn--stop">■ Stop</button>
-            <span class="topbar__restream-dot"></span>
-        </div>
-        <div class="topbar__restream-dest" style="--plat-color: #53FC18">
-            <span class="topbar__restream-name">Kick</span>
-            <span class="topbar__restream-stats">idle</span>
-            <button type="button" class="topbar__restream-btn topbar__restream-btn--go">▶ Go Live</button>
+        <StreamStatusBadge />
+        <div class="topbar__connections">
+            <PlatformConnectionBadges />
         </div>
     </div>
 
     <div class="topbar__right">
-        <span class="topbar__timer">02:14:38</span>
-        <div class="topbar__actions">
-            <GhostButton>⚙ Config</GhostButton>
-            <DangerButton>■ End</DangerButton>
-        </div>
+        @if (!string.IsNullOrWhiteSpace(_goLiveActionState.ErrorMessage))
+        {
+            <div class="topbar__error" role="alert">@_goLiveActionState.ErrorMessage</div>
+        }
+
+        @if (_mode == OperatorMode.PreLive)
+        {
+            <button type="button"
+                    class="topbar__action topbar__action--secondary @(ManualRemindersReviewed ? "topbar__action--complete" : string.Empty)"
+                    @onclick="HandleStreamInfoClicked">
+                @(ManualRemindersReviewed ? "✓ Stream Info" : "Stream Info")
+            </button>
+
+            @if (IsDevelopmentEnvironment)
+            {
+                <button type="button"
+                        class="topbar__action topbar__action--development"
+                        @onclick="HandlePreviewDashboardClicked">
+                    Preview Live Dashboard
+                </button>
+            }
+
+            <button type="button"
+                    class="topbar__go-live @(IsGoLiveReady ? "topbar__go-live--ready" : "topbar__go-live--locked")"
+                    disabled="@(!IsGoLiveReady || _goLiveActionState.IsRunning)"
+                    @onclick="HandleGoLiveClicked">
+                <span class="topbar__go-live-label">Go Live</span>
+                <span class="topbar__go-live-badge">@GetGoLiveBadgeText()</span>
+            </button>
+        }
+        else
+        {
+            <button type="button" class="topbar__action topbar__action--danger" @onclick="HandleGoOfflineClicked">Go Offline</button>
+        }
     </div>
 </header>
 
+<GoLiveConfirmDialog @ref="_goLiveConfirmDialog" />
+<ConfirmDialog @ref="_confirmDialog" />
+
+@code {
+    [Parameter]
+    public EventCallback OnStreamInfoClicked { get; set; }
+
+    private const string ManualRemindersItemId = "stream-info.manual-reminders";
+    private OperatorMode _mode;
+    private PreLiveChecklistState _checklistState = new();
+    private GoLiveActionState _goLiveActionState = new();
+    private GoLiveConfirmDialog? _goLiveConfirmDialog;
+    private ConfirmDialog? _confirmDialog;
+
+    private bool IsGoLiveReady => _checklistState.AllRequiredChecked;
+
+    private bool IsDevelopmentEnvironment =>
+        string.Equals(HostEnvironment.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase);
+
+    private bool ManualRemindersReviewed =>
+        _checklistState.Items.FirstOrDefault(static item => item.Definition.Id == ManualRemindersItemId)?.IsChecked ?? false;
+
+    protected override void OnInitialized()
+    {
+        RefreshState();
+        OperatorStateService.StateChanged += HandleStateChanged;
+        PreLiveChecklistService.StateChanged += HandleStateChanged;
+        GoLiveActionService.StateChanged += HandleStateChanged;
+    }
+
+    public void Dispose()
+    {
+        OperatorStateService.StateChanged -= HandleStateChanged;
+        PreLiveChecklistService.StateChanged -= HandleStateChanged;
+        GoLiveActionService.StateChanged -= HandleStateChanged;
+    }
+
+    private Task HandleStreamInfoClicked()
+    {
+        return OnStreamInfoClicked.InvokeAsync();
+    }
+
+    private async Task HandleGoLiveClicked()
+    {
+        if (!IsGoLiveReady || _goLiveConfirmDialog is null)
+        {
+            return;
+        }
+
+        bool confirmed = await _goLiveConfirmDialog.Show(_checklistState);
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await GoLiveActionService.Execute();
+    }
+
+    private Task HandlePreviewDashboardClicked()
+    {
+        if (!IsDevelopmentEnvironment || _mode != OperatorMode.PreLive)
+        {
+            return Task.CompletedTask;
+        }
+
+        OperatorStateService.BeginLiveSession();
+        Logger.LogInformation("Development shortcut opened the live dashboard preview at {Time}", DateTimeOffset.UtcNow);
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleGoOfflineClicked()
+    {
+        if (_confirmDialog is null)
+        {
+            return;
+        }
+
+        bool confirmed = await _confirmDialog.Show(new ConfirmDialogOptions
+        {
+            Title = "Go offline?",
+            Body = "This returns the operator UI to the pre-live preparation workflow.",
+            ConfirmText = "Go Offline",
+            ConfirmStyle = ConfirmStyle.Danger
+        });
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        OperatorStateService.SetActiveStreamState(null);
+        Logger.LogInformation("Stream returned to pre-live mode at {Time}", DateTimeOffset.UtcNow);
+    }
+
+    private string GetGoLiveBadgeText()
+    {
+        if (IsGoLiveReady)
+        {
+            return "✓ Ready to go live";
+        }
+
+        int remaining = _checklistState.RequiredUncheckedCount;
+        return $"✗ {remaining} item{(remaining == 1 ? string.Empty : "s")} remaining";
+    }
+
+    private void HandleStateChanged(object? sender, EventArgs args)
+    {
+        RefreshState();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void RefreshState()
+    {
+        _mode = OperatorStateService.Mode;
+        _checklistState = PreLiveChecklistService.GetState();
+        _goLiveActionState = GoLiveActionService.GetState();
+    }
+}
