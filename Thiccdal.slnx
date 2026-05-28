@@ -39,13 +39,12 @@
     <Project Path="src/Tests/Thiccdal.Data.Tests/Thiccdal.Data.Tests.csproj" Id="78ed2f01-f84c-40ee-80eb-72991ee0fe8f" />
     <Project Path="src/Tests/Thiccdal.Tests/Thiccdal.Tests.csproj" Id="b0ec0490-49f9-48c8-8ede-e33a57b212da" />
   </Folder>
+  <Folder Name="/src/Tests/Modules/">
+    <Project Path="src/Tests/Modules/Thiccdal.Modules.ChatBot.Tests/Thiccdal.Modules.ChatBot.Tests.csproj" />
+    <Project Path="src/Tests/Modules/Thiccdal.Modules.Teleprompter.Tests/Thiccdal.Modules.Teleprompter.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Tests/Remote/">
-    <Project Path="src/Tests/Remote/Thiccdal.Remote.Facebook.Tests/Thiccdal.Remote.Facebook.Tests.csproj" Id="f1d40b38-b449-4d3f-9baa-d7fbda8c61dd" />
-    <Project Path="src/Tests/Remote/Thiccdal.Remote.LMStudio.Tests/Thiccdal.Remote.LMStudio.Tests.csproj" />
-    <Project Path="src/Tests/Remote/Thiccdal.Remote.Null.Tests/Thiccdal.Remote.Null.Tests.csproj" Id="e46a80ac-8c4b-4650-aa77-6d8956895b2a" />
     <Project Path="src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/Thiccdal.Remote.Twitch.Tests.csproj" Id="34ac27cc-0c68-40db-937e-66539374ef8e" />
-    <Project Path="src/Tests/Remote/Thiccdal.Remote.X.Tests/Thiccdal.Remote.X.Tests.csproj" Id="8f0b9b6f-39bb-44f7-94e3-1e08c4d76752" />
-    <Project Path="src/Tests/Remote/Thiccdal.Remote.YouTube.Tests/Thiccdal.Remote.YouTube.Tests.csproj" />
   </Folder>
   <Project Path="docs/docs.csproj" Id="4ee1e30f-b64c-4f8c-be08-dfe195c51340" />
 </Solution>
