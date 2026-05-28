@@ -592,3 +592,65 @@ collection.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredServi
 **Success Metrics:** AI maintains conversation continuity per chatter, scoping prevents cross-platform bleeding, no sensitive data leakage, operator can control/clear memory, all existing AI functionality preserved
 **Why:** Feature design is stable and user-approved; implementation can proceed with clear boundaries and cross-team review points
 **Files:** Implementation spec document; referenced in Kaylee's code work
+
+## Phase 8 Restream Implementation (2026-05-28)
+
+### 2026-05-28: Phase 8 Restream — Development-Mode Offline Dashboard Shortcut
+**Agent:** Inara (Blazor Operator Experience)  
+**Status:** ✅ IMPLEMENTED  
+**What:** Added development-only offline dashboard shortcut accessible from pre-live TopBar. Shortcut reuses `IOperatorStateService.BeginLiveSession()` to enter live dashboard without invoking go-live action pipeline or streaming services. Exit path remains existing "Go Offline" button behavior.  
+**Why:** Enables faster development iteration on live dashboard UI layout/interactions without OAuth setup or platform connections.  
+**Scope:** Development-only; disappears in release builds.  
+**Files:**
+- `src/Modules/Thiccdal.Modules.Control/Components/TopBar/TopBar.razor` (updated)
+- `src/Modules/Thiccdal.Modules.Control/Components/Dashboard/Dashboard.razor` (updated)  
+- `src/Tests/Modules/Thiccdal.Modules.Control.Tests/TopBarTests.cs` (added)  
+- `src/Tests/Modules/Thiccdal.Modules.Control.Tests/RouteRenderingTests.cs` (updated)  
+- `src/Tests/Thiccdal.Tests/Services/OperatorStateServiceTests.cs` (updated)  
+**Validation:** ✅ All tests passing; clean build
+
+### 2026-05-28: Phase 8 Restream — Two-Entry Operator Control Pattern
+**Agent:** Inara (Blazor Operator Experience)  
+**Status:** ✅ IMPLEMENTED  
+**What:** Implemented two-entry operator pattern for restream control: pre-live configuration in `OperatorSettingsDialog` (Restream tab) + live runtime control on dashboard live toolbar (Restream action). Both entries open unified `RestreamPanel` control surface. Destination rows remain presentational; API-backed state/config/toggle/start/stop via narrow `/api/restream` endpoints.  
+**Why:** Restream is both setup and live-ops concern. Dual-entry pattern prevents operator context-switching at wrong time. Honest UI messaging exposes real persisted configuration + runtime flags while acknowledging backend relay automation gap.  
+**Pattern:** One API-backed panel reused in both surfaces (pre-live settings + live toolbar). Clear separation of config persistence vs runtime control state.  
+**Files:**
+- `src/Modules/Thiccdal.Modules.Control/Components/Restream/RestreamPanel.razor` (new)  
+- `src/Modules/Thiccdal.Modules.Control/Components/Restream/RestreamDestination.razor` (new)  
+- `src/Modules/Thiccdal.Modules.Control/Components/Settings/OperatorSettingsDialog.razor` (updated)  
+- `src/Modules/Thiccdal.Modules.Control/Pages/Dashboard.razor` (updated)  
+- `src/Tests/Modules/Thiccdal.Modules.Control.Tests/RestreamPanelTests.cs` (new)  
+**Validation:** ✅ All tests passing; zero console errors
+
+### 2026-05-28: Phase 8 Restream — Control-Plane Persistence & API Surface
+**Agent:** Kaylee (Backend Services)  
+**Status:** ✅ IMPLEMENTED  
+**What:** Established restream control-plane with SQLite persistence through `RestreamConfiguration` and `RestreamDestinationConfiguration` EF Core entities. Operator-facing contract via `IRestreamRuntimeService` with clean API endpoints (`/api/restream/state`, `/api/restream/config`, `/api/restream/toggle`, `/api/restream/start`, `/api/restream/stop`). UI consumers use `RestreamControlState` / `RestreamConfigurationUpdateRequest` DTOs instead of data-layer entities. Backend retains simple path for startup automation through `RestreamBootstrapService` + host database migration.  
+**Why:** Keeps operator-facing contract stable while backend persists runtime choices independently of platform adapter secrets. Preserves startup automation path. Data layer stays encapsulated.  
+**Pattern:** Service seam (`IRestreamRuntimeService`) decouples UI from persistence. DTO boundary prevents leakage of internal entities.  
+**Files:**
+- `src/Thiccdal.Data/Models/RestreamConfiguration.cs` (new)  
+- `src/Thiccdal.Data/Models/RestreamDestinationConfiguration.cs` (new)  
+- `src/Thiccdal.Data/RestreamRuntimeService.cs` (new)  
+- `src/Thiccdal.Data/Migrations/...` (EF Core migrations)  
+- `src/Thiccdal.API/Restream/RestreamApiExtensions.cs` (new)  
+- `src/Tests/Thiccdal.Data.Tests/RestreamRuntimeServiceTests.cs` (new)  
+**Validation:** ✅ `dotnet build .\\Thiccdal.slnx` ✅, `dotnet test .\\src\\Tests\\Thiccdal.Tests\\Thiccdal.Tests.csproj --filter Restream` ✅, all migrations verify
+
+### 2026-05-28: Phase 8 Restream — Issue #129 Closure (Display Name Rendering)
+**Agent:** Zoe (GitHub Sync / Work Items)  
+**Status:** ✅ CLOSED  
+**What:** Closed GitHub issue #129 (manual identity merge UI in operator settings). Acceptance criterion was: *"Chat components prefer UserIdentity.DisplayName when available."* This is now complete end-to-end. Backend `ChatPersistenceService.ResolvePreferredAuthor()` resolves canonical name at persistence time; frontend `ChatFeedOverlayComponent` renders `chatMessage.DisplayAuthor`; `ActivityFeedService` uses canonical author in prompter feed.  
+**Implementation Details:**
+- **Backend:** `ChatEvent.PreferredAuthor` field carries merged viewer name; `DisplayAuthor` computed property returns canonical name when available  
+- **Frontend:** `ChatFeedOverlayComponent` (line 16), `PlatformActivityFormatter.CreateChatEntry()` (line 57), `ActivityFeedService` all render canonical names  
+- **Test Coverage:** `ChatFeedOverlayComponentTests`, `ActivityFeedServiceTests`, `ChatPersistenceServiceTests` verify canonical name resolution  
+**Why Close:** The acceptance criterion (chat components prefer merged identities) is met. Full manual merge UI is orthogonal feature; canonical name rendering unblocks downstream features.  
+**Files:**
+- `src/Thiccdal.Data/Services/ChatPersistenceService.cs` (updated)  
+- `src/Modules/Thiccdal.Modules.Overlay/Components/ChatFeedOverlayComponent.razor` (updated)  
+- `src/Thiccdal.Services/ActivityFeedService.cs` (updated)  
+- `src/Tests/**/*Tests.cs` (coverage updated)  
+**Validation:** ✅ All tests passing; end-to-end flow verified
+**Closure Comment:** [Posted to GitHub] Identity merging acceptance criterion complete: all rendering paths use canonical DisplayAuthor. Manual merge UI design deferred as separate feature.

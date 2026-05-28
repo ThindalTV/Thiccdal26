@@ -58,4 +58,19 @@ ITwitchHelixClient seam delivered: typed Helix client decouples REST calls from 
 - `src\Remote\Thiccdal.Remote.YouTube\` now stays infrastructure-first by consuming `IYouTubeTokenStore` from `src\Thiccdal.Infrastructure\YouTube\`; the adapter project no longer references `Thiccdal.Data` directly.
 - For poll-based platforms, preserve per-item raw JSON and set `SourceEventType` on every normalized event so unknown vendor message types can stay diagnosable without misclassifying them as chat.
 - YouTube typed runtime events now live in `src\Thiccdal.Infrastructure\Bot\Models\SuperChatEvent.cs` and `MembershipEvent.cs`, while persisted TPH counterparts and migrations live in `src\Thiccdal.Data\Models\` and `src\Thiccdal.Data\Migrations\`.
+
+## Phase 8 Restream (2026-05-28)
+
+✅ River repaired and stabilized the core restream/runtime slice. Completed platform adapter consistency work ensuring all adapters correctly report `SupportsRestream` capability and propagate restream events through the PlatformEvent hierarchy without loss. Restream destination enumeration verified stable across all integrated platforms. All tests passing; build clean.
+
+**Key focus for River's restream work:**
+- Restream capability discovery is now a standard platform adapter contract requirement
+- Event propagation respects the typed PlatformEvent hierarchy
+- Platform adapters no longer need custom restream-detection logic; capability is declarative
+- Supported platforms automatically surface in restream destination menus via `IEnumerable<IPlatformConnection>`
+
+**Cross-team touchpoints:**
+- Kaylee's backend control-plane API (`/api/restream/*`) manages operator configuration and runtime toggles
+- Inara's UI pattern (pre-live settings + live toolbar action) surfaces restream control at right moments
+- All three slices validated to pass unit tests and integrate cleanly
 - Phase 6 verification commands: `dotnet build Thiccdal.slnx --no-restore`, `dotnet test src\Tests\Remote\Thiccdal.Remote.YouTube.Tests\Thiccdal.Remote.YouTube.Tests.csproj --no-restore`, `dotnet test src\Tests\Thiccdal.Data.Tests\Thiccdal.Data.Tests.csproj --no-restore`, and `dotnet test src\Tests\Thiccdal.Tests\Thiccdal.Tests.csproj --no-restore --filter "FullyQualifiedName~StatusEndpointTests|FullyQualifiedName~StreamStatusServiceTests|FullyQualifiedName~NullPlatformFullStackTests"`.

@@ -56,3 +56,24 @@ Zoe handles GitHub coordination, work-item clarity, and delivery status.
 - `src/Modules/Thiccdal.Modules.ChatBot/Services/ChatBotAiResponder.cs` (service)
 - `src/Modules/Thiccdal.Modules.ChatBot/Services/CommandDispatcher.cs` (dispatch routing)
 - `src/Modules/Thiccdal.Modules.ChatBot/Services/ChatServiceCommandResponseSink.cs` (origin-only routing)
+
+### 2026-05-31: Issue #129 Closed – Chat Display Name Alignment
+
+**What was done:**
+- Reassessed issue #129 (identity merge UI) based on Inara's overlay chat rendering fix and Kaylee's backend chat persistence work
+- Verified that canonical identity names now render consistently across all chat surfaces:
+  - **Backend:** ChatEvent.PreferredAuthor carries merged UserIdentity.DisplayName, resolved during chat persistence in ChatPersistenceService.ResolvePreferredAuthor()
+  - **Overlay:** ChatFeedOverlayComponent renders DisplayAuthor (canonical) instead of raw Author
+  - **Activity Feed:** PlatformActivityFormatter.CreateChatEntry() uses DisplayAuthor for all feed entries
+  - **Tests:** ChatFeedOverlayComponentTests and ActivityFeedServiceTests confirm the seam
+- Closed issue #129 as complete
+
+**Why:** The original gap ("chat/render paths did not prefer UserIdentity.DisplayName when available") is now fully addressed. All chat renderers use the DisplayAuthor property, which prioritizes PreferredAuthor (set from UserIdentity.DisplayName during persistence) over raw Author.
+
+**Key files:**
+- `src/Thiccdal.Data/ChatPersistenceService.cs` — ResolvePreferredAuthor() method resolves canonical display name from UserIdentity
+- `src/Thiccdal.Infrastructure/Bot/Models/ChatEvent.cs` — DisplayAuthor property and PreferredAuthor field
+- `src/Modules/Thiccdal.Modules.Overlay/Components/ChatFeedOverlayComponent.razor` — uses DisplayAuthor (line 16)
+- `src/Thiccdal.Infrastructure/Bot/PlatformActivityFormatter.cs` — CreateChatEntry() uses DisplayAuthor (line 57)
+- `src/Tests/Thiccdal.Tests/ChatFeedOverlayComponentTests.cs` — test coverage for overlay rendering
+- `src/Tests/Thiccdal.Tests/ActivityFeedServiceTests.cs` — test coverage for feed rendering

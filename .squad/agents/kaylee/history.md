@@ -22,6 +22,9 @@ Kaylee owns backend services, persistence, and bot-side execution paths.
 - 2026-05-29: SQLite startup recovery should run from `src\Thiccdal\Program.cs` via `app.Services.InitializeDatabase(...)`, using `IDbContextFactory<ApplicationDbContext>` plus `Database.MigrateAsync()` so a deleted `thiccdal.db` is recreated from real EF Core migrations.
 - 2026-05-29: Keep startup DB init logic in `src\Thiccdal.Data\ApplicationDbContextInitializationExtensions.cs`; ensure the configured SQLite directory exists before migrating so nested `Data Source=` paths work on first launch.
 - 2026-05-29: Regression coverage for missing SQLite files belongs in `src\Tests\Thiccdal.Data.Tests\ApplicationDbContextInitializationExtensionsTests.cs`, using repo-local test files under `AppContext.BaseDirectory` instead of temp directories.
+- 2026-05-28: Phase 8 restream backend now persists operator restream settings and destination toggles via EF Core (`RestreamConfiguration`, `RestreamDestinationConfiguration`) and exposes them through `IRestreamRuntimeService` + `/api/restream/*`.
+- 2026-05-28: The Null integration must register an `IPlatformManualReminderProvider`; otherwise host-backed tests that swap in only `AddNullIntegration()` fail when `PreLiveChecklistService` is activated.
+- 2026-05-28: After schema changes, clean repo-local SQLite test databases under `src\Tests\**\bin\**\*.db*` before rerunning the full suite; reused files can surface false migration failures like `table "RestreamConfigurations" already exists`.
 
 ### 2026-05-28–2026-05-29: Helix Infrastructure & Auth Groundwork (Archived)
 
@@ -55,6 +58,21 @@ Helix redesign data model locked: ChatFragment hierarchy (TextFragment, EmoteFra
 **Testing:** 27 tests passing (25 Twitch, 1 Data, 1 host). Clean build confirmed no compilation errors.
 
 - 2026-05-29: For Helix/EventSub groundwork, keep Twitch config typed and transport-aware: `TwitchOptions` now owns `BotUserId`, `OAuthBaseAddress`, `Helix`, and `EventSub` sub-options so host code and adapters share one validated shape.
+
+## Phase 8 Restream (2026-05-28)
+
+✅ Kaylee restored the restream backend control-plane with full config persistence and test coverage. Rebuilt `IRestreamRuntimeService` control surface with clean API contracts. Persisted operator restream settings and destination toggles via EF Core (`RestreamConfiguration`, `RestreamDestinationConfiguration` entities). Re-established config migration path for database schema changes and validated full test suite passing.
+
+**Key decisions locked for restream control-plane:**
+- UI consumers use `RestreamControlState` and `RestreamConfigurationUpdateRequest` DTOs (not data-layer entities)
+- Operator-facing contract stays stable while backend independently persists runtime choices and platform adapter secrets
+- Startup automation flows through existing `RestreamBootstrapService` + host DB migration (no new patterns required)
+- `/api/restream/*` endpoints provide clean boundary: state, config, toggle, start, stop
+
+**Cross-team integration points:**
+- River's adapter layer provides capability discovery and event propagation to backend service
+- Inara's UI pattern (two-entry: pre-live settings + live toolbar) consumes these API endpoints
+- All three slices tested and building cleanly; no blocking dependencies
 - 2026-05-29: Split Twitch remote HTTP boundaries with named clients (`Twitch.OAuth`, `Twitch.Helix`) in `src\Remote\Thiccdal.Remote.Twitch\TwitchRegistrationExtensions.cs`; bind/validate them there, then keep `Program.cs` at composition-only level.
 - 2026-05-29: `TwitchChatConnectionProfile` must carry both `BotUserId` and `BroadcasterId`; EventSub subscriptions need the authenticated bot identity and target broadcaster identity separately even after the UI-selected target channel override.
 - 2026-05-29: Helix contract coverage currently lives in `src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\TwitchRegistrationExtensionsTests.cs`, `TwitchTargetChannelServiceTests.cs`, and `TwitchServiceTests.cs`; validated with `dotnet test src\Tests\Remote\Thiccdal.Remote.Twitch.Tests\Thiccdal.Remote.Twitch.Tests.csproj` plus `dotnet build src\Thiccdal\Thiccdal.csproj`.
