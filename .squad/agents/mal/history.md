@@ -27,7 +27,10 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 📌 **Phase 10 Question Flash Scope** — 2026-05-28  
    Dashboard + prompter attention flash complete. Tests passing. Ready for operator validation.
 
-📌 **Phase 11 Remediation Complete** — 2026-05-27  
+📌 **Offline Dashboard Scope Approved** — 2026-05-28  
+   Completed architectural review for development-only offline dashboard shortcut. Approved as safe, low-risk convenience feature. Implementation assigned to Inara. Decision recorded in `.squad/decisions.md`.
+
+📌 **Phase 11 Remediation Complete** — 2026-05-27
    Overlay architecture converged on established module boundaries. `IOperatorStateService` seam introduced; dynamic component registration via `IOverlayService`. #107 naming caveat documented; remaining gap isolated to wording drift. Build ✅ clean; 185 tests ✅ passing.
 
 📌 Firefly squad configured on 2026-05-27
@@ -285,6 +288,32 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 - `src\Remote\Thiccdal.Remote.YouTube\YouTubeLiveChatMessageMapper.cs` serializes the entire poll payload into each event; this breaks `src\Thiccdal.Data\PlatformUserIdResolver.cs`, which expects item-level `authorDetails` at the raw payload root.
 - `Thiccdal.Remote.YouTube.Tests` exists and passes, but it is still not listed in `Thiccdal.slnx`, and no `YouTubeTestData` helper exists, so issue `#40` remains open.
 - `docs\architecture\overview.md` remains the architecture baseline for remote adapter boundaries and normalization expectations.
+
+### 2026-05-31: Development-Mode Offline Dashboard Scope Review
+
+**Request:** Add a button to access the live dashboard UI without actually going live (for offline development).
+
+**Safety assessment completed:**
+- ✅ `IOperatorStateService` seams are SUFFICIENT — no new interfaces, enums, or database queries needed
+- ✅ State transition is isolated from `GoLiveActionService` (real Go Live workflow) and platform connections
+- ✅ Fully reversible via existing "Go Offline" button (`SetActiveStreamState(null)`)
+- ⚠️ CRITICAL: Must be visually distinct and development-only; NOT a broadcast path
+
+**Architecture confirmed:**
+- `OperatorStateService.SetActiveStreamState()` can initialize a synthetic `OperatorStreamState` with test metadata
+- TopBar mode gate (`_mode == OperatorMode.Live` vs. PreLive) controls entire dashboard layout
+- No platform, streaming, or recording services triggered by mode change alone
+- Dashboard panels read from `IOperatorStateService`; no downstream platform calls
+
+**Decision recorded:** `.squad/decisions/inbox/mal-offline-dashboard-scope.md`
+
+**Key file paths involved:**
+- `src\Thiccdal.Infrastructure\Operators\IOperatorStateService.cs` — service contract (no changes)
+- `src\Thiccdal.Infrastructure\Operators\OperatorStateService.cs` — implementation (single synthetic state helper method)
+- `src\Modules\Thiccdal.Modules.Control\Components\TopBar\TopBar.razor` — add conditional dev button
+- `src\Tests\Thiccdal.Tests\TopBarTests.cs` — two new test cases (entry + exit paths)
+
+**Pattern for reuse:** Offline development shortcuts use existing state service seams without new contracts. Isolation from external services is the key safety gate.
 
 **Reviewer conclusion:**
 - None of `#34-#40` are honestly closable yet.

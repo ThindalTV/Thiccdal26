@@ -498,6 +498,59 @@ collection.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredServi
 - Config: `src/Thiccdal.Infrastructure/Bot/ChatBotAiResponderOptions.cs`
 - Architecture: `.squad/decisions/inbox/mal-ai-routing-decision.md` (origin-only routing rationale)
 - Orchestration: `.squad/orchestration-log/2026-05-28T01-17-55-zoe.md`, `.squad/orchestration-log/2026-05-28T01-17-55-jayne.md`
+
+## Work Completion Records (2026-05-28)
+
+### 2026-05-28: Development-Mode Offline Dashboard Shortcut — Scope & Approval
+**Agent:** Mal (Lead / Orchestrator)  
+**Status:** ✅ Approved for implementation  
+**What:** Completed architectural review and scope definition for development-only offline dashboard shortcut. Approved as low-risk, high-value convenience feature for local UI testing without platform dependencies.
+**Architectural Safety:**
+- Reuses existing `OperatorStateService` seams (no new contracts needed)
+- Bypasses `GoLiveActionService` entirely; no platform connections triggered
+- Fully reversible via existing "Go Offline" button
+- Mock state does not persist to database
+**Implementation Plan:**
+1. Add conditional "Dev: Open Live UI" button in PreLive `TopBar` (dev mode only)
+2. Button calls `OperatorStateService.SetActiveStreamState(CreateMockStreamState())`
+3. Dashboard transitions to Live UI without calling any platform services
+4. Two test cases: dev-mode entry and "Go Offline" exit
+**Why:** Enables faster development iteration on live dashboard UI layout/interactions without OAuth setup or platform connections
+**Next Steps:** Awaiting Inara assignment for implementation
+
+### 2026-05-28: Issue #129 — Canonical Display Name Rendering Fix (UI Seam)
+**Agent:** Inara (Blazor Operator Experience)  
+**Status:** ✅ COMPLETED  
+**What:** Fixed UI/render seam for canonical merged viewer names in overlay chat display. Refactored `PrompterLine.razor` and `ChatView.razor` to consume `ChatMessagePart` / `ChatBadge` normalized contracts instead of raw platform author names.
+**Problem:** Overlay chat rendered duplicate or non-canonical display names when chat persistence used canonical names but UI layer read raw platform author.
+**Solution:**
+- Updated Prompter and Overlay components to use `ChatMessagePart` normalized display names
+- Added fallback to plain-text rendering when emote/badge CDN unavailable
+- Preserved touch-safe rendering (44px+ targets maintained)
+**Key Files Modified:**
+- `src/Modules/Thiccdal.Modules.Teleprompter/Components/PrompterLine.razor`
+- `src/Modules/Thiccdal.Modules.Overlay/Components/ChatView.razor`
+**Validation:** Components compile cleanly; await Kaylee's backend seam for integration test
+**Status Note:** Inara's UI work is downstream of Kaylee's persistence layer fix
+
+### 2026-05-28: Issue #129 — Canonical Display Name Normalization (Backend Seam)
+**Agent:** Kaylee (Backend Services & Persistence)  
+**Status:** ✅ COMPLETED  
+**What:** Fixed backend/persistence/render seam for canonical chat display names in viewer name merging. Centralized display-name canonicalization in `TwitchEventSubNotificationMapper` and ensured all downstream rendering uses the same canonical seam.
+**Problem:** Display name canonicalization was split across event mapping and UI layer, resulting in inconsistent viewer-name merges when the same user appeared with different name casing/formatting.
+**Solution:**
+- Moved canonical display-name normalization into `TwitchEventSubNotificationMapper.cs` (single source of truth)
+- `ChatEvent.PreferredAuthor` / `DisplayAuthor` now carry normalized names set at persistence time
+- Raw platform author preserved separately in `Author` for bot logic that keys off source-native data
+- Activity-feed formatter and downstream components use `DisplayAuthor` for rendering
+- EF Core migration generated and validated
+**Key Files Modified:**
+- `src/Remote/Thiccdal.Remote.Twitch/TwitchEventSubNotificationMapper.cs`
+- `src/Thiccdal.Data/Models/ChatEvent.cs`
+- `src/Thiccdal.Data/Models/PlatformEvent.cs`
+- `src/Thiccdal.Data/Migrations/...` (auto-generated schema updates)
+**Validation:** ✅ `dotnet test .\\Thiccdal.slnx` (all passing), ✅ SQLite integration tests pass
+**Cross-Team Note:** Inara's UI render fix now consumes canonical names from this backend seam
 - Session log: `.squad/log/2026-05-28T01-17-55-issue92-closeout.md`
 **Next:** Zoe to close issue #92 on GitHub
 **Files:** Full re-review in `.squad/orchestration-log/2026-05-28T01-17-55-jayne.md`

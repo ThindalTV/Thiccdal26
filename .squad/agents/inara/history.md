@@ -117,3 +117,21 @@ Inara owns the Blazor operator experience, UX polish, and UI ergonomics.
 - Deferred dashboard chat feed (prompter owns operator chat visibility)
 
 **Status:** ✅ Phase 10 increment complete. Ready for operator validation.
+
+### 2026-05-28: Issue #129 — Chat Display Name Canonicalization (UI Render Seam)
+
+**Problem:** Overlay chat displayed duplicate or non-canonical viewer names when merged viewer identities persisted as canonical names but UI layer read raw platform author.
+
+**Solution implemented:**
+- Refactored `PrompterLine.razor` to consume `ChatMessagePart` normalized display names instead of raw `Author`
+- Updated `ChatView.razor` (overlay) to use same canonical `ChatMessagePart` / `ChatBadge` seam
+- Added safe fallback to plain-text when emote/badge CDN unavailable
+- Touch-safe rendering targets (44px+) preserved
+
+**Integration point:** Downstream of Kaylee's backend persistence fix in `TwitchEventSubNotificationMapper`. Backend now sets canonical display names at event-mapping time; UI layer reads and renders those normalized names.
+
+**Status:** ✅ UI seam complete. Tests pass. Awaiting full integration validation with Kaylee's backend changes.
+
+**Key files modified:**
+- `src/Modules/Thiccdal.Modules.Teleprompter/Components/PrompterLine.razor`
+- `src/Modules/Thiccdal.Modules.Overlay/Components/ChatView.razor`

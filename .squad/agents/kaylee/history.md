@@ -89,3 +89,26 @@ Helix redesign data model locked: ChatFragment hierarchy (TextFragment, EmoteFra
 - 2026-05-29: Use a singleton `IActivityFeedService` plus `PlatformActivityFormatter` to centralize chat/event rendering for `/prompter` and `/overlay`; this avoids each page reformatting Twitch follows, raids, cheers, badges, and emotes independently.
 - 2026-05-29: When a Blazor surface needs background event history, register the same singleton as both its app-facing interface and `IHostedService` so subscriptions are active before the bot connection starts (`src\Modules\Thiccdal.Modules.ChatBot\Services\ActivityFeedService.cs`).
 - 2026-05-29: Rich Twitch rendering now relies on normalized `ChatMessagePart` + `ChatBadge` data from `src\Remote\Thiccdal.Remote.Twitch\TwitchEventSubNotificationMapper.cs`; downstream UI should prefer those contracts over reparsing raw payload text.
+
+### 2026-05-28: Issue #129 — Chat Display Name Canonicalization (Backend Persistence Seam)
+
+**Problem:** Display name canonicalization was split across event mapping and UI layer, causing inconsistent viewer-name merges when the same user appeared with different name casing/formatting.
+
+**Solution implemented:**
+- Centralized canonical display-name normalization in `TwitchEventSubNotificationMapper.cs` (single source of truth)
+- `ChatEvent.PreferredAuthor` and `DisplayAuthor` now carry normalized names set at persistence time
+- Raw platform `Author` preserved separately for bot logic that keys off source-native data
+- Activity-feed formatter and downstream UI components consume `DisplayAuthor` for rendering
+- EF Core migration generated and validated; SQLite schema updated forward-compatible
+
+**Integration point:** Upstream of Inara's UI render fix in `PrompterLine.razor` and `ChatView.razor`. Backend now produces canonical display names at event-mapping time; UI layer reads and renders those.
+
+**Validation:** ✅ `dotnet test .\\Thiccdal.slnx` (all tests passing), ✅ SQLite integration tests confirm migration and persistence work correctly
+
+**Status:** ✅ Backend seam complete. Inara's UI render fix now properly consumes canonical names.
+
+**Key files modified:**
+- `src/Remote/Thiccdal.Remote.Twitch/TwitchEventSubNotificationMapper.cs` (centralized normalization)
+- `src/Thiccdal.Data/Models/ChatEvent.cs` (PreferredAuthor/DisplayAuthor added)
+- `src/Thiccdal.Data/Models/PlatformEvent.cs` (schema updated)
+- `src/Thiccdal.Data/Migrations/...` (auto-generated schema migrations)
