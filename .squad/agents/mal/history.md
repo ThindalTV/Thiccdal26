@@ -10,6 +10,18 @@
 
 Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 
+### Archived Context (2026-05-26 through 2026-05-28)
+
+**Phase 6 YouTube (2026-05-30):** YouTube adapter aligned with Twitch refactored data strategy. Issues #34–40 validated closable. Phase 6 complete.
+
+**AI Reply Routing (2026-05-30):** AI responses route ONLY to originating platform/channel (no broadcast). Incoming chat mirroring remains passive aggregation.
+
+**Event Bus Decision (2026-05-29):** Defer to Phase 19. EventHandler<T> sufficient through Phase 18. Phase 17 already large.
+
+**Helix EventSub Redesign (2026-05-28):** Pure EventSub WebSocket, ChatFragment hierarchy, deterministic Emote CDN, inline OAuth. 152 issues analyzed, squad-routed, Phase 17–20 staged.
+
+**Repository Structure (2026-05-26):** On-disk layout aligned with architecture. All modules, platforms, tests present and correctly placed.
+
 ## Recent Updates
 
 📌 **Phase 10 Question Flash Scope** — 2026-05-28  
@@ -22,22 +34,6 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 📌 Orchestration and decision logs created on 2026-05-26
 
 ## Learnings
-
-### 2026-05-30: Phase 6 YouTube Final Reviewer Gate (Archived)
-
-YouTube adapter aligned with Twitch refactored data strategy. Issues #34–40 validated closable. Phase 6 complete.
-
-### 2026-05-30: AI Reply Routing Decision (Issue #92 – Archived)
-
-AI responses route ONLY to originating platform/channel (no broadcast). Incoming chat mirroring remains passive aggregation. Implementation: Add `SourcePlatform` + `ChannelId` to `CommandContext`.
-
-### 2026-05-29: Event Bus Architecture Decision (Archived)
-
-Defer to Phase 19. EventHandler<T> sufficient through Phase 18. Phase 17 is already large (EventSub WebSocket, 3 EF entities, OAuth).
-
-### 2026-05-28: Helix EventSub Redesign Locked (Archived)
-
-Decision locked: Pure EventSub WebSocket (no IRC fallback), ChatFragment hierarchy, deterministic Emote CDN URLs, inline OAuth (token persisted), four-phase rollout. Data: ChatEvent gains Fragments/Color/Badges; new typed PlatformEvent subtypes. Analyzed 152 issues, routed via squad labels, staged Phase 17–20.
 
 ### 2026-05-27: AI Chatter Memory Decision
 
