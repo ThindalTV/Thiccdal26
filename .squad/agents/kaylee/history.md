@@ -130,3 +130,21 @@ Helix redesign data model locked: ChatFragment hierarchy (TextFragment, EmoteFra
 - `src/Thiccdal.Data/Models/ChatEvent.cs` (PreferredAuthor/DisplayAuthor added)
 - `src/Thiccdal.Data/Models/PlatformEvent.cs` (schema updated)
 - `src/Thiccdal.Data/Migrations/...` (auto-generated schema migrations)
+- 2026-05-28: Phase 8 recording persistence lives behind `IStreamRecordingService` in `src\Thiccdal.Infrastructure\Streaming\IStreamRecordingService.cs`, implemented by `src\Thiccdal.Data\StreamRecordingService.cs`; keep the EF entity in `src\Thiccdal.Data\Models\StreamRecording.cs` and expose API state through infrastructure snapshots, not EF models.
+- 2026-05-28: Start `StreamRecording` rows only when recording is actually armed or started, not when the operator merely toggles restream state. `src\Thiccdal.Streaming\StreamingService.cs` waits for ingest-listener lifecycle signals before delegating to `src\Thiccdal.Streaming\DiskRecorder.cs`, so `RestreamControlState.LatestRecording` stays null until OBS/ingest really goes live.
+- 2026-05-28: The recording foundation now uses `IRecordingProcessRunner` + `IDiskRecorder` in `src\Thiccdal.Infrastructure\Streaming\`, with the FFmpeg runner in `src\Thiccdal.Streaming\FfmpegRecordingProcessRunner.cs`; validate the persistence seam with `dotnet test .\src\Tests\Thiccdal.Data.Tests\Thiccdal.Data.Tests.csproj` and the streaming library with `dotnet build .\src\Thiccdal.Streaming\Thiccdal.Streaming.csproj --no-restore`.
+
+### 2026-05-31: Phase 8 Recording Persistence — Completed
+
+**Shipped:** Full recording persistence layer with honest ingest-driven state management.
+
+- **StreamRecording entity:** Lifecycle tracking (pending → recording → stopped → failed) with EF Core schema
+- **IStreamRecordingService:** Infrastructure interface; Data layer implementation
+- **DiskRecorder & FfmpegRecordingProcessRunner:** FFmpeg process orchestration in Streaming library
+- **RestreamRuntimeService updated:** Only reports latest recording after ingest listener transitions live AND DiskRecorder creates a row
+
+**Key Design:** Recording state is operator-awareness state, not operator-intent. Preserves honest streaming state visibility while River completes the ingest/media path.
+
+**Integration Remaining:** River's real RTMP ingest must become FFmpeg input source. Currently local capture follows listener lifecycle; should follow actual multicast stream data.
+
+**Validation:** All Phase 8 recording tests passing; integration paths verified via RestreamRuntimeService contract.

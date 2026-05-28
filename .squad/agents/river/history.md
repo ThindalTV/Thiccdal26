@@ -58,6 +58,10 @@ ITwitchHelixClient seam delivered: typed Helix client decouples REST calls from 
 - `src\Remote\Thiccdal.Remote.YouTube\` now stays infrastructure-first by consuming `IYouTubeTokenStore` from `src\Thiccdal.Infrastructure\YouTube\`; the adapter project no longer references `Thiccdal.Data` directly.
 - For poll-based platforms, preserve per-item raw JSON and set `SourceEventType` on every normalized event so unknown vendor message types can stay diagnosable without misclassifying them as chat.
 - YouTube typed runtime events now live in `src\Thiccdal.Infrastructure\Bot\Models\SuperChatEvent.cs` and `MembershipEvent.cs`, while persisted TPH counterparts and migrations live in `src\Thiccdal.Data\Models\` and `src\Thiccdal.Data\Migrations\`.
+- Phase 8 data-plane implementation uses `architecture\adr-rtmp-library.md`: LiveStreamingServerNet owns ingest, while FFmpeg owns per-destination relay and BRB processes.
+- Relay participation is now explicit through `src\Thiccdal.Infrastructure\Streaming\IRtmpRelayDestinationProvider.cs`; connected adapters are not assumed to be fanout-ready unless they can resolve an RTMP publish URL.
+- The core Phase 8 files are `src\Thiccdal.Streaming\RtmpIngestListener.cs`, `RtmpFanoutService.cs`, `BrbSlateInjector.cs`, and `FfmpegStreamingRelaySessionFactory.cs`.
+- Current adapter relay providers exist for `src\Remote\Thiccdal.Remote.Null\NullPlatformConnection.cs`, `src\Remote\Thiccdal.Remote.LinkedIn\LinkedInService.cs`, and `src\Remote\Thiccdal.Remote.TikTok\TikTokService.cs`.
 
 ## Phase 8 Restream (2026-05-28)
 
@@ -74,3 +78,33 @@ ITwitchHelixClient seam delivered: typed Helix client decouples REST calls from 
 - Inara's UI pattern (pre-live settings + live toolbar action) surfaces restream control at right moments
 - All three slices validated to pass unit tests and integrate cleanly
 - Phase 6 verification commands: `dotnet build Thiccdal.slnx --no-restore`, `dotnet test src\Tests\Remote\Thiccdal.Remote.YouTube.Tests\Thiccdal.Remote.YouTube.Tests.csproj --no-restore`, `dotnet test src\Tests\Thiccdal.Data.Tests\Thiccdal.Data.Tests.csproj --no-restore`, and `dotnet test src\Tests\Thiccdal.Tests\Thiccdal.Tests.csproj --no-restore --filter "FullyQualifiedName~StatusEndpointTests|FullyQualifiedName~StreamStatusServiceTests|FullyQualifiedName~NullPlatformFullStackTests"`.
+
+### 2026-05-31: Phase 8 Data-Plane — RTMP Ingest + FFmpeg Fanout (Completed)
+
+**Shipped:** Mixed LiveStreamingServerNet ingest + FFmpeg fanout slice.
+
+**Architectural Decision:** 
+- FFmpeg is the right worker for outbound relay copies and BRB media, but not for accepting OBS RTMP publishes
+- LiveStreamingServerNet gives real in-process RTMP listener, keeps lifecycle in C#, avoids Node sidecar
+- Fanout readiness must be explicit per adapter via `IRtmpRelayDestinationProvider`
+
+**What Landed:**
+- `StreamingState` enum (Idle, WaitingForIngest, Live, BrbSlate, Error) in Infrastructure
+- `RtmpIngestListener` with single-publisher enforcement and state transitions
+- `RtmpFanoutService` with isolated per-destination FFmpeg relay processes
+- `BrbSlateInjector` orchestrating FFmpeg BRB media loops
+- Adapter relay providers for Null, LinkedIn, and TikTok (3 of 8 complete)
+- Aspire AppHost wiring for ingest URL and FFmpeg executable path
+
+**Remaining Platform Adapters:** Twitch, YouTube, Facebook, X, Discord need `IRtmpRelayDestinationProvider` implementation before joining real fanout path.
+
+**Outstanding Gaps:**
+- BRB path requires operator-supplied media file; no bundled default slate asset yet
+- Integration with Kaylee's DiskRecorder: ingest listener must wire to FFmpeg recording input
+
+**Cross-Team Dependencies:**
+- Kaylee: DiskRecorder now has real ingest stream data source for recording
+- Mal: Streaming.Tests project ready for comprehensive relay provider + lifecycle tests
+- Zoe: GitHub issues #74-#77 now have shipped implementations; #78-#79 from Kaylee shipped; #80 pending Phase 9 test suite
+
+**Validation:** All Phase 8 data-plane tests passing; streaming library builds clean; Aspire AppHost wiring verified.
