@@ -29,9 +29,9 @@
     </div>
 </div>
 
-<TwitchAuthDialog IsVisible="_twitchDialogOpen"
-                  OnClose="CloseTwitchDialog"
-                  OnRevoked="OnTwitchRevoked" />
+<TwitchSetupDialog IsVisible="_twitchDialogOpen"
+                   OnClose="CloseTwitchDialog"
+                   OnRevoked="OnTwitchRevoked" />
 
 @code {
     private bool _twitchDialogOpen;

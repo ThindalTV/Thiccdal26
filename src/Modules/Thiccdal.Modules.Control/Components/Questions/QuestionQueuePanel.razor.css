@@ -1,7 +1,44 @@
 .qq-ctrl-panel {
-    /* Makes ctrl-panel fill the column height (Dashboard injects flex:1 via ::deep) */
     display: flex;
     flex-direction: column;
+}
+
+.qq-panel__header {
+    position: relative;
+}
+
+.qq-panel__header--flash {
+    border-bottom-color: rgba(34, 211, 238, 0.28);
+    background:
+        linear-gradient(90deg, rgba(34, 211, 238, 0.16), rgba(34, 211, 238, 0.03) 42%, rgba(255, 255, 255, 0.02) 100%);
+    animation: qq-panel-attention 1.6s ease-out forwards;
+}
+
+.qq-panel__attention {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    background: rgba(34, 211, 238, 0.12);
+    color: rgba(231, 249, 255, 0.98);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.18);
+}
+
+.qq-panel__attention-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #22d3ee;
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.85);
+    animation: qq-panel-attention-dot 0.9s ease-in-out 2;
 }
 
 .qq-panel__body {
@@ -10,7 +47,33 @@
     padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.qq-panel__empty-state,
+.qq-panel__queue-empty {
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-xs);
+    padding: var(--spacing-lg);
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--color-text-muted);
+}
+
+.qq-panel__empty-title {
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text);
+}
+
+.qq-panel__empty-copy,
+.qq-panel__queue-empty {
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
 }
 
 .qq-panel__queue {
@@ -23,11 +86,11 @@
 }
 
 .qq-panel__waiting-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    justify-content: space-between;
+    gap: var(--spacing-sm);
     padding: var(--spacing-xs) 0;
-    margin-top: var(--spacing-xs);
 }
 
 .qq-panel__waiting-label {
@@ -36,10 +99,12 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-text-muted);
+    text-align: center;
 }
 
 .qq-panel__add {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto;
     gap: var(--spacing-xs);
     padding-top: var(--spacing-xs);
     border-top: 1px solid var(--glass-border);
@@ -48,4 +113,41 @@
 .qq-panel__footer {
     display: flex;
     justify-content: flex-end;
+}
+
+@keyframes qq-panel-attention {
+    0% {
+        box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.38);
+    }
+
+    100% {
+        box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0);
+    }
+}
+
+@keyframes qq-panel-attention-dot {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.45;
+        transform: scale(0.82);
+    }
+}
+
+@media (max-width: 1100px) {
+    .qq-panel__waiting-header {
+        grid-template-columns: 1fr;
+    }
+
+    .qq-panel__waiting-label {
+        text-align: left;
+    }
+
+    .qq-panel__add {
+        grid-template-columns: 1fr;
+    }
 }

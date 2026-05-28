@@ -6,4 +6,17 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Discord.Net" Version="3.17.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Thiccdal.Data\Thiccdal.Data.csproj" />
+    <ProjectReference Include="..\..\Thiccdal.Infrastructure\Thiccdal.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,110 @@
+@using Microsoft.AspNetCore.Components
+@using System.Net
+@using Thiccdal.Infrastructure.Bot
+@using Thiccdal.Infrastructure.Bot.Models
+
+@inherits TestableOverlayComponentBase
+@implements IAsyncDisposable
+
+@inject IChatAggregationService ChatAggregationService
+
+<div class="chat-feed-overlay">
+    @foreach (ChatEvent chatMessage in _recentMessages)
+    {
+        <div class="chat-feed-overlay__message @GetPlatformClass(chatMessage.Source)">
+            <span class="chat-feed-overlay__badge">@chatMessage.Source</span>
+            <span class="chat-feed-overlay__author">@chatMessage.DisplayAuthor:</span>
+            <span class="chat-feed-overlay__content">@((MarkupString)GetMessageMarkup(chatMessage))</span>
+        </div>
+    }
+
+    @if (IsTestFlashing)
+    {
+        <div class="test-flash-overlay">
+            <span class="test-flash-label">@TestFlashLabel</span>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly CancellationTokenSource _subscriptionCancellationTokenSource = new();
+    private readonly Lock _messagesLock = new();
+    private ChatEvent[] _recentMessages = [];
+
+    private Task? _subscriptionTask;
+
+    public override string ComponentName => "Chat Feed";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _subscriptionTask = ReadChatMessages(_subscriptionCancellationTokenSource.Token);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _subscriptionCancellationTokenSource.Cancel();
+
+        if (_subscriptionTask is not null)
+        {
+            try
+            {
+                await _subscriptionTask;
+            }
+            catch (OperationCanceledException) when (_subscriptionCancellationTokenSource.IsCancellationRequested)
+            {
+            }
+        }
+
+        _subscriptionCancellationTokenSource.Dispose();
+        Dispose();
+    }
+
+    private async Task ReadChatMessages(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (ChatEvent chatMessage in ChatAggregationService.Subscribe(cancellationToken))
+            {
+                lock (_messagesLock)
+                {
+                    List<ChatEvent> recentMessages = _recentMessages.ToList();
+                    recentMessages.Add(chatMessage);
+                    if (recentMessages.Count > 8)
+                    {
+                        recentMessages.RemoveAt(0);
+                    }
+
+                    _recentMessages = recentMessages.ToArray();
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private static string GetMessageMarkup(ChatEvent chatMessage)
+    {
+        return string.IsNullOrWhiteSpace(chatMessage.HtmlContent)
+            ? WebUtility.HtmlEncode(chatMessage.Content)
+            : chatMessage.HtmlContent;
+    }
+
+    private static string GetPlatformClass(PlatformEventSource source)
+    {
+        return source switch
+        {
+            PlatformEventSource.Twitch => "chat-feed-overlay__message--twitch",
+            PlatformEventSource.YouTube => "chat-feed-overlay__message--youtube",
+            PlatformEventSource.Discord => "chat-feed-overlay__message--discord",
+            PlatformEventSource.Facebook => "chat-feed-overlay__message--facebook",
+            PlatformEventSource.X => "chat-feed-overlay__message--x",
+            PlatformEventSource.LinkedIn => "chat-feed-overlay__message--linkedin",
+            PlatformEventSource.TikTok => "chat-feed-overlay__message--tiktok",
+            _ => "chat-feed-overlay__message--default"
+        };
+    }
+}

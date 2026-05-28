@@ -1,44 +1,257 @@
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Infrastructure.Questions
 @using Thiccdal.Shared.Components.Components.Primitives
+@implements IDisposable
+@inject IOperatorStateService OperatorStateService
+@inject IQuestionOverlayService QuestionOverlayService
+
 <div class="ctrl-panel qq-ctrl-panel">
-    <div class="ctrl-panel__header">
+    <div class="ctrl-panel__header qq-panel__header @GetAttentionHeaderClass()">
         <span class="ctrl-panel__title">Question Queue</span>
-        <Badge Color="default">5</Badge>
+        <Badge Color="default">@_state.WaitingQuestions.Count</Badge>
+        @if (_showAttentionFlash)
+        {
+            <div class="qq-panel__attention" role="status" aria-live="polite" aria-atomic="true">
+                <span class="qq-panel__attention-dot"></span>
+                <span>New question ready</span>
+            </div>
+        }
         <span class="ctrl-panel__spacer"></span>
-        <ToggleSwitch Label="Auto-detect" Checked="true" />
+        <ToggleSwitch Label="Auto-detect" Checked="@_state.AutoDetectEnabled" CheckedChanged="HandleAutoDetectChanged" />
     </div>
     <div class="qq-panel__body">
-        <OnAirQuestion />
+        @if (_state.SelectedQuestion is not null)
+        {
+            <OnAirQuestion Indicator="SELECTED QUESTION"
+                           HeaderHint="promote this question when you're ready"
+                           Platform="@_state.SelectedQuestion.Platform"
+                           PlatformColor="@_state.SelectedQuestion.PlatformColor"
+                           Username="@_state.SelectedQuestion.Username"
+                           TimeAgo="@FormatTimeAgo(_state.SelectedQuestion.ReceivedAt)"
+                           Text="@_state.SelectedQuestion.Text"
+                           PrimaryActionLabel="Show on lower third"
+                           SecondaryActionLabel="Dismiss from queue"
+                           FooterHint="Touch-friendly controls mirror the right-hand lower-third panel."
+                           VariantCssClass="on-air--selected"
+                           OnPrimaryAction="PromoteSelectedQuestion"
+                           OnSecondaryAction="DismissSelectedQuestion" />
+        }
+        else if (_state.LiveQuestion is not null)
+        {
+            <OnAirQuestion Indicator="LIVE ON LOWER THIRD"
+                           HeaderHint="the queue is empty, but the overlay is still live"
+                           Platform="@_state.LiveQuestion.Platform"
+                           PlatformColor="@_state.LiveQuestion.PlatformColor"
+                           Username="@_state.LiveQuestion.Username"
+                           TimeAgo="@FormatTimeAgo(_state.LiveQuestion.ReceivedAt)"
+                           Text="@_state.LiveQuestion.Text"
+                           SecondaryActionLabel="Dismiss lower third"
+                           SecondaryActionIsDanger="true"
+                           FooterHint="Add or detect another question to refill the queue."
+                           VariantCssClass="on-air--live"
+                           OnSecondaryAction="DismissLiveQuestion" />
+        }
+        else
+        {
+            <div class="qq-panel__empty-state">
+                <span class="qq-panel__empty-title">No question selected</span>
+                <span class="qq-panel__empty-copy">Tap a queued question below or add one manually to load the operator preview.</span>
+            </div>
+        }
 
         <div class="qq-panel__waiting-header">
-            <GhostButton>← Dismiss</GhostButton>
-            <span class="qq-panel__waiting-label">WAITING · 4 QUESTIONS</span>
-            <GhostButton>Show on Overlay →</GhostButton>
+            <GhostButton OnClick="DismissSelectedQuestion" disabled="@(_state.SelectedQuestion is null)">Dismiss selected</GhostButton>
+            <span class="qq-panel__waiting-label">WAITING · @_state.WaitingQuestions.Count QUESTION@(GetPluralSuffix(_state.WaitingQuestions.Count))</span>
+            <PrimaryButton OnClick="PromoteSelectedQuestion" disabled="@(_state.SelectedQuestion is null)">Show on lower third</PrimaryButton>
         </div>
 
         <div class="qq-panel__queue">
-            <WaitingQuestion Platform="YOUTUBE" PlatformColor="live"
-                Username="TechWatcher" TimeAgo="5 min ago"
-                Text="How long have you been streaming and what got you into it?" />
-            <WaitingQuestion Platform="TWITCH" PlatformColor="pending"
-                Username="PurplePanda" TimeAgo="8 min ago"
-                Text="Are you planning to do more collab streams?" />
-            <WaitingQuestion Platform="KICK" PlatformColor="connected"
-                Username="KickViewer42" TimeAgo="15 min ago"
-                Text="What game are you going to play next session?" />
-            <WaitingQuestion Platform="YOUTUBE" PlatformColor="live"
-                Username="GamingNerd" TimeAgo="18 min ago"
-                Text="Do you stream every day or on a schedule?" />
-            <WaitingQuestion Platform="TWITCH" PlatformColor="pending"
-                Username="StreamFan99" TimeAgo="22 min ago"
-                Text="What's the best advice you'd give to someone just starting out on Twitch?" />
+            @if (_state.WaitingQuestions.Count == 0)
+            {
+                <div class="qq-panel__queue-empty">No waiting questions yet. Auto-detect hooks are ready for the Helix/Twitch pipeline, and operators can add a manual question below.</div>
+            }
+            else
+            {
+                @foreach (QuestionQueueItem question in _state.WaitingQuestions)
+                {
+                    <WaitingQuestion Platform="@question.Platform"
+                                     PlatformColor="@question.PlatformColor"
+                                     Username="@question.Username"
+                                     TimeAgo="@FormatTimeAgo(question.ReceivedAt)"
+                                     Text="@question.Text"
+                                     Selected="@(_state.SelectedQuestion?.Id == question.Id)"
+                                     OnSelect="@(() => SelectQuestion(question.Id))"
+                                     OnDismiss="@(() => DismissQuestion(question.Id))"
+                                     OnShow="@(() => PromoteQuestion(question.Id))" />
+                }
+            }
         </div>
 
         <div class="qq-panel__add">
-            <input type="text" class="ctrl-input" placeholder="↑ Manually add question..." />
-            <PrimaryButton>Add</PrimaryButton>
+            <input type="text"
+                   class="ctrl-input"
+                   placeholder="Manually add a viewer question..."
+                   @bind="_manualQuestionText"
+                   @bind:event="oninput" />
+            <PrimaryButton OnClick="AddManualQuestion" disabled="@string.IsNullOrWhiteSpace(_manualQuestionText)">Add</PrimaryButton>
         </div>
         <div class="qq-panel__footer">
-            <GhostButton>Clear All</GhostButton>
+            <GhostButton OnClick="ClearQueue" disabled="@(_state.WaitingQuestions.Count == 0)">Clear waiting</GhostButton>
         </div>
     </div>
 </div>
+
+@code {
+    private readonly CancellationTokenSource _attentionFlashCancellationTokenSource = new();
+    private QuestionDashboardState _state = QuestionDashboardState.Empty;
+    private string _manualQuestionText = string.Empty;
+    private bool _showAttentionFlash;
+    private int _attentionFlashVersion;
+    private long _lastAttentionSequence;
+
+    protected override void OnInitialized()
+    {
+        _state = QuestionOverlayService.GetState();
+        _lastAttentionSequence = _state.AttentionSequence;
+        if (_state.AttentionSequence > 0)
+        {
+            StartAttentionFlash();
+        }
+
+        OperatorStateService.StateChanged += HandleStateChanged;
+    }
+
+    private void HandleStateChanged(object? sender, EventArgs args)
+    {
+        QuestionDashboardState nextState = QuestionOverlayService.GetState();
+        if (nextState.AttentionSequence > _lastAttentionSequence)
+        {
+            StartAttentionFlash();
+        }
+
+        _state = nextState;
+        _lastAttentionSequence = nextState.AttentionSequence;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleAutoDetectChanged(bool enabled)
+    {
+        QuestionOverlayService.SetAutoDetect(enabled);
+    }
+
+    private void SelectQuestion(Guid questionId)
+    {
+        QuestionOverlayService.TrySelectQuestion(questionId);
+    }
+
+    private void PromoteSelectedQuestion()
+    {
+        if (_state.SelectedQuestion is QuestionQueueItem question)
+        {
+            OperatorStateService.FeatureQuestion(question.Id);
+        }
+    }
+
+    private void PromoteQuestion(Guid questionId)
+    {
+        OperatorStateService.FeatureQuestion(questionId);
+    }
+
+    private void DismissQuestion(Guid questionId)
+    {
+        OperatorStateService.DismissQuestion(questionId);
+    }
+
+    private void DismissSelectedQuestion()
+    {
+        if (_state.SelectedQuestion is QuestionQueueItem question)
+        {
+            OperatorStateService.DismissQuestion(question.Id);
+        }
+    }
+
+    private void DismissLiveQuestion()
+    {
+        if (_state.LiveQuestion is LiveQuestion question)
+        {
+            OperatorStateService.CompleteQuestion(question.SourceQuestionId);
+        }
+    }
+
+    private void ClearQueue()
+    {
+        foreach (QuestionQueueItem question in _state.WaitingQuestions)
+        {
+            OperatorStateService.DismissQuestion(question.Id);
+        }
+    }
+
+    private void AddManualQuestion()
+    {
+        if (string.IsNullOrWhiteSpace(_manualQuestionText))
+        {
+            return;
+        }
+
+        OperatorStateService.AddQuestion(QueuedQuestion.CreateManual(_manualQuestionText));
+        _manualQuestionText = string.Empty;
+    }
+
+    private static string GetPluralSuffix(int count) => count == 1 ? string.Empty : "S";
+
+    private string GetAttentionHeaderClass() => _showAttentionFlash ? "qq-panel__header--flash" : string.Empty;
+
+    private void StartAttentionFlash()
+    {
+        int flashVersion = Interlocked.Increment(ref _attentionFlashVersion);
+        _showAttentionFlash = true;
+        _ = InvokeAsync(StateHasChanged);
+        _ = ClearAttentionFlash(flashVersion);
+    }
+
+    private async Task ClearAttentionFlash(int flashVersion)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1.6), _attentionFlashCancellationTokenSource.Token);
+
+            if (flashVersion == _attentionFlashVersion && !_attentionFlashCancellationTokenSource.IsCancellationRequested)
+            {
+                _showAttentionFlash = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (_attentionFlashCancellationTokenSource.IsCancellationRequested)
+        {
+        }
+    }
+
+    private static string FormatTimeAgo(DateTimeOffset timestamp)
+    {
+        TimeSpan age = DateTimeOffset.UtcNow - timestamp;
+
+        if (age < TimeSpan.FromMinutes(1))
+        {
+            return "just now";
+        }
+
+        if (age < TimeSpan.FromHours(1))
+        {
+            return $"{Math.Max(1, (int)age.TotalMinutes)} min ago";
+        }
+
+        if (age < TimeSpan.FromDays(1))
+        {
+            return $"{Math.Max(1, (int)age.TotalHours)} hr ago";
+        }
+
+        return $"{Math.Max(1, (int)age.TotalDays)} day ago";
+    }
+
+    public void Dispose()
+    {
+        OperatorStateService.StateChanged -= HandleStateChanged;
+        _attentionFlashCancellationTokenSource.Cancel();
+        _attentionFlashCancellationTokenSource.Dispose();
+    }
+}

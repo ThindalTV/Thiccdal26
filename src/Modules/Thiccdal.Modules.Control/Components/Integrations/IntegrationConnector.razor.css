@@ -5,10 +5,22 @@
     align-items: center;
     gap: 5px;
     padding: 3px 10px;
+    min-height: 44px;
+    min-width: 44px;
     border: 1px solid var(--plat-color, rgba(255, 255, 255, 0.2));
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.04);
     white-space: nowrap;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+}
+
+.int-conn--actionable {
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    appearance: none;
 }
 
 /* ── Dot states ── */
@@ -53,26 +65,31 @@
     color: var(--color-text);
 }
 
-/* ── Not-connected: button affordance ── */
+.int-conn__badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 18px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.int-conn__badge--live {
+    background: rgba(220, 40, 40, 0.16);
+    border: 1px solid rgba(220, 40, 40, 0.40);
+    color: rgba(255, 110, 110, 0.96);
+    box-shadow: var(--glow-live, 0 0 8px rgba(255, 50, 50, 0.25));
+}
+
+/* ── State emphasis ── */
 
 .int-conn--not-connected,
 .int-conn--error {
     border-color: var(--plat-color, rgba(255, 170, 0, 0.45));
     background: rgba(0, 0, 0, 0.0);
-}
-
-.int-conn__btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: inherit;
-    line-height: 1;
-    min-height: 44px; /* touch target */
-    min-width: 44px;
 }
 
 .int-conn--not-connected .int-conn__dot {
@@ -97,14 +114,57 @@
     color: rgba(255, 110, 110, 0.9);
 }
 
+.int-conn--disabled {
+    border-color: var(--plat-color, rgba(255, 255, 255, 0.22));
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+        var(--plat-color, rgba(255, 255, 255, 0.08));
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+        0 0 0 1px rgba(0, 0, 0, 0.1);
+    cursor: not-allowed;
+}
+
+.int-conn--disabled > * {
+    opacity: 0.32;
+}
+
+.int-conn--disabled::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(128, 128, 128, 0.5);
+    pointer-events: none;
+}
+
+.int-conn--disabled::after {
+    content: 'DISABLED';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.78);
+    pointer-events: none;
+}
+
 /* ── Hover / active feedback ── */
 
-.int-conn--not-connected:hover,
-.int-conn--error:hover {
+.int-conn--actionable:hover {
     background: rgba(255, 255, 255, 0.06);
 }
 
-.int-conn__btn:active .int-conn__name,
-.int-conn__btn:active .int-conn__status {
+.int-conn--actionable:focus-visible {
+    outline: 2px solid var(--plat-color, rgba(255, 255, 255, 0.45));
+    outline-offset: 2px;
+}
+
+.int-conn--actionable:active .int-conn__name,
+.int-conn--actionable:active .int-conn__status,
+.int-conn--actionable:active .int-conn__badge {
     opacity: 0.7;
 }

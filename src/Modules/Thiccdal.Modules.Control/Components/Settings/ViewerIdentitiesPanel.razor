@@ -1,0 +1,347 @@
+@using Thiccdal.Infrastructure.Remotes
+@using Thiccdal.Infrastructure.Remotes.Models
+@using Thiccdal.Modules.Control.Components.Dialogs
+@inject IUserIdentityService UserIdentityService
+@implements IDisposable
+
+<div class="viewer-identities-panel">
+    <div class="viewer-identities-panel__header">
+        <h2>Viewer identities</h2>
+        <p class="viewer-identities-panel__description">
+            Search stored viewer names, review the platform rows, and deliberately merge them into one canonical identity when you trust the match.
+        </p>
+    </div>
+
+    <form class="viewer-identities-panel__search" @onsubmit="HandleSearch" @onsubmit:preventDefault="true">
+        <label class="viewer-identities-panel__field">
+            <span class="viewer-identities-panel__label">Search viewers</span>
+            <input type="text"
+                   class="viewer-identities-panel__input"
+                   value="@_query"
+                   placeholder="alice"
+                   @oninput="HandleQueryChanged" />
+        </label>
+        <button type="submit"
+                class="viewer-identities-panel__action viewer-identities-panel__action--secondary"
+                disabled="@_isBusy">
+            @(_isBusy ? "Searching..." : "Search")
+        </button>
+    </form>
+
+    @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
+    {
+        <div class="viewer-identities-panel__feedback @(_feedbackIsError ? "viewer-identities-panel__feedback--error" : string.Empty)" role="status">
+            @_feedbackMessage
+        </div>
+    }
+
+    <div class="viewer-identities-panel__layout">
+        <section class="viewer-identities-panel__results">
+            @if (!_hasSearched)
+            {
+                <div class="viewer-identities-panel__empty">
+                    Start with a viewer name. This slice intentionally works from operator search so identity edits stay deliberate and off the live surface.
+                </div>
+            }
+            else if (_results.Count == 0)
+            {
+                <div class="viewer-identities-panel__empty">
+                    No viewer rows matched <strong>@_query</strong>. Try another display name or canonical identity name.
+                </div>
+            }
+            else
+            {
+                @foreach (IGrouping<string, UserIdentitySearchResult> platformGroup in GetGroupedResults())
+                {
+                    <section class="viewer-identities-panel__platform-group">
+                        <div class="viewer-identities-panel__platform-header">
+                            <h3>@platformGroup.Key</h3>
+                            <span>@platformGroup.Count() row(s)</span>
+                        </div>
+
+                        <div class="viewer-identities-panel__platform-list">
+                            @foreach (UserIdentitySearchResult result in platformGroup)
+                            {
+                                bool isSelected = _selectedPlatformUserIds.Contains(result.PlatformUserId);
+
+                                <article class="viewer-identities-panel__card @(isSelected ? "viewer-identities-panel__card--selected" : string.Empty)">
+                                    <label class="viewer-identities-panel__card-toggle">
+                                        <input type="checkbox"
+                                               checked="@isSelected"
+                                               @onchange="args => ToggleSelection(result.PlatformUserId, args)" />
+                                        <span class="viewer-identities-panel__card-copy">
+                                            <strong>@result.DisplayName</strong>
+                                            <span>@result.PlatformUserKey</span>
+                                        </span>
+                                    </label>
+
+                                    <div class="viewer-identities-panel__meta">
+                                        <span>Last seen @result.LastSeen.ToLocalTime().ToString("g")</span>
+                                        @if (result.UserIdentityId.HasValue)
+                                        {
+                                            <span class="viewer-identities-panel__identity-pill">
+                                                Identity · @result.UserIdentityDisplayName
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="viewer-identities-panel__identity-pill viewer-identities-panel__identity-pill--muted">
+                                                Unlinked
+                                            </span>
+                                        }
+                                    </div>
+
+                                    @if (result.UserIdentityId.HasValue)
+                                    {
+                                        <div class="viewer-identities-panel__card-actions">
+                                            <button type="button"
+                                                    class="viewer-identities-panel__action viewer-identities-panel__action--ghost"
+                                                    @onclick="() => ConfirmUnlink(result)">
+                                                Unlink
+                                            </button>
+                                        </div>
+                                    }
+                                </article>
+                            }
+                        </div>
+                    </section>
+                }
+            }
+        </section>
+
+        <aside class="viewer-identities-panel__editor">
+            <div class="viewer-identities-panel__editor-card">
+                <div class="viewer-identities-panel__editor-header">
+                    <div>
+                        <div class="viewer-identities-panel__editor-title">Merge selection</div>
+                        <div class="viewer-identities-panel__editor-meta">@_selectedPlatformUserIds.Count selected</div>
+                    </div>
+                    <button type="button"
+                            class="viewer-identities-panel__action viewer-identities-panel__action--ghost"
+                            disabled="@(_selectedPlatformUserIds.Count == 0)"
+                            @onclick="ClearSelection">
+                        Clear
+                    </button>
+                </div>
+
+                <div class="viewer-identities-panel__selected-list">
+                    @if (_selectedResults.Count == 0)
+                    {
+                        <div class="viewer-identities-panel__empty viewer-identities-panel__empty--compact">
+                            Select at least two rows to enable merge.
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (UserIdentitySearchResult result in _selectedResults)
+                        {
+                            <div class="viewer-identities-panel__selected-item">
+                                <span>@result.DisplayName</span>
+                                <small>@result.Source · @result.PlatformUserKey</small>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <label class="viewer-identities-panel__field">
+                    <span class="viewer-identities-panel__label">Canonical display name</span>
+                    <input type="text"
+                           class="viewer-identities-panel__input"
+                           value="@_canonicalName"
+                           placeholder="Optional — keep the best existing name"
+                           @oninput="HandleCanonicalNameChanged" />
+                </label>
+
+                <button type="button"
+                        class="viewer-identities-panel__action viewer-identities-panel__action--primary"
+                        disabled="@(_selectedPlatformUserIds.Count < 2 || _isBusy)"
+                        @onclick="MergeSelection">
+                    @(_isBusy ? "Saving..." : "Merge identities")
+                </button>
+
+                <p class="viewer-identities-panel__hint">
+                    Merge reuses an existing identity when one is already linked, so operators can keep one canonical name without editing raw database rows.
+                </p>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<ConfirmDialog @ref="_confirmDialog" />
+
+@code {
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private readonly HashSet<long> _selectedPlatformUserIds = [];
+    private IReadOnlyList<UserIdentitySearchResult> _results = Array.Empty<UserIdentitySearchResult>();
+    private IReadOnlyList<UserIdentitySearchResult> _selectedResults = Array.Empty<UserIdentitySearchResult>();
+    private ConfirmDialog? _confirmDialog;
+    private bool _hasSearched;
+    private bool _isBusy;
+    private bool _feedbackIsError;
+    private string _query = string.Empty;
+    private string _canonicalName = string.Empty;
+    private string? _feedbackMessage;
+
+    public void Dispose()
+    {
+        _cancellationTokenSource.Cancel();
+        _cancellationTokenSource.Dispose();
+    }
+
+    private IEnumerable<IGrouping<string, UserIdentitySearchResult>> GetGroupedResults()
+    {
+        return _results
+            .GroupBy(result => result.Source.ToString())
+            .OrderBy(group => group.Key, StringComparer.Ordinal);
+    }
+
+    private Task HandleQueryChanged(ChangeEventArgs args)
+    {
+        _query = args.Value?.ToString() ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleCanonicalNameChanged(ChangeEventArgs args)
+    {
+        _canonicalName = args.Value?.ToString() ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleSearch()
+    {
+        _isBusy = true;
+        _feedbackMessage = null;
+        _feedbackIsError = false;
+
+        try
+        {
+            _results = await UserIdentityService.Search(_query, _cancellationTokenSource.Token);
+            _hasSearched = true;
+            _selectedPlatformUserIds.RemoveWhere(id => _results.All(result => result.PlatformUserId != id));
+            RefreshSelectedResults();
+        }
+        catch (Exception exception)
+        {
+            _feedbackMessage = exception.Message;
+            _feedbackIsError = true;
+            _results = Array.Empty<UserIdentitySearchResult>();
+            _selectedPlatformUserIds.Clear();
+            _selectedResults = Array.Empty<UserIdentitySearchResult>();
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private Task ToggleSelection(long platformUserId, ChangeEventArgs args)
+    {
+        bool isSelected = args.Value is bool boolValue && boolValue;
+        if (isSelected)
+        {
+            _selectedPlatformUserIds.Add(platformUserId);
+        }
+        else
+        {
+            _selectedPlatformUserIds.Remove(platformUserId);
+        }
+
+        RefreshSelectedResults();
+        return Task.CompletedTask;
+    }
+
+    private Task ClearSelection()
+    {
+        _selectedPlatformUserIds.Clear();
+        RefreshSelectedResults();
+        return Task.CompletedTask;
+    }
+
+    private async Task MergeSelection()
+    {
+        if (_selectedPlatformUserIds.Count < 2)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _feedbackMessage = null;
+        _feedbackIsError = false;
+
+        try
+        {
+            UserIdentityMergeResult result = await UserIdentityService.Merge(
+                _selectedPlatformUserIds.OrderBy(static id => id).ToArray(),
+                _canonicalName,
+                _cancellationTokenSource.Token);
+
+            string successMessage = $"Merged {_selectedPlatformUserIds.Count} viewer row(s) into {result.DisplayName}.";
+            _canonicalName = result.DisplayName;
+            _selectedPlatformUserIds.Clear();
+            await HandleSearch();
+            _feedbackMessage = successMessage;
+        }
+        catch (Exception exception)
+        {
+            _feedbackMessage = exception.Message;
+            _feedbackIsError = true;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task ConfirmUnlink(UserIdentitySearchResult result)
+    {
+        if (_confirmDialog is null)
+        {
+            return;
+        }
+
+        bool confirmed = await _confirmDialog.Show(
+            new ConfirmDialogOptions
+            {
+                Title = "Unlink viewer identity?",
+                Body = $"This removes {result.DisplayName} from the shared identity but keeps the underlying platform row.",
+                ConfirmText = "Unlink",
+                ConfirmStyle = ConfirmStyle.Danger
+            });
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _feedbackMessage = null;
+        _feedbackIsError = false;
+
+        try
+        {
+            await UserIdentityService.Unlink(result.PlatformUserId, _cancellationTokenSource.Token);
+            string successMessage = $"{result.DisplayName} is now unlinked.";
+            _selectedPlatformUserIds.Remove(result.PlatformUserId);
+            await HandleSearch();
+            _feedbackMessage = successMessage;
+        }
+        catch (Exception exception)
+        {
+            _feedbackMessage = exception.Message;
+            _feedbackIsError = true;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void RefreshSelectedResults()
+    {
+        _selectedResults = _results
+            .Where(result => _selectedPlatformUserIds.Contains(result.PlatformUserId))
+            .OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(result => result.Source)
+            .ToArray();
+    }
+}

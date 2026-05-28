@@ -1,29 +1,113 @@
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Infrastructure.Questions
 @using Thiccdal.Shared.Components.Components.Primitives
+@implements IDisposable
+@inject IOperatorStateService OperatorStateService
+@inject IQuestionOverlayService QuestionOverlayService
+
 <div class="ctrl-panel">
     <div class="ctrl-panel__header">
         <span class="ctrl-panel__title">Lower Third</span>
         <span class="ctrl-panel__spacer"></span>
-        <Badge Color="success">● ACTIVE</Badge>
+        <Badge Color="@(_state.LiveQuestion is null ? "default" : "success")">@(_state.LiveQuestion is null ? "STANDBY" : "● LIVE")</Badge>
     </div>
     <div class="ctrl-panel__body lt-body">
-        <div class="lt-now-showing">
-            <span class="lt-label">NOW SHOWING</span>
-            <span class="lt-user">StreamerFan99 (Twitch)</span>
-            <span class="lt-time">0:12</span>
-        </div>
-        <p class="lt-quote">"What's your streaming setup? Which mic do you use?"</p>
-        <div class="lt-dismiss">
-            <DangerButton>✕ Dismiss Lower Third</DangerButton>
-        </div>
-        <div class="lt-separator"></div>
-        <div class="lt-custom">
-            <input type="text" class="ctrl-input" placeholder="Custom text..." />
-            <div class="lt-options">
-                <span class="lt-option">Position</span>
-                <span class="lt-option">Duration</span>
-                <span class="lt-option">Style ✧</span>
+        @if (_state.LiveQuestion is LiveQuestion liveQuestion)
+        {
+            <div class="lt-now-showing">
+                <span class="lt-label">NOW SHOWING</span>
+                <span class="lt-user">@liveQuestion.Username (@liveQuestion.Platform)</span>
+                <span class="lt-time">@FormatElapsed(liveQuestion.PromotedAt)</span>
             </div>
-            <PrimaryButton>▶ Push Custom</PrimaryButton>
+            <p class="lt-quote">"@liveQuestion.Text"</p>
+            <div class="lt-dismiss">
+                <DangerButton OnClick="DismissLiveQuestion">Dismiss lower third</DangerButton>
+            </div>
+        }
+        else
+        {
+            <div class="lt-empty-state">
+                <span class="lt-label">LOWER THIRD READY</span>
+                <p class="lt-empty-copy">Nothing is on stream right now. Pick a question in the center queue and send it live when the host is ready.</p>
+            </div>
+        }
+
+        <div class="lt-separator"></div>
+
+        <div class="lt-up-next">
+            <div class="lt-up-next__meta">
+                <span class="lt-label">UP NEXT</span>
+                <span class="lt-status">Auto-detect @(_state.AutoDetectEnabled ? "on" : "off") · @_state.WaitingQuestions.Count waiting</span>
+            </div>
+
+            @if (_state.SelectedQuestion is QuestionQueueItem selectedQuestion)
+            {
+                <div class="lt-up-next__card">
+                    <span class="lt-user">@selectedQuestion.Username (@selectedQuestion.Platform)</span>
+                    <p class="lt-up-next__text">"@selectedQuestion.Text"</p>
+                </div>
+                <PrimaryButton OnClick="PromoteSelectedQuestion">Show selected question</PrimaryButton>
+            }
+            else if (_state.WaitingQuestions.Count > 0)
+            {
+                <p class="lt-empty-copy">A waiting question is available, but nothing is selected yet.</p>
+                <GhostButton OnClick="SelectFirstQuestion">Load next question</GhostButton>
+            }
+            else
+            {
+                <p class="lt-empty-copy">The waiting queue is empty. New Helix-detected questions can call <code>TryEnqueueDetectedQuestion</code>, and operators can add manual questions from the queue panel.</p>
+            }
         </div>
     </div>
 </div>
+
+@code {
+    private QuestionDashboardState _state = QuestionDashboardState.Empty;
+
+    protected override void OnInitialized()
+    {
+        _state = QuestionOverlayService.GetState();
+        OperatorStateService.StateChanged += HandleStateChanged;
+    }
+
+    private void HandleStateChanged(object? sender, EventArgs args)
+    {
+        _state = QuestionOverlayService.GetState();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void PromoteSelectedQuestion()
+    {
+        if (_state.SelectedQuestion is QuestionQueueItem question)
+        {
+            OperatorStateService.FeatureQuestion(question.Id);
+        }
+    }
+
+    private void SelectFirstQuestion()
+    {
+        if (_state.WaitingQuestions.FirstOrDefault() is QuestionQueueItem question)
+        {
+            QuestionOverlayService.TrySelectQuestion(question.Id);
+        }
+    }
+
+    private void DismissLiveQuestion()
+    {
+        if (_state.LiveQuestion is LiveQuestion question)
+        {
+            OperatorStateService.CompleteQuestion(question.SourceQuestionId);
+        }
+    }
+
+    private static string FormatElapsed(DateTimeOffset promotedAt)
+    {
+        TimeSpan elapsed = DateTimeOffset.UtcNow - promotedAt;
+        return $"{Math.Max(0, elapsed.Minutes):00}:{Math.Max(0, elapsed.Seconds):00}";
+    }
+
+    public void Dispose()
+    {
+        OperatorStateService.StateChanged -= HandleStateChanged;
+    }
+}

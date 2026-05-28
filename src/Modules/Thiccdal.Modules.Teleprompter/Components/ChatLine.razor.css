@@ -1,3 +1,55 @@
-div {
+.message {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 1.15rem;
+    line-height: 1.5;
+}
 
+.message__emote {
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
+    vertical-align: middle;
+}
+
+.message__cheer {
+    color: #f59e0b;
+    font-weight: 700;
+}
+
+.message :deep(.chat-badge),
+.message :deep(.activity-event) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.35rem;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.message :deep(.chat-inline-emote) {
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
+}
+
+.message :deep(.chat-inline-cheer) {
+    color: #f59e0b;
+    font-weight: 700;
+}
+
+.message :deep(.chat-inline-mention) {
+    color: #93c5fd;
+    font-weight: 700;
+}
+
+.message :deep(.activity-detail) {
+    color: rgba(255, 255, 255, 0.75);
+    font-style: italic;
 }

@@ -1,0 +1,99 @@
+.overlay-test-panel {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.overlay-test-panel__body {
+    flex: 1;
+    overflow-y: auto;
+    gap: 16px;
+}
+
+.overlay-test-panel__summary {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.overlay-test-panel__intro {
+    margin: 0;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+
+.overlay-test-panel__empty {
+    padding: 16px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-text-muted);
+}
+
+.overlay-test-panel__item {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.overlay-test-panel__item--checked {
+    border-color: rgba(34, 197, 94, 0.24);
+    background: rgba(34, 197, 94, 0.10);
+}
+
+.overlay-test-panel__item-title {
+    font-size: var(--font-size-md);
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.overlay-test-panel__item-text {
+    margin: 8px 0 0;
+    color: var(--color-text-muted);
+}
+
+.overlay-test-panel__item-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.overlay-test-panel__button {
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(96, 165, 250, 0.32);
+    background: rgba(59, 130, 246, 0.14);
+    color: #dbeafe;
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.overlay-test-panel__button:disabled {
+    opacity: 0.72;
+    cursor: wait;
+}
+
+.overlay-test-panel__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.overlay-test-panel__status--verified {
+    background: rgba(34, 197, 94, 0.18);
+    color: #bbf7d0;
+}

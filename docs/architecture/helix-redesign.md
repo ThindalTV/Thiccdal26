@@ -102,9 +102,10 @@ https://static-cdn.jtvnw.net/emoticons/v2/{emoteId}/{default|animated}/dark/1.0
 1. **First Run**: Operator opens Thiccdal control UI → detects no stored token → displays "Login to Twitch" button
 2. **OAuth Window**: Click opens a Twitch login page in a browser window (OAuth code grant)
 3. **Token Exchange**: `TwitchTokenManager` exchanges code for access token + refresh token
-4. **Persistence**: Token stored in SQLite (`TwitchToken` entity), encrypted if necessary
-5. **Refresh**: On startup or expiration, `TwitchTokenManager` automatically refreshes
-6. **Logout**: Operator can revoke token from Control UI; system reverts to login prompt
+4. **User Info Fetch**: System automatically retrieves authenticated user's username and user ID from Twitch Helix API
+5. **Persistence**: Token and user info stored in SQLite (`TwitchToken` entity), encrypted if necessary
+6. **Refresh**: On startup or expiration, `TwitchTokenManager` automatically refreshes
+7. **Logout**: Operator can revoke token from Control UI; system reverts to login prompt
 
 ### 4.2 Required Scopes
 
@@ -243,38 +244,38 @@ Map Twitch EventSub events to Thiccdal `PlatformEvent` types:
 
 ### Phase 17: Helix/EventSub Foundation (6 issues)
 
-- [ ] Create `EventSubClient` in `Thiccdal.Remote.Twitch` (WebSocket connection, subscription management)
+- [x] Create `EventSubClient` in `Thiccdal.Remote.Twitch` (WebSocket connection, subscription management)
 - [ ] Add `PlatformEvent`, `ChatMessage`, `PlatformUser` entities + migration
-- [ ] Implement `channel.chat.message` EventSub subscription handler
-- [ ] Parse plain-text chat from EventSub event (backward-compat; no fragment parsing yet)
+- [x] Implement `channel.chat.message` EventSub subscription handler
+- [x] Parse plain-text chat from EventSub event (backward-compat; no fragment parsing yet)
 - [ ] Refactor `TwitchTokenManager` to support inline OAuth flow + token refresh
 - [ ] Write integration tests for EventSub client reconnection and event handling
 
-**Deliverable**: EventSub WebSocket receives `channel.chat.message` events; plain text stored in `ChatMessage.Content`.
+**Deliverable**: EventSub WebSocket receives `channel.chat.message` events, normalizes them into rich `ChatEvent` payloads, and persists raw activity records before dispatch.
 
 ### Phase 18: ChatFragment Hierarchy + Emote Rendering (8 issues)
 
-- [ ] Add `ChatFragment` base class and derived types (TextFragment, EmoteFragment, CheermoteFragment, BadgeFragment)
-- [ ] Update `ChatMessage` to carry `ChatFragment[]`
-- [ ] Parse EventSub message data into fragments (emote positions, badge data, cheermote data)
-- [ ] Implement emote CDN URL builder + in-memory LRU cache
-- [ ] Update Teleprompter `Line` rendering to display emotes from fragments
-- [ ] Update Overlay to render `ChatFragment[]` with emotes, badges, cheermotes
+- [x] Ship normalized rich chat parts and badges in Infrastructure (`ChatMessagePart`, `ChatBadge`)
+- [x] Update `ChatEvent` to carry rich content, color, and badges for downstream rendering
+- [x] Parse EventSub message data into normalized emote, badge, and cheer parts
+- [x] Implement emote CDN URL builder
+- [x] Update Teleprompter rendering to display emotes and activity alerts
+- [x] Update Overlay chat to render rich messages with emotes, badges, and cheer styling
 - [ ] Add Teleprompter config option: static vs. animated emotes
-- [ ] Write unit tests for fragment parsing and rendering
+- [x] Write unit tests for mapping and rendering
 
 **Deliverable**: Teleprompter and Overlay display emotes, badges, and cheermotes from chat.
 
 ### Phase 19: Full Event Coverage + IEventBus (6 issues)
 
-- [ ] Extend `EventSubClient` to subscribe to `channel.follow`, `channel.subscribe`, `channel.cheer`, `channel.redeem`
-- [ ] Map EventSub events to `PlatformEventType`; persist raw + metadata
+- [x] Extend `EventSubClient` to subscribe to `channel.follow`, `channel.subscribe`, `channel.cheer`, `channel.redeem`
+- [x] Map EventSub events to `PlatformEventType`; persist raw + metadata
 - [ ] Implement `IEventBus` for in-app event dispatch (PlatformEvent → subscribers)
-- [ ] Wire EventSub events to event bus subscribers (Overlay, Teleprompter, ChatBot listeners)
-- [ ] Add "gold flash" effect to Overlay on cheer/redeem (configurable threshold)
+- [x] Wire Twitch events to Overlay, Teleprompter, and ChatBot listeners through the shared activity feed while the formal event bus remains pending
+- [x] Add a gold attention flash to the Prompter for significant Twitch activity
 - [ ] Write integration tests for multi-event scenarios
 
-**Deliverable**: Overlay and Teleprompter react to follows, subs, redeems, and cheers via event bus.
+**Deliverable**: Overlay and Teleprompter react to follows, subs, redeems, cheers, and raids through the shared activity feed while the formal event bus remains pending.
 
 **Open Question**: What bits threshold triggers the "gold flash" overlay effect? (e.g., 100 bits = flash, <100 bits = no flash)
 
@@ -308,10 +309,17 @@ This fallback is not automatic; operator must manually toggle via config.
 
 ### 8.3 OAuth Transition
 
-**Config-based credentials** (current) → **Inline OAuth tokens** (new):
-- Old `appsettings.json` entries (e.g., `TwitchOptions:Channel`, `TwitchOptions:OAuthToken`) are **deprecated** (logged as warning)
-- If no stored token exists AND no config token is provided, system prompts for login
-- If stored token exists, config is ignored
+**OAuth handles authentication and user identity.** After successful OAuth authorization:
+- The system fetches the authenticated user's login and user ID from Twitch Helix API (`/helix/users`)
+- These values are stored in the `TwitchToken` table alongside the access and refresh tokens
+- Bot username and user ID are no longer configurable in `appsettings.json`; they are OAuth-derived
+- Target channel and broadcaster ID remain runtime-configurable via the Control UI
+
+**Migration from old config:**
+- Old `appsettings.json` entries (`BotUsername`, `BotUserId`, `DefaultTargetChannel`, `DefaultBroadcasterId`) are **removed**
+- If a stored token exists, the username/user ID from the database are used
+- Target channel configuration is managed through `TwitchTargetChannelService` (stored in database)
+- No fallback to config values; all identity info comes from OAuth
 
 ---
 
@@ -402,3 +410,4 @@ This fallback is not automatic; operator must manually toggle via config.
 ---
 
 **End of Document**
+

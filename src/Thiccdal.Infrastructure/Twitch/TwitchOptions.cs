@@ -2,13 +2,26 @@ namespace Thiccdal.Infrastructure.Twitch;
 
 public class TwitchOptions
 {
-    public string Channel { get; set; } = string.Empty;
-    public string Username { get; set; } = string.Empty;
-
-    /// <summary>Twitch numeric user ID for the broadcaster's channel (required for EventSub).</summary>
-    public string BroadcasterId { get; set; } = string.Empty;
+    public const string SectionName = "Twitch";
+    public const string DefaultOAuthBaseAddress = "https://id.twitch.tv/oauth2/";
 
     public string ClientId { get; set; } = string.Empty;
     public string ClientSecret { get; set; } = string.Empty;
     public string RedirectUri { get; set; } = string.Empty;
+    public string OAuthBaseAddress { get; set; } = DefaultOAuthBaseAddress;
+    public TwitchHelixOptions Helix { get; set; } = new();
+    public TwitchEventSubOptions EventSub { get; set; } = new();
+    public List<string> Scopes { get; set; } = new()
+    {
+        "user:read:chat",
+        "user:write:chat",
+        "user:bot",
+        "channel:bot",
+        "moderator:read:followers",
+        "channel:read:subscriptions",
+        "bits:read",
+        "channel:read:raids",
+        "channel:read:redemptions"
+    };
+
 }

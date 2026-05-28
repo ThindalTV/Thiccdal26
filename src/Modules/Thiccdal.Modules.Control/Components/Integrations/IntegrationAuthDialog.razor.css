@@ -163,3 +163,21 @@
 .auth-dialog__btn--done:active {
     opacity: 0.8;
 }
+
+/* ── Disconnect button ── */
+
+.auth-dialog__btn--disconnect {
+    background: rgba(220, 60, 60, 0.12);
+    border: 1px solid rgba(220, 60, 60, 0.35);
+    color: rgba(255, 110, 110, 0.90);
+    font-weight: 500;
+}
+
+.auth-dialog__btn--disconnect:hover {
+    background: rgba(220, 60, 60, 0.20);
+    border-color: rgba(220, 60, 60, 0.50);
+}
+
+.auth-dialog__btn--disconnect:active {
+    opacity: 0.8;
+}

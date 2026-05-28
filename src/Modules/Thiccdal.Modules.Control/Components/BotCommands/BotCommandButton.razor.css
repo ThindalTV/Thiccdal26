@@ -22,6 +22,19 @@
     border-color: rgba(255, 255, 255, 0.22);
 }
 
+.bot-cmd-btn--readonly {
+    cursor: default;
+}
+
+.bot-cmd-btn--readonly:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--glass-border);
+}
+
+.bot-cmd-btn--disabled {
+    opacity: 0.62;
+}
+
 .bot-cmd-btn__cmd {
     font-size: var(--font-size-sm);
     font-weight: 600;

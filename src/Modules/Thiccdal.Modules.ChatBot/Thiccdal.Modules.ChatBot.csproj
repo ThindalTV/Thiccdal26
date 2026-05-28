@@ -23,8 +23,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Remote\Thiccdal.Remote.Twitch\Thiccdal.Remote.Twitch.csproj" />
     <ProjectReference Include="..\..\Thiccdal.Infrastructure\Thiccdal.Infrastructure.csproj" />
   </ItemGroup>
-
 </Project>

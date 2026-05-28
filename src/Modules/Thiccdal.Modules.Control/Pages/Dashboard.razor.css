@@ -1,6 +1,6 @@
 .dashboard {
     display: grid;
-    grid-template-rows: 56px 1fr;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     height: 100vh;
     overflow: hidden;
     color: var(--color-text);
@@ -10,11 +10,18 @@
 
 .dashboard__body {
     display: grid;
-    grid-template-columns: 3fr 4fr 3fr;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm);
     overflow: hidden;
     min-height: 0;
+}
+
+.dashboard__body--prelive {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1.3fr);
+}
+
+.dashboard__body--live {
+    grid-template-columns: 3fr 4fr 3fr;
 }
 
 .dashboard__col {
@@ -27,6 +34,10 @@
 }
 
 .dashboard__col--middle {
+    overflow: hidden;
+}
+
+.dashboard__col--prelive {
     overflow: hidden;
 }
 
@@ -106,7 +117,7 @@
 
 /* ── Middle column: QuestionQueuePanel fills full height ── */
 
-.dashboard__col--middle ::deep .ctrl-panel {
+.dashboard__body--live .dashboard__col--middle ::deep .ctrl-panel {
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -114,14 +125,14 @@
 
 /* ── Right column: OverlayGalleryPanel fills remaining space ── */
 
-.dashboard__col--right ::deep .overlay-gallery-panel {
+.dashboard__body--live .dashboard__col--right ::deep .overlay-gallery-panel {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
 }
 
-.dashboard__col--right ::deep .og-body {
+.dashboard__body--live .dashboard__col--right ::deep .og-body {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
@@ -137,18 +148,18 @@
 
 /* ── Left column: PrompterPanel and BotCommandsPanel each take 50% ── */
 
-.dashboard__col--left {
+.dashboard__body--live .dashboard__col--left {
     overflow: hidden;
 }
 
-.dashboard__col--left ::deep .ctrl-panel {
+.dashboard__body--live .dashboard__col--left ::deep .ctrl-panel {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
 }
 
-.dashboard__col--left ::deep .ctrl-panel__body {
+.dashboard__body--live .dashboard__col--left ::deep .ctrl-panel__body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -194,4 +205,172 @@
     font-weight: 700;
     letter-spacing: 0.12em;
     color: rgba(255, 255, 255, 0.75);
+}
+
+.dashboard-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.72);
+    z-index: 1100;
+}
+
+.dashboard-dialog {
+    width: min(960px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    background: rgba(8, 15, 27, 0.94);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-shadow);
+}
+
+.dashboard-dialog__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: 20px 24px 0;
+}
+
+.dashboard-dialog__title {
+    margin: 0;
+    color: var(--color-text);
+}
+
+.dashboard-dialog__subtitle {
+    margin: 6px 0 0;
+    color: var(--color-text-muted);
+}
+
+.dashboard-dialog__close {
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font-size: 1.25rem;
+    cursor: pointer;
+}
+
+.dashboard-dialog__body {
+    padding: 0 24px 24px;
+}
+
+.dashboard__live-bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: 12px var(--spacing-md);
+    border-top: 1px solid var(--glass-border);
+    background: rgba(8, 15, 27, 0.92);
+    backdrop-filter: var(--glass-blur);
+}
+
+.dashboard__live-bottom-bar-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.dashboard__live-bottom-bar-title {
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text);
+}
+
+.dashboard__live-bottom-bar-hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+}
+
+.dashboard__live-bottom-bar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.dashboard__live-bottom-bar-button {
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(145, 70, 255, 0.48);
+    background: rgba(145, 70, 255, 0.16);
+    color: #efe2ff;
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.dashboard__live-bottom-bar-button--secondary {
+    border-color: rgba(96, 165, 250, 0.32);
+    background: rgba(59, 130, 246, 0.14);
+    color: #dbeafe;
+}
+
+@media (max-width: 1180px) {
+    .dashboard__body--prelive,
+    .dashboard__body--live {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard__live-bottom-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .dashboard__live-bottom-bar-actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 767px) {
+    .dashboard__body--prelive > .dashboard__col:not(.dashboard__col--right),
+    .dashboard__body--live > .dashboard__col:not(.dashboard__col--middle),
+    .dashboard__live-bottom-bar {
+        display: none;
+    }
+
+    .dashboard__body {
+        padding: var(--spacing-xs);
+    }
+
+    .dashboard__col {
+        padding-bottom: 0;
+    }
+
+    .dashboard-dialog-backdrop {
+        padding: 12px;
+    }
+
+    .dashboard-dialog {
+        max-height: calc(100vh - 24px);
+    }
+
+    .dashboard-dialog__header,
+    .dashboard-dialog__body {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .dashboard-dialog ::deep .prelive-checklist-panel__category {
+        display: flex;
+    }
+
+    .dashboard-dialog ::deep .prelive-checklist-panel__body {
+        overflow-y: auto;
+    }
+
+    .dashboard-dialog ::deep .prelive-checklist-panel__phone-link {
+        display: none;
+    }
 }

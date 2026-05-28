@@ -3,6 +3,7 @@
     <File Path="README.md" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Thiccdal.AI/Thiccdal.AI.csproj" />
     <Project Path="src/Thiccdal.API/Thiccdal.API.csproj" Id="49984546-143b-4e53-9164-172f20b1e224" />
     <Project Path="src/Thiccdal.Data/Thiccdal.Data.csproj" Id="50ba3a3e-0279-4a7f-8077-be723255c8e0" />
     <Project Path="src/Thiccdal.Infrastructure/Thiccdal.Infrastructure.csproj" Id="4f756cb2-ac68-4950-b39b-d3c73457c969" />
@@ -23,6 +24,7 @@
     <Project Path="src/Remote/Thiccdal.Remote.Discord/Thiccdal.Remote.Discord.csproj" Id="f9ecf747-5d8a-4ea7-8651-0ad14282523d" />
     <Project Path="src/Remote/Thiccdal.Remote.Facebook/Thiccdal.Remote.Facebook.csproj" Id="b6bbc186-ed62-47c4-b59c-31452d1770af" />
     <Project Path="src/Remote/Thiccdal.Remote.LinkedIn/Thiccdal.Remote.LinkedIn.csproj" />
+    <Project Path="src/Remote/Thiccdal.Remote.LMStudio/Thiccdal.Remote.LMStudio.csproj" />
     <Project Path="src/Remote/Thiccdal.Remote.Null/Thiccdal.Remote.Null.csproj" Id="6122ec03-595d-4ab3-bdc0-95e88cdf540b" />
     <Project Path="src/Remote/Thiccdal.Remote.TikTok/Thiccdal.Remote.TikTok.csproj" Id="a0c04afe-5e6f-45a2-9cbb-7c9ad613629c" />
     <Project Path="src/Remote/Thiccdal.Remote.Twitch/Thiccdal.Remote.Twitch.csproj" Id="b784e543-ced0-4e0e-9ee8-fd351fb09c38" />
@@ -33,11 +35,17 @@
     <Project Path="src/Shared/Thiccdal.Shared.Components/Thiccdal.Shared.Components.csproj" />
   </Folder>
   <Folder Name="/src/Tests/">
+    <Project Path="src/Tests/Thiccdal.AI.Tests/Thiccdal.AI.Tests.csproj" />
     <Project Path="src/Tests/Thiccdal.Data.Tests/Thiccdal.Data.Tests.csproj" Id="78ed2f01-f84c-40ee-80eb-72991ee0fe8f" />
     <Project Path="src/Tests/Thiccdal.Tests/Thiccdal.Tests.csproj" Id="b0ec0490-49f9-48c8-8ede-e33a57b212da" />
   </Folder>
   <Folder Name="/src/Tests/Remote/">
-    <Project Path="src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/TestProject1/TestProject1.csproj" Id="34ac27cc-0c68-40db-937e-66539374ef8e" />
+    <Project Path="src/Tests/Remote/Thiccdal.Remote.Facebook.Tests/Thiccdal.Remote.Facebook.Tests.csproj" Id="f1d40b38-b449-4d3f-9baa-d7fbda8c61dd" />
+    <Project Path="src/Tests/Remote/Thiccdal.Remote.LMStudio.Tests/Thiccdal.Remote.LMStudio.Tests.csproj" />
+    <Project Path="src/Tests/Remote/Thiccdal.Remote.Null.Tests/Thiccdal.Remote.Null.Tests.csproj" Id="e46a80ac-8c4b-4650-aa77-6d8956895b2a" />
+    <Project Path="src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/Thiccdal.Remote.Twitch.Tests.csproj" Id="34ac27cc-0c68-40db-937e-66539374ef8e" />
+    <Project Path="src/Tests/Remote/Thiccdal.Remote.X.Tests/Thiccdal.Remote.X.Tests.csproj" Id="8f0b9b6f-39bb-44f7-94e3-1e08c4d76752" />
+    <Project Path="src/Tests/Remote/Thiccdal.Remote.YouTube.Tests/Thiccdal.Remote.YouTube.Tests.csproj" />
   </Folder>
   <Project Path="docs/docs.csproj" Id="4ee1e30f-b64c-4f8c-be08-dfe195c51340" />
 </Solution>

@@ -1,0 +1,96 @@
+@using Thiccdal.Infrastructure.Operators
+@inject IOperatorStateService OperatorStateService
+@implements IAsyncDisposable
+
+<div class="stream-status-badge @(IsLive ? "stream-status-badge--live" : "stream-status-badge--prelive")" aria-live="polite">
+    @if (IsLive)
+    {
+        <span class="stream-status-badge__dot" aria-hidden="true"></span>
+        <span>Live @_uptimeText</span>
+    }
+    else
+    {
+        <span>Pre-Live</span>
+    }
+</div>
+
+@code {
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private Task? _clockLoop;
+    private OperatorMode _mode;
+    private DateTimeOffset? _startedAt;
+    private string _uptimeText = "00:00:00";
+
+    private bool IsLive => _mode == OperatorMode.Live;
+
+    protected override void OnInitialized()
+    {
+        RefreshState();
+        OperatorStateService.StateChanged += HandleStateChanged;
+        _clockLoop = RunClockLoop(_cancellationTokenSource.Token);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        OperatorStateService.StateChanged -= HandleStateChanged;
+        await _cancellationTokenSource.CancelAsync();
+
+        if (_clockLoop is not null)
+        {
+            await _clockLoop;
+        }
+
+        _cancellationTokenSource.Dispose();
+    }
+
+    private void HandleStateChanged(object? sender, EventArgs args)
+    {
+        RefreshState();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void RefreshState()
+    {
+        _mode = OperatorStateService.Mode;
+        _startedAt = OperatorStateService.GetActiveStreamState()?.StartedAt;
+        _uptimeText = FormatUptime();
+    }
+
+    private async Task RunClockLoop(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                if (!IsLive)
+                {
+                    continue;
+                }
+
+                _uptimeText = FormatUptime();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private string FormatUptime()
+    {
+        if (!IsLive || _startedAt is null)
+        {
+            return "00:00:00";
+        }
+
+        TimeSpan uptime = DateTimeOffset.UtcNow - _startedAt.Value;
+        if (uptime < TimeSpan.Zero)
+        {
+            uptime = TimeSpan.Zero;
+        }
+
+        return uptime.ToString(@"hh\:mm\:ss");
+    }
+}

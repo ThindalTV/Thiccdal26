@@ -77,6 +77,7 @@ stream output — without needing to switch between apps or screens.
 
 ```
 /src/Thiccdal/                     Blazor Server host
+/src/Thiccdal.AI/                  OpenAI-compatible AI services behind app abstractions
 /src/Thiccdal.Infrastructure/      Interfaces, enums, value types — no EF Core
 /src/Thiccdal.Data/                EF Core DbContext, entities, migrations
 /src/Modules/
@@ -127,6 +128,12 @@ configured (URL, stream key) and independently monitored.
   so viewers see a placeholder rather than a frozen or dropped stream.
 - All active relay sessions are recorded to disk. Recording metadata (start/end time, file path,
   platform, error state) is persisted in the database.
+- Restream runtime control plus ingest and recording configuration are exposed through
+  Thiccdal-owned API endpoints so the operator configuration view can manage them without editing
+  JSON files by hand.
+- The current in-repo implementation uses LiveStreamingServerNet for ingest and FFmpeg for
+  per-destination relay and BRB processes. Only adapters that expose concrete RTMP destinations
+  participate in live fanout today.
 - Each relay target is an `IStreamTarget` implementation. Adding a new platform requires
   creating a new project under `/src/Thiccdal.Remote/` and registering it.
 
@@ -142,7 +149,8 @@ implements `IPlatformConnection`, which combines three concerns:
 | `PlatformEventSource` | Emit typed `PlatformEvent` objects |
 
 The `Null` implementation logs every operation at `Information` level and emits no traffic.
-It is the default in unit tests and is suitable for offline development.
+It is the default in unit tests, is suitable for offline development, and is used for full-stack
+integration coverage of the host.
 
 LinkedIn is implemented as a full `IPlatformConnection` but its UI entry is rendered as
 disabled with a tooltip explaining that LinkedIn Live API access requires platform approval.
@@ -204,8 +212,12 @@ startup. The static response acts as a fallback if the handler throws.
 A timer-based `IHostedService` sends configured messages on a per-platform interval. Proactive
 messages are also stored in the database with a `ProactiveMessage` flag.
 
-Future: an AI model (via Azure OpenAI or Ollama) will be plumbed in for free-form responses.
-The handler pipeline is designed to accommodate this as an opt-in `ICommandHandler`.
+Viewer question detection is currently routed through `Thiccdal.AI`, which exposes repository-owned
+abstractions over an OpenAI-compatible chat client. The default local target is LM Studio, but the
+same boundary can be pointed at any compatible endpoint later without changing chatbot services.
+
+Future: richer AI handlers (for example free-form bot responses) can build on the same abstraction
+layer as an opt-in `ICommandHandler`.
 
 ### 3.6 Overlay (Thiccdal.Modules.Overlay)
 
@@ -342,7 +354,7 @@ information, making it useful for external embeds, status pages, and stream over
 
 When offline, `"stream"` is `null` and all platform states are `"Disconnected"`.
 
-**`GET /status/badge.png`** returns a static image asset that flips between an online and
+**`GET /status/badge.svg`** returns a static image asset that flips between an online and
 an offline graphic. Intended for embedding in GitHub READMEs, websites, or stream panels
 without needing a downstream JSON consumer.
 
@@ -501,12 +513,10 @@ and checks/unchecks items automatically. Disabled platforms (LinkedIn, TikTok) a
 
 | Item | Type | Notes |
 |---|---|---|
-| OBS started | Manual | The ingest URL is displayed inline as a reference for OBS configuration |
-| Stream key configured in OBS | Manual | Ingest URL shown as copyable text |
-| Audio levels tested | Manual | |
-| Lighting and camera checked | Manual | |
-| All scenes configured and named | Manual | |
-| Test scene transition | Manual | |
+| OBS scene configured and active | Manual | Operator confirms the active OBS scene before going live |
+| RTMP ingest URL configured in OBS | Manual | Displays `StreamingOptions.IngestUrl` inline as a copyable reference and auto-checks when copied |
+| Audio levels checked | Manual | |
+| Test stream completed | Manual | Optional confidence check before the real show starts |
 
 **🖥 Overlay Verification** *(action, required)*
 
@@ -601,9 +611,18 @@ StreamingOptions
 
 // appsettings.json → "Twitch"
 TwitchOptions
-  ├── Channel            string
-  ├── BotUsername        string
-  └── OAuthToken         string   // env var
+  ├── DefaultTargetChannel       string
+  ├── DefaultBroadcasterId       string
+  ├── BotUsername                string
+  ├── BotUserId                  string
+  ├── ClientId                   string
+  ├── ClientSecret               string   // env var
+  ├── RedirectUri                string
+  ├── OAuthBaseAddress           string
+  ├── Helix:BaseAddress          string
+  ├── Helix:StreamStateRefreshSeconds int
+  ├── EventSub:WebSocketUrl      string
+  └── EventSub:ReconnectDelaySeconds int
 
 // appsettings.json → "YouTube"
 YouTubeOptions
@@ -1058,7 +1077,7 @@ shippable and testable. Items marked *(stretch)* are planned but not in the firs
 | 12.2 | Add `GET /status` returning `StreamStatusResponse` JSON | Reads from `IOperatorStateService` |
 | 12.3 | Populate `stream` object from active `StreamSession` | title, category, tags, startedAt, uptime |
 | 12.4 | Populate `platforms[]` from all registered `IPlatformConnection` instances | name + state per adapter |
-| 12.5 | Add `GET /status/badge.png` returning image | Online/offline static asset |
+| 12.5 | Add `GET /status/badge.svg` returning image | Online/offline static asset |
 | 12.6 | Unit-test `/status` JSON shape when online, offline, and partial failure | |
 | 12.7 | Unit-test badge endpoint returns correct asset | |
 
@@ -1078,11 +1097,11 @@ shippable and testable. Items marked *(stretch)* are planned but not in the firs
 
 | # | Step | Notes |
 |---|---|---|
-| 14.1 | Add OpenTelemetry traces and metrics | Via Aspire ServiceDefaults |
-| 14.2 | Add health-check endpoints | `/health`, `/ready` |
-| 14.3 | Structured log review — remove noise, add missing context | |
-| 14.4 | Add retry/backoff for platform API calls | Polly |
-| 14.5 | Integration test pass: spin up full stack against Null platform | |
+| 14.1 | Add OpenTelemetry traces and metrics | Via Aspire ServiceDefaults; exclude health probes from request tracing and emit service metadata for Aspire dashboards/exporters |
+| 14.2 | Add health-check endpoints | `/health` = liveness-only, `/ready` = full readiness including SQLite connectivity |
+| 14.3 | Structured log review — remove noise, add missing context | Suppress EF command chatter, keep migration/readiness logs contextual |
+| 14.4 | Add retry/backoff for platform API calls | Named platform `HttpClient` registrations own the resilience pipeline |
+| 14.5 | Integration test pass: spin up full stack against Null platform | Verified via host-level WebApplicationFactory coverage |
 
 ---
 

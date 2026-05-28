@@ -1,111 +1,177 @@
-﻿@using Thiccdal.Shared.Components.Components.Primitives
-@using Thiccdal.Modules.Control.Components.Integrations
-@using Thiccdal.Infrastructure.Twitch
-@inject ITwitchService TwitchService
-@inject ITwitchTokenManager TwitchTokenManager
-@implements IAsyncDisposable
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Modules.Control.Components.Dialogs
+@using Microsoft.AspNetCore.Hosting
+@using Microsoft.Extensions.Logging
+@inject IOperatorStateService OperatorStateService
+@inject IPreLiveChecklistService PreLiveChecklistService
+@inject IGoLiveActionService GoLiveActionService
+@inject IWebHostEnvironment HostEnvironment
+@inject ILogger<TopBar> Logger
+@implements IDisposable
 
-<header class="topbar">
+<header class="topbar topbar--@(_mode == OperatorMode.Live ? "live" : "prelive")">
     <div class="topbar__left">
         <span class="topbar__brand">THICCDAL</span>
-        <div class="topbar__platforms">
-            <IntegrationConnector PlatformName="Twitch"
-                                  ShortName="TWI"
-                                  Color="#9146FF"
-                                  ConnectionState="_twitchState"
-                                  OnConnectClicked="OpenTwitchDialog" />
-            <PlatformIndicator Platform="YT" ViewerCount="312" Color="#FF4444" IsLive="true" />
-            <PlatformIndicator Platform="KICK" Color="#53FC18" IsLive="false" />
-        </div>
-    </div>
-
-    <div class="topbar__restream">
-        <div class="topbar__restream-dest" style="--plat-color: #9146FF">
-            <span class="topbar__restream-name">Twitch</span>
-            <span class="topbar__restream-stats">6,008 Kbps · 60fps</span>
-            <button type="button" class="topbar__restream-btn topbar__restream-btn--stop">■ Stop</button>
-            <span class="topbar__restream-dot"></span>
-        </div>
-        <div class="topbar__restream-dest" style="--plat-color: #FF4444">
-            <span class="topbar__restream-name">YouTube</span>
-            <span class="topbar__restream-stats">4,500 Kbps · 80fps</span>
-            <button type="button" class="topbar__restream-btn topbar__restream-btn--stop">■ Stop</button>
-            <span class="topbar__restream-dot"></span>
-        </div>
-        <div class="topbar__restream-dest" style="--plat-color: #53FC18">
-            <span class="topbar__restream-name">Kick</span>
-            <span class="topbar__restream-stats">idle</span>
-            <button type="button" class="topbar__restream-btn topbar__restream-btn--go">▶ Go Live</button>
+        <StreamStatusBadge />
+        <div class="topbar__connections">
+            <PlatformConnectionBadges />
         </div>
     </div>
 
     <div class="topbar__right">
-        <span class="topbar__timer">02:14:38</span>
-        <div class="topbar__actions">
-            <GhostButton>⚙ Config</GhostButton>
-            <DangerButton>■ End</DangerButton>
-        </div>
+        @if (!string.IsNullOrWhiteSpace(_goLiveActionState.ErrorMessage))
+        {
+            <div class="topbar__error" role="alert">@_goLiveActionState.ErrorMessage</div>
+        }
+
+        @if (_mode == OperatorMode.PreLive)
+        {
+            <button type="button"
+                    class="topbar__action topbar__action--secondary @(ManualRemindersReviewed ? "topbar__action--complete" : string.Empty)"
+                    @onclick="HandleStreamInfoClicked">
+                @(ManualRemindersReviewed ? "✓ Stream Info" : "Stream Info")
+            </button>
+
+            @if (IsDevelopmentEnvironment)
+            {
+                <button type="button"
+                        class="topbar__action topbar__action--development"
+                        @onclick="HandlePreviewDashboardClicked">
+                    Preview Live Dashboard
+                </button>
+            }
+
+            <button type="button"
+                    class="topbar__go-live @(IsGoLiveReady ? "topbar__go-live--ready" : "topbar__go-live--locked")"
+                    disabled="@(!IsGoLiveReady || _goLiveActionState.IsRunning)"
+                    @onclick="HandleGoLiveClicked">
+                <span class="topbar__go-live-label">Go Live</span>
+                <span class="topbar__go-live-badge">@GetGoLiveBadgeText()</span>
+            </button>
+        }
+        else
+        {
+            <button type="button" class="topbar__action topbar__action--danger" @onclick="HandleGoOfflineClicked">Go Offline</button>
+        }
     </div>
 </header>
 
-<IntegrationAuthDialog PlatformName="Twitch"
-                       Color="#9146FF"
-                       AuthorizationUrl="@TwitchTokenManager.GetAuthorizationUrl()"
-                       IsOpen="_twitchDialogOpen"
-                       ErrorMessage="@_twitchAuthError"
-                       OnClose="CloseTwitchDialog"
-                       OnConnected="HandleTwitchConnected" />
+<GoLiveConfirmDialog @ref="_goLiveConfirmDialog" />
+<ConfirmDialog @ref="_confirmDialog" />
 
 @code {
-    private IntegrationConnectionState _twitchState = IntegrationConnectionState.Unknown;
-    private bool _twitchDialogOpen;
-    private string? _twitchAuthError;
-    private readonly CancellationTokenSource _cts = new();
+    [Parameter]
+    public EventCallback OnStreamInfoClicked { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    private const string ManualRemindersItemId = "stream-info.manual-reminders";
+    private OperatorMode _mode;
+    private PreLiveChecklistState _checklistState = new();
+    private GoLiveActionState _goLiveActionState = new();
+    private GoLiveConfirmDialog? _goLiveConfirmDialog;
+    private ConfirmDialog? _confirmDialog;
+
+    private bool IsGoLiveReady => _checklistState.AllRequiredChecked;
+
+    private bool IsDevelopmentEnvironment =>
+        string.Equals(HostEnvironment.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase);
+
+    private bool ManualRemindersReviewed =>
+        _checklistState.Items.FirstOrDefault(static item => item.Definition.Id == ManualRemindersItemId)?.IsChecked ?? false;
+
+    protected override void OnInitialized()
     {
-        TwitchService.ConnectionStateChanged += OnTwitchStateChanged;
-        await TwitchService.RefreshConnectionState(_cts.Token);
-        _twitchState = MapTwitchState(TwitchService.ConnectionState);
+        RefreshState();
+        OperatorStateService.StateChanged += HandleStateChanged;
+        PreLiveChecklistService.StateChanged += HandleStateChanged;
+        GoLiveActionService.StateChanged += HandleStateChanged;
     }
 
-    private void OnTwitchStateChanged(object? sender, TwitchConnectionState state)
+    public void Dispose()
     {
-        _twitchState = MapTwitchState(state);
-        InvokeAsync(StateHasChanged);
+        OperatorStateService.StateChanged -= HandleStateChanged;
+        PreLiveChecklistService.StateChanged -= HandleStateChanged;
+        GoLiveActionService.StateChanged -= HandleStateChanged;
     }
 
-    private static IntegrationConnectionState MapTwitchState(TwitchConnectionState state) => state switch
+    private Task HandleStreamInfoClicked()
     {
-        TwitchConnectionState.Connected => IntegrationConnectionState.Connected,
-        TwitchConnectionState.Connecting => IntegrationConnectionState.Connecting,
-        TwitchConnectionState.Authorized or TwitchConnectionState.Disconnected => IntegrationConnectionState.NotConnected,
-        TwitchConnectionState.NotAuthorized => IntegrationConnectionState.NotConnected,
-        TwitchConnectionState.Error => IntegrationConnectionState.Error,
-        _ => IntegrationConnectionState.Unknown
-    };
-
-    private void OpenTwitchDialog()
-    {
-        _twitchAuthError = null;
-        _twitchDialogOpen = true;
+        return OnStreamInfoClicked.InvokeAsync();
     }
 
-    private void CloseTwitchDialog()
+    private async Task HandleGoLiveClicked()
     {
-        _twitchDialogOpen = false;
+        if (!IsGoLiveReady || _goLiveConfirmDialog is null)
+        {
+            return;
+        }
+
+        bool confirmed = await _goLiveConfirmDialog.Show(_checklistState);
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await GoLiveActionService.Execute();
     }
 
-    private async Task HandleTwitchConnected()
+    private Task HandlePreviewDashboardClicked()
     {
-        _twitchDialogOpen = false;
-        await TwitchService.RefreshConnectionState(_cts.Token);
+        if (!IsDevelopmentEnvironment || _mode != OperatorMode.PreLive)
+        {
+            return Task.CompletedTask;
+        }
+
+        OperatorStateService.BeginLiveSession();
+        Logger.LogInformation("Development shortcut opened the live dashboard preview at {Time}", DateTimeOffset.UtcNow);
+        return Task.CompletedTask;
     }
 
-    public async ValueTask DisposeAsync()
+    private async Task HandleGoOfflineClicked()
     {
-        TwitchService.ConnectionStateChanged -= OnTwitchStateChanged;
-        await _cts.CancelAsync();
-        _cts.Dispose();
+        if (_confirmDialog is null)
+        {
+            return;
+        }
+
+        bool confirmed = await _confirmDialog.Show(new ConfirmDialogOptions
+        {
+            Title = "Go offline?",
+            Body = "This returns the operator UI to the pre-live preparation workflow.",
+            ConfirmText = "Go Offline",
+            ConfirmStyle = ConfirmStyle.Danger
+        });
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        OperatorStateService.SetActiveStreamState(null);
+        Logger.LogInformation("Stream returned to pre-live mode at {Time}", DateTimeOffset.UtcNow);
+    }
+
+    private string GetGoLiveBadgeText()
+    {
+        if (IsGoLiveReady)
+        {
+            return "✓ Ready to go live";
+        }
+
+        int remaining = _checklistState.RequiredUncheckedCount;
+        return $"✗ {remaining} item{(remaining == 1 ? string.Empty : "s")} remaining";
+    }
+
+    private void HandleStateChanged(object? sender, EventArgs args)
+    {
+        RefreshState();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void RefreshState()
+    {
+        _mode = OperatorStateService.Mode;
+        _checklistState = PreLiveChecklistService.GetState();
+        _goLiveActionState = GoLiveActionService.GetState();
     }
 }

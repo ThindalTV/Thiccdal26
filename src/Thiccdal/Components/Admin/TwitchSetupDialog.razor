@@ -1,0 +1,533 @@
+@*
+    Twitch full setup dialog (modal).
+    Handles target channel configuration, authorization, and IRC connection inline.
+*@
+
+@inject ITwitchTokenManager TokenManager
+@inject ITwitchService TwitchService
+@inject ITwitchTargetChannelService TargetChannelService
+@inject NavigationManager Navigation
+@inject ILogger<TwitchSetupDialog> Logger
+
+@using Thiccdal.Infrastructure.Twitch
+@using Thiccdal.Infrastructure.Bot.Models
+
+@implements IAsyncDisposable
+
+@if (IsVisible)
+{
+    <div class="modal-backdrop fade show" @onclick="Close" aria-hidden="true"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-label="Twitch Setup">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <span class="bi bi-twitch me-2" aria-hidden="true"></span>
+                        Twitch Setup
+                    </h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @_errorMessage
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_successMessage))
+                    {
+                        <div class="alert alert-success" role="alert">
+                            @_successMessage
+                        </div>
+                    }
+
+                    <div class="d-flex align-items-center gap-2 mb-4">
+                        <span class="fw-bold">Connection status:</span>
+                        <span class="badge @GetStateBadgeClass() fs-6">@GetStateLabel()</span>
+                    </div>
+
+                    @* Step 1: Target Channel Configuration *@
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">1. Target Channel</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">
+                                Configure which channel the bot should join. The bot account (<strong>@GetBotUsernameDisplay()</strong>) 
+                                will connect to <strong>@GetSavedChannelDisplay()</strong>.
+                            </p>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="twitch-target-channel">Channel name</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">#</span>
+                                    <input id="twitch-target-channel"
+                                           class="form-control"
+                                           inputmode="text"
+                                           autocapitalize="none"
+                                           autocomplete="off"
+                                           spellcheck="false"
+                                           placeholder="your_channel_name"
+                                           @bind="_targetChannel" />
+                                </div>
+                                <div class="form-text">
+                                    Enter the broadcaster login without # prefix
+                                </div>
+                            </div>
+
+                            <details class="mb-3">
+                                <summary class="text-muted small" style="cursor: pointer;">Advanced: Broadcaster user ID</summary>
+                                <div class="mt-2">
+                                    <input class="form-control form-control-sm"
+                                           inputmode="numeric"
+                                           autocomplete="off"
+                                           placeholder="Optional broadcaster ID"
+                                           @bind="_broadcasterId" />
+                                    <div class="form-text">
+                                        Keep this in sync with the target channel for EventSub features
+                                    </div>
+                                </div>
+                            </details>
+
+                            <button class="btn btn-sm btn-primary"
+                                    @onclick="SaveTargetChannel"
+                                    disabled="@_isSavingTarget">
+                                @if (_isSavingTarget)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                }
+                                Save Target Channel
+                            </button>
+                        </div>
+                    </div>
+
+                    @* Step 2: Bot Authorization *@
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">2. Bot Authorization</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">
+                                Authorize the Twitch account that will act as the bot.
+                            </p>
+
+                            @if (TwitchService.ConnectionState == TwitchConnectionState.NotAuthorized)
+                            {
+                                <button class="btn btn-sm btn-primary" @onclick="Authorize">
+                                    <span class="bi bi-twitch me-2" aria-hidden="true"></span>
+                                    Authorize with Twitch
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="d-flex gap-2 align-items-center">
+                                    <span class="text-success">
+                                        <span class="bi bi-check-circle me-1"></span>
+                                        Authorized
+                                    </span>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="RevokeAsync" disabled="@_isBusy">
+                                        @if (_isBusy)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        }
+                                        Disconnect
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    @* Step 3: IRC Connection *@
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">3. IRC Connection</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">@GetConnectHelpText()</p>
+
+                            @if (TwitchService.ConnectionState == TwitchConnectionState.Connected)
+                            {
+                                <button class="btn btn-sm btn-danger" @onclick="Disconnect">
+                                    Disconnect from Chat
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-success"
+                                        @onclick="Connect"
+                                        disabled="@(!CanConnect)">
+                                    @if (_isConnecting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    }
+                                    Connect to @GetSavedChannelDisplay()
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    @* Chat Preview (when connected) *@
+                    @if (TwitchService.ConnectionState == TwitchConnectionState.Connected)
+                    {
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Recent Chat</h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small">Messages from @GetSavedChannelDisplay()</p>
+
+                                <div class="chat-messages" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem;">
+                                    @if (_recentMessages.Count == 0)
+                                    {
+                                        <p class="text-muted small">Waiting for chat activity…</p>
+                                    }
+                                    else
+                                    {
+                                        @foreach (ChatEvent message in _recentMessages)
+                                        {
+                                            <div class="mb-2">
+                                                <div class="small text-muted">@message.Source · @message.Author</div>
+                                                <div>@message.Content</div>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+
+                                <div class="input-group input-group-sm">
+                                    <input class="form-control"
+                                           placeholder="Send a test message"
+                                           @bind="_messageToSend"
+                                           @onkeydown="HandleMessageKeyDown" />
+                                    <button class="btn btn-primary"
+                                            @onclick="SendMessage"
+                                            disabled="@string.IsNullOrWhiteSpace(_messageToSend)">
+                                        Send
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="Close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnRevoked { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? CallbackError { get; set; }
+
+    private string? _errorMessage;
+    private string? _successMessage;
+    private bool _isBusy;
+    private bool _isConnecting;
+    private bool _isSavingTarget;
+    private readonly List<ChatEvent> _recentMessages = new();
+    private const int MaxMessages = 50;
+    private readonly CancellationTokenSource _cts = new();
+    private string _messageToSend = string.Empty;
+    private string _targetChannel = string.Empty;
+    private string _broadcasterId = string.Empty;
+    private TwitchChatConnectionProfile _profile = new TwitchChatConnectionProfile
+    {
+        BotUsername = string.Empty,
+        TargetChannel = string.Empty
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        TwitchService.ConnectionStateChanged += HandleConnectionStateChanged;
+        TwitchService.OnChatMessageRecieved += HandleMessage;
+
+        await RefreshConnectionProfile();
+        await TwitchService.RefreshConnectionState(_cts.Token);
+        ApplyCallbackError();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsVisible)
+        {
+            await RefreshConnectionProfile();
+            await TwitchService.RefreshConnectionState(_cts.Token);
+        }
+    }
+
+    private async Task RefreshConnectionProfile()
+    {
+        _profile = await TargetChannelService.GetConnectionProfile(_cts.Token);
+        _targetChannel = _profile.TargetChannel;
+        _broadcasterId = _profile.BroadcasterId;
+    }
+
+    private string GetStateBadgeClass() => TwitchService.ConnectionState switch
+    {
+        TwitchConnectionState.Connected => "bg-success",
+        TwitchConnectionState.Authorized => "bg-info",
+        TwitchConnectionState.Connecting => "bg-warning text-dark",
+        TwitchConnectionState.NotAuthorized => "bg-secondary",
+        TwitchConnectionState.Disconnected => "bg-secondary",
+        TwitchConnectionState.Error => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetStateLabel() => TwitchService.ConnectionState switch
+    {
+        TwitchConnectionState.Connected => "Connected",
+        TwitchConnectionState.Authorized => "Authorized",
+        TwitchConnectionState.Connecting => "Connecting…",
+        TwitchConnectionState.NotAuthorized => "Not Authorized",
+        TwitchConnectionState.Disconnected => "Disconnected",
+        TwitchConnectionState.Error => "Error",
+        _ => "Unknown"
+    };
+
+    private string GetSavedChannelDisplay() => HasSavedChannel
+        ? $"#{_profile.TargetChannel}"
+        : "no target channel";
+
+    private string GetBotUsernameDisplay() => string.IsNullOrWhiteSpace(_profile.BotUsername)
+        ? "not configured"
+        : $"@{_profile.BotUsername}";
+
+    private string GetConnectHelpText()
+    {
+        if (!HasSavedChannel)
+        {
+            return "Save a target channel above first.";
+        }
+
+        if (IsTargetDirty)
+        {
+            return "Save the updated channel details before connecting.";
+        }
+
+        if (TwitchService.ConnectionState == TwitchConnectionState.NotAuthorized)
+        {
+            return "Authorize the bot account above before connecting.";
+        }
+
+        if (TwitchService.ConnectionState == TwitchConnectionState.Connected)
+        {
+            return $"Bot is currently connected to {GetSavedChannelDisplay()}.";
+        }
+
+        return $"Ready to connect to {GetSavedChannelDisplay()}.";
+    }
+
+    private bool HasSavedChannel => !string.IsNullOrWhiteSpace(_profile.TargetChannel);
+
+    private bool IsTargetDirty =>
+        NormalizeForComparison(_targetChannel) != NormalizeForComparison(_profile.TargetChannel) ||
+        NormalizeForComparison(_broadcasterId) != NormalizeForComparison(_profile.BroadcasterId);
+
+    private bool CanConnect =>
+        !_isConnecting &&
+        !IsTargetDirty &&
+        HasSavedChannel &&
+        TwitchService.ConnectionState is TwitchConnectionState.Authorized or TwitchConnectionState.Disconnected;
+
+    private static string NormalizeForComparison(string? value) => value?.Trim() ?? string.Empty;
+
+    private void Authorize()
+    {
+        var url = TokenManager.GetAuthorizationUrl();
+        Navigation.NavigateTo(url, forceLoad: true);
+    }
+
+    private async Task RevokeAsync()
+    {
+        _isBusy = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            if (TwitchService.ConnectionState == TwitchConnectionState.Connected)
+            {
+                await TwitchService.Disconnect(_cts.Token);
+            }
+
+            await TokenManager.Revoke(_cts.Token);
+            await TwitchService.RefreshConnectionState(_cts.Token);
+            _successMessage = "Disconnected Twitch bot authorization.";
+            await OnRevoked.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to revoke Twitch token");
+            _errorMessage = "Failed to disconnect. Please try again.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task SaveTargetChannel()
+    {
+        _isSavingTarget = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            _profile = await TargetChannelService.UpdateTargetChannel(
+                new TwitchTargetChannelSettings(_targetChannel, _broadcasterId),
+                _cts.Token);
+
+            _targetChannel = _profile.TargetChannel;
+            _broadcasterId = _profile.BroadcasterId;
+
+            _successMessage = TwitchService.ConnectionState == TwitchConnectionState.Connected
+                ? $"Saved {GetSavedChannelDisplay()}. Bot connection will follow automatically."
+                : $"Saved {GetSavedChannelDisplay()} as target channel.";
+        }
+        catch (ArgumentException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save Twitch target channel");
+            _errorMessage = "Couldn't save target channel. Please try again.";
+        }
+        finally
+        {
+            _isSavingTarget = false;
+        }
+    }
+
+    private async Task Connect()
+    {
+        if (!CanConnect)
+        {
+            _errorMessage = "Save a target channel and authorize the bot before connecting.";
+            return;
+        }
+
+        try
+        {
+            _isConnecting = true;
+            _errorMessage = null;
+            _successMessage = null;
+            await InvokeAsync(StateHasChanged);
+
+            await TwitchService.Connect(_cts.Token);
+            _successMessage = $"Bot connected to {GetSavedChannelDisplay()}.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to connect to Twitch IRC");
+            _errorMessage = $"Connection failed: {ex.Message}";
+        }
+        finally
+        {
+            _isConnecting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task Disconnect()
+    {
+        try
+        {
+            _errorMessage = null;
+            _successMessage = null;
+            await TwitchService.Disconnect(_cts.Token);
+            _successMessage = "Bot disconnected from Twitch chat.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error disconnecting from Twitch IRC");
+            _errorMessage = $"Disconnect failed: {ex.Message}";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_messageToSend))
+        {
+            return;
+        }
+
+        string message = _messageToSend.Trim();
+        await TwitchService.SendMessage(message, _cts.Token);
+        _messageToSend = string.Empty;
+    }
+
+    private async Task HandleMessageKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_messageToSend))
+        {
+            await SendMessage();
+        }
+    }
+
+    private void HandleMessage(object? sender, ChatEvent message)
+    {
+        _ = InvokeAsync(() =>
+        {
+            _recentMessages.Insert(0, message);
+            if (_recentMessages.Count > MaxMessages)
+            {
+                _recentMessages.RemoveAt(_recentMessages.Count - 1);
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private void HandleConnectionStateChanged(object? sender, TwitchConnectionState state)
+    {
+        if (state != TwitchConnectionState.Error)
+        {
+            ApplyCallbackError();
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyCallbackError()
+    {
+        if (string.IsNullOrWhiteSpace(CallbackError))
+        {
+            return;
+        }
+
+        _errorMessage = CallbackError switch
+        {
+            "oauth_denied" => "Twitch authorization was cancelled.",
+            "missing_code" => "Twitch returned without an authorization code.",
+            "invalid_state" => "Twitch authorization could not be verified. Try again.",
+            _ => "Twitch authorization failed. Please try again."
+        };
+    }
+
+    private async Task Close()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        await OnClose.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        TwitchService.ConnectionStateChanged -= HandleConnectionStateChanged;
+        TwitchService.OnChatMessageRecieved -= HandleMessage;
+        await _cts.CancelAsync();
+        _cts.Dispose();
+    }
+}

@@ -10,6 +10,12 @@
         display: inline-block;
     }
 
+.line--activity {
+    border-left: 4px solid var(--line-accent, rgba(255,255,255,0.4));
+    padding-left: 12px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.07), transparent 35%);
+}
+
 .platform {
     font-size: 0.8em;
     color: rgba(255,255,255,0.5);
@@ -31,8 +37,45 @@ time {
 .sender {
     font-weight: bold;
     width: 150px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.sender__name {
+    color: #ffffff;
 }
 
 .promptContent {
     width: calc(100% - 315px);
+}
+
+.badge-pill,
+.event-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.badge-pill {
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.8);
+}
+
+.event-pill {
+    background: var(--line-accent, rgba(255,255,255,0.2));
+    color: #0f0f0f;
+}
+
+.activity {
+    font-size: 1.2rem;
+    line-height: 1.45;
+    font-weight: 600;
 }

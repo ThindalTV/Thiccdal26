@@ -1,15 +1,15 @@
 @using Thiccdal.Shared.Components.Components.Primitives
-<div class="waiting-q">
-    <button type="button" class="waiting-q__dismiss" title="Dismiss">✕</button>
-    <div class="waiting-q__content">
+<div class="waiting-q @(Selected ? "waiting-q--selected" : null)">
+    <button type="button" class="waiting-q__dismiss" title="Dismiss question" @onclick="OnDismiss">✕</button>
+    <button type="button" class="waiting-q__content" @onclick="OnSelect" aria-pressed="@Selected">
         <div class="waiting-q__meta">
             <Badge Color="@PlatformColor">@Platform</Badge>
             <span class="waiting-q__user">@Username</span>
             <span class="waiting-q__time">@TimeAgo</span>
         </div>
         <p class="waiting-q__text">"@Text"</p>
-    </div>
-    <button type="button" class="waiting-q__show" title="Show on overlay">▶</button>
+    </button>
+    <button type="button" class="waiting-q__show" title="Show on overlay" @onclick="OnShow">▶</button>
 </div>
 
 @code {
@@ -18,4 +18,8 @@
     [Parameter] public string Username { get; set; } = string.Empty;
     [Parameter] public string TimeAgo { get; set; } = string.Empty;
     [Parameter] public string Text { get; set; } = string.Empty;
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public EventCallback OnSelect { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+    [Parameter] public EventCallback OnShow { get; set; }
 }

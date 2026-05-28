@@ -1,0 +1,142 @@
+@using Thiccdal.Infrastructure.Questions
+
+@inherits TestableOverlayComponentBase
+@implements IDisposable
+
+@if (_renderedQuestion is not null || IsTestFlashing)
+{
+    <div class="lower-third-overlay-host">
+        @if (_renderedQuestion is LiveQuestion question)
+        {
+            <div class="lower-third-overlay @GetPlatformClass(question.Platform) @_animationClass">
+                <div class="lower-third-overlay__meta">@question.Username via @question.Platform</div>
+                <div class="lower-third-overlay__text">@TruncateQuestion(question.Text)</div>
+            </div>
+        }
+
+        @if (IsTestFlashing)
+        {
+            <div class="test-flash-overlay">
+                <span class="test-flash-label">@TestFlashLabel</span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private CancellationTokenSource? _transitionCancellationTokenSource;
+    private LiveQuestion? _renderedQuestion;
+    private string _animationClass = string.Empty;
+
+    public override string ComponentName => "Lower Third";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _renderedQuestion = GetFeaturedQuestion();
+        _animationClass = _renderedQuestion is null ? string.Empty : "lower-third-overlay--enter";
+        OperatorStateService.StateChanged += HandleOperatorStateChanged;
+    }
+
+    public override void Dispose()
+    {
+        OperatorStateService.StateChanged -= HandleOperatorStateChanged;
+        _transitionCancellationTokenSource?.Cancel();
+        _transitionCancellationTokenSource?.Dispose();
+        base.Dispose();
+    }
+
+    private void HandleOperatorStateChanged(object? sender, EventArgs args)
+    {
+        _transitionCancellationTokenSource?.Cancel();
+        _transitionCancellationTokenSource?.Dispose();
+        _transitionCancellationTokenSource = new CancellationTokenSource();
+        _ = InvokeAsync(() => SynchronizeQuestionState(_transitionCancellationTokenSource.Token));
+    }
+
+    private async Task SynchronizeQuestionState(CancellationToken cancellationToken)
+    {
+        try
+        {
+            LiveQuestion? nextQuestion = GetFeaturedQuestion();
+
+            if (Matches(_renderedQuestion, nextQuestion))
+            {
+                return;
+            }
+
+            if (_renderedQuestion is not null)
+            {
+                _animationClass = "lower-third-overlay--exit";
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(300, cancellationToken);
+            }
+
+            _renderedQuestion = nextQuestion;
+            _animationClass = _renderedQuestion is null ? string.Empty : "lower-third-overlay--enter";
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private static bool Matches(LiveQuestion? currentQuestion, LiveQuestion? nextQuestion)
+    {
+        if (currentQuestion is null && nextQuestion is null)
+        {
+            return true;
+        }
+
+        if (currentQuestion is null || nextQuestion is null)
+        {
+            return false;
+        }
+
+        return currentQuestion.SourceQuestionId == nextQuestion.SourceQuestionId &&
+               string.Equals(currentQuestion.Text, nextQuestion.Text, StringComparison.Ordinal);
+    }
+
+    private static string TruncateQuestion(string questionText)
+    {
+        if (string.IsNullOrWhiteSpace(questionText) || questionText.Length <= 120)
+        {
+            return questionText;
+        }
+
+        return $"{questionText[..119].TrimEnd()}…";
+    }
+
+    private static string GetPlatformClass(string platform)
+    {
+        return platform.Trim().ToUpperInvariant() switch
+        {
+            "TWITCH" => "lower-third-overlay--twitch",
+            "YOUTUBE" => "lower-third-overlay--youtube",
+            "DISCORD" => "lower-third-overlay--discord",
+            "FACEBOOK" => "lower-third-overlay--facebook",
+            "X" => "lower-third-overlay--x",
+            "LINKEDIN" => "lower-third-overlay--linkedin",
+            "TIKTOK" => "lower-third-overlay--tiktok",
+            "MANUAL" => "lower-third-overlay--manual",
+            _ => "lower-third-overlay--default"
+        };
+    }
+
+    private LiveQuestion? GetFeaturedQuestion()
+    {
+        QueuedQuestion? featuredQuestion = OperatorStateService.QuestionQueue
+            .FirstOrDefault(static question => question.State == QuestionState.Featured);
+
+        return featuredQuestion is null
+            ? null
+            : new LiveQuestion(
+                featuredQuestion.Id,
+                featuredQuestion.Platform,
+                featuredQuestion.PlatformColor,
+                featuredQuestion.Username,
+                featuredQuestion.Text,
+                featuredQuestion.ReceivedAt,
+                featuredQuestion.FeaturedAt ?? featuredQuestion.ReceivedAt);
+    }
+}

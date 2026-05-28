@@ -2,8 +2,11 @@ namespace Thiccdal.Infrastructure.Twitch;
 
 public interface ITwitchTokenManager
 {
-    /// <summary>Returns the current access token, refreshing if expired.</summary>
-    Task<string> GetToken(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Returns the current access token, refreshing if expired.
+    /// Returns <see langword="null"/> when no token has been stored yet.
+    /// </summary>
+    Task<string?> GetToken(CancellationToken cancellationToken = default);
 
     /// <summary>Returns true if a stored token exists; never throws.</summary>
     Task<bool> HasToken(CancellationToken cancellationToken = default);

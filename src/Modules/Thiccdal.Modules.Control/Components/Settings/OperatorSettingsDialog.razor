@@ -1,0 +1,80 @@
+@using Thiccdal.Modules.Control.Components.Restream
+
+<div class="operator-settings-dialog">
+    <div class="operator-settings-dialog__tabs" role="tablist" aria-label="Operator settings sections">
+        <button type="button"
+                id="operator-settings-tab-stream-checks"
+                class="operator-settings-dialog__tab @GetTabCssClass(OperatorSettingsTab.StreamChecks)"
+                role="tab"
+                aria-selected="@(_selectedTab == OperatorSettingsTab.StreamChecks)"
+                aria-controls="operator-settings-panel-stream-checks"
+                @onclick="() => SelectTab(OperatorSettingsTab.StreamChecks)">
+            Stream Checks
+        </button>
+        <button type="button"
+                id="operator-settings-tab-viewer-identities"
+                class="operator-settings-dialog__tab @GetTabCssClass(OperatorSettingsTab.ViewerIdentities)"
+                role="tab"
+                aria-selected="@(_selectedTab == OperatorSettingsTab.ViewerIdentities)"
+                aria-controls="operator-settings-panel-viewer-identities"
+                @onclick="() => SelectTab(OperatorSettingsTab.ViewerIdentities)">
+            Viewer Identities
+        </button>
+        <button type="button"
+                id="operator-settings-tab-restream"
+                class="operator-settings-dialog__tab @GetTabCssClass(OperatorSettingsTab.Restream)"
+                role="tab"
+                aria-selected="@(_selectedTab == OperatorSettingsTab.Restream)"
+                aria-controls="operator-settings-panel-restream"
+                @onclick="() => SelectTab(OperatorSettingsTab.Restream)">
+            Restream
+        </button>
+    </div>
+
+    <div id="operator-settings-panel-stream-checks"
+         class="operator-settings-dialog__panel"
+         role="tabpanel"
+         aria-labelledby="operator-settings-tab-stream-checks"
+         hidden="@(_selectedTab != OperatorSettingsTab.StreamChecks)">
+        <StreamInfoDialog />
+    </div>
+
+    <div id="operator-settings-panel-viewer-identities"
+         class="operator-settings-dialog__panel"
+         role="tabpanel"
+         aria-labelledby="operator-settings-tab-viewer-identities"
+         hidden="@(_selectedTab != OperatorSettingsTab.ViewerIdentities)">
+        <ViewerIdentitiesPanel />
+    </div>
+
+    <div id="operator-settings-panel-restream"
+         class="operator-settings-dialog__panel"
+         role="tabpanel"
+         aria-labelledby="operator-settings-tab-restream"
+         hidden="@(_selectedTab != OperatorSettingsTab.Restream)">
+        <RestreamPanel />
+    </div>
+</div>
+
+@code {
+    private OperatorSettingsTab _selectedTab = OperatorSettingsTab.StreamChecks;
+
+    private void SelectTab(OperatorSettingsTab tab)
+    {
+        _selectedTab = tab;
+    }
+
+    private string GetTabCssClass(OperatorSettingsTab tab)
+    {
+        return _selectedTab == tab
+            ? "operator-settings-dialog__tab--active"
+            : string.Empty;
+    }
+
+    private enum OperatorSettingsTab
+    {
+        StreamChecks = 0,
+        ViewerIdentities = 1,
+        Restream = 2
+    }
+}

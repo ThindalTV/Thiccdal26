@@ -1,0 +1,35 @@
+.operator-settings-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: 0;
+}
+
+.operator-settings-dialog__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 8px;
+}
+
+.operator-settings-dialog__tab {
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.operator-settings-dialog__tab--active {
+    border-color: rgba(145, 70, 255, 0.55);
+    background: rgba(145, 70, 255, 0.18);
+    color: #efe2ff;
+}
+
+.operator-settings-dialog__panel {
+    min-height: 0;
+}

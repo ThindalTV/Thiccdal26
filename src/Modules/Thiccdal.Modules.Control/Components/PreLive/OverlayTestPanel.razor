@@ -1,0 +1,116 @@
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Infrastructure.Overlay
+@inject IPreLiveChecklistService PreLiveChecklistService
+@inject IOverlayService OverlayService
+@implements IDisposable
+
+<div class="ctrl-panel overlay-test-panel">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Overlay Test Area</span>
+        <span class="overlay-test-panel__summary">@VerifiedCount / @_components.Count verified</span>
+    </div>
+
+    <div class="ctrl-panel__body overlay-test-panel__body">
+        <p class="overlay-test-panel__intro">Run the built-in test flash for each overlay and let the checklist auto-verify the item once the 3-second overlay test finishes. The same hook still drives every connected operator surface in sync.</p>
+
+        @if (_components.Count == 0)
+        {
+            <div class="overlay-test-panel__empty">No testable overlay registrations are available yet.</div>
+        }
+        else
+        {
+            @foreach (ITestableOverlayComponent component in _components)
+            {
+                string itemId = BuildOverlayItemId(component.ComponentName);
+                bool isChecked = IsChecked(itemId);
+                bool isPending = IsPending(itemId);
+
+                <div class="overlay-test-panel__item @(isChecked ? "overlay-test-panel__item--checked" : string.Empty)">
+                    <div class="overlay-test-panel__item-copy">
+                        <div class="overlay-test-panel__item-title">@component.ComponentName</div>
+                        <p class="overlay-test-panel__item-text">Trigger the 3-second test flash and confirm the placement in OBS. This panel mirrors the checklist state, so a successful run will verify the item automatically.</p>
+                    </div>
+
+                    <div class="overlay-test-panel__item-actions">
+                        <button type="button"
+                                class="overlay-test-panel__button"
+                                disabled="@isPending"
+                                @onclick="@(() => TriggerOverlayTest(itemId))">@(isPending ? "Testing…" : "Test")</button>
+                        <span class="overlay-test-panel__status @(isChecked ? "overlay-test-panel__status--verified" : string.Empty)">
+                            @(isChecked ? "Verified" : "Awaiting verification")
+                        </span>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<ITestableOverlayComponent> _components = [];
+    private PreLiveChecklistState _checklistState = new();
+    private readonly HashSet<string> _pendingActionIds = new(StringComparer.OrdinalIgnoreCase);
+
+    private int VerifiedCount => _components.Count(component => IsChecked(BuildOverlayItemId(component.ComponentName)));
+
+    protected override void OnInitialized()
+    {
+        _components = OverlayService.GetComponents()
+            .OfType<ITestableOverlayComponent>()
+            .OrderBy(static component => component.ComponentName, StringComparer.Ordinal)
+            .ToArray();
+        _checklistState = PreLiveChecklistService.GetState();
+        PreLiveChecklistService.StateChanged += HandleChecklistChanged;
+    }
+
+    public void Dispose()
+    {
+        PreLiveChecklistService.StateChanged -= HandleChecklistChanged;
+    }
+
+    private void HandleChecklistChanged(object? sender, EventArgs args)
+    {
+        _checklistState = PreLiveChecklistService.GetState();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task TriggerOverlayTest(string itemId)
+    {
+        if (!_pendingActionIds.Add(itemId))
+        {
+            return;
+        }
+
+        try
+        {
+            await PreLiveChecklistService.TriggerAction(itemId);
+        }
+        finally
+        {
+            _pendingActionIds.Remove(itemId);
+        }
+    }
+
+    private bool IsChecked(string itemId)
+    {
+        return _checklistState.Items.FirstOrDefault(item => item.Definition.Id == itemId)?.IsChecked ?? false;
+    }
+
+    private bool IsPending(string itemId)
+    {
+        return _pendingActionIds.Contains(itemId);
+    }
+
+    private static string BuildOverlayItemId(string componentName)
+    {
+        return $"overlay.{BuildSlug(componentName)}";
+    }
+
+    private static string BuildSlug(string value)
+    {
+        return string.Join(
+            '-',
+            value.Split([' ', '/', '\\', '.', ':'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .ToLowerInvariant();
+    }
+}

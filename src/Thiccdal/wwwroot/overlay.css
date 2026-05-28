@@ -1,4 +1,4 @@
-﻿.overlay-chat {
+.overlay-chat {
     position: absolute;
     right: 40px;
     top: 40px;
@@ -12,7 +12,10 @@
     position: absolute;
     bottom: 40px;
     left: 20px;
-    height: 10%;
-    width: 40%;
-    background: rgba(0, 0, 0, 0.7) !important;
+    width: min(760px, 52vw);
+    min-height: 112px;
+    background: rgba(5, 7, 16, 0.82) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(18px);
 }

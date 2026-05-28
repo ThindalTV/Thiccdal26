@@ -1,0 +1,197 @@
+@inherits TestableOverlayComponentBase
+@using Thiccdal.Infrastructure.Bot.Models
+@using Thiccdal.Infrastructure.Remotes
+@implements IAsyncDisposable
+@inject IEventBus EventBus
+
+<div class="event-ticker">
+    @if (_currentEvent != null)
+    {
+        <div class="event-ticker__item @(_isAnimatingOut ? "event-ticker__item--out" : "event-ticker__item--in")">
+            @_currentEvent
+        </div>
+    }
+
+    @if (IsTestFlashing)
+    {
+        <div class="test-flash-overlay">
+            <span class="test-flash-label">@TestFlashLabel</span>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly Queue<string> _eventQueue = new();
+    private string? _currentEvent;
+    private bool _isAnimatingOut;
+    private CancellationTokenSource? _cts;
+    private Task? _subscriptionTask;
+    private Task? _displayTask;
+
+    public override string ComponentName => "Event Ticker";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _cts = new CancellationTokenSource();
+        _subscriptionTask = SubscribeToEvents(_cts.Token);
+        _displayTask = RunDisplayLoop(_cts.Token);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_cts is not null)
+        {
+            _cts.Cancel();
+        }
+
+        if (_subscriptionTask is not null)
+        {
+            try
+            {
+                await _subscriptionTask;
+            }
+            catch (OperationCanceledException) when (_cts?.IsCancellationRequested == true)
+            {
+            }
+        }
+
+        if (_displayTask is not null)
+        {
+            try
+            {
+                await _displayTask;
+            }
+            catch (OperationCanceledException) when (_cts?.IsCancellationRequested == true)
+            {
+            }
+        }
+
+        base.Dispose();
+        _cts?.Dispose();
+    }
+
+    internal static string? CreateTickerText(PlatformEvent platformEvent)
+    {
+        ArgumentNullException.ThrowIfNull(platformEvent);
+
+        return platformEvent switch
+        {
+            TwitchSubscribeEvent subscribeEvent when subscribeEvent.IsGift => $"🎁 {ResolveGiftGifterName(subscribeEvent)} gifted a sub to {subscribeEvent.Author}!",
+            TwitchSubscribeEvent subscribeEvent => $"🎉 {subscribeEvent.Author} just subscribed! ({FormatTier(subscribeEvent.Tier)})",
+            TwitchFollowEvent followEvent => $"❤️ {followEvent.Author} followed!",
+            TwitchRedeemEvent redeemEvent => $"⭐ {redeemEvent.Author} redeemed {ResolveRewardTitle(redeemEvent)}",
+            TwitchRaidEvent raidEvent => $"⚔️ {raidEvent.RaidingChannel} is raiding with {raidEvent.ViewerCount} viewers!",
+            { Type: PlatformEventType.SuperChat } superChatEvent => $"💰 {superChatEvent.Author} sent {ResolveSuperChatDisplayString(superChatEvent)}!",
+            { Type: PlatformEventType.Membership } membershipEvent => $"🌟 {membershipEvent.Author} became a member!",
+            _ => null
+        };
+    }
+
+    private void EnqueueEvent(string tickerText)
+    {
+        lock (_eventQueue)
+        {
+            if (_eventQueue.Count >= 10)
+            {
+                _eventQueue.Dequeue();
+            }
+
+            _eventQueue.Enqueue(tickerText);
+        }
+    }
+
+    private async Task SubscribeToEvents(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (PlatformEvent platformEvent in EventBus.Subscribe(cancellationToken))
+            {
+                string? tickerText = CreateTickerText(platformEvent);
+                if (!string.IsNullOrWhiteSpace(tickerText))
+                {
+                    EnqueueEvent(tickerText);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task RunDisplayLoop(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            string? nextEvent = null;
+
+            lock (_eventQueue)
+            {
+                if (_eventQueue.Count > 0)
+                {
+                    nextEvent = _eventQueue.Dequeue();
+                }
+            }
+
+            if (nextEvent is null)
+            {
+                await Task.Delay(100, cancellationToken);
+                continue;
+            }
+
+            _currentEvent = nextEvent;
+            _isAnimatingOut = false;
+            await InvokeAsync(StateHasChanged);
+
+            await Task.Delay(5000, cancellationToken);
+
+            _isAnimatingOut = true;
+            await InvokeAsync(StateHasChanged);
+
+            await Task.Delay(500, cancellationToken);
+
+            _currentEvent = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static string FormatTier(string tier)
+    {
+        return string.IsNullOrWhiteSpace(tier) ? "Tier 1" : tier;
+    }
+
+    private static string ResolveGiftGifterName(TwitchSubscribeEvent subscribeEvent)
+    {
+        if (!string.IsNullOrWhiteSpace(subscribeEvent.Summary))
+        {
+            const string marker = " from ";
+            int markerIndex = subscribeEvent.Summary.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (markerIndex >= 0)
+            {
+                return subscribeEvent.Summary[(markerIndex + marker.Length)..].Trim();
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(subscribeEvent.GifterUserId) ? "Someone" : subscribeEvent.GifterUserId;
+    }
+
+    private static string ResolveRewardTitle(TwitchRedeemEvent redeemEvent)
+    {
+        return string.IsNullOrWhiteSpace(redeemEvent.RewardTitle) ? "channel points" : redeemEvent.RewardTitle;
+    }
+
+    private static string ResolveSuperChatDisplayString(PlatformEvent platformEvent)
+    {
+        const string marker = " sent ";
+        string summary = platformEvent.Summary ?? string.Empty;
+        int markerIndex = summary.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex >= 0)
+        {
+            string remainder = summary[(markerIndex + marker.Length)..];
+            int commentIndex = remainder.IndexOf(':');
+            return commentIndex >= 0 ? remainder[..commentIndex].Trim() : remainder.Trim();
+        }
+
+        return "a Super Chat";
+    }
+}

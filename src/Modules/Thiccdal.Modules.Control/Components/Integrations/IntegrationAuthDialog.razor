@@ -18,7 +18,13 @@
             </header>
 
             <div class="auth-dialog__body">
-                @if (!_awaitingReturn)
+                @if (IsConnected)
+                {
+                    <p class="auth-dialog__desc">
+                        @PlatformName is connected and authorized. You can disconnect to revoke access or re-authorize with a different account.
+                    </p>
+                }
+                else if (!_awaitingReturn)
                 {
                     <p class="auth-dialog__desc">
                         Authorize Thiccdal to access @PlatformName. A new browser tab will open for you to sign in —
@@ -43,26 +49,40 @@
             </div>
 
             <footer class="auth-dialog__footer">
-                <button type="button" class="auth-dialog__btn auth-dialog__btn--cancel" @onclick="Close">
-                    Cancel
-                </button>
-                @if (!_awaitingReturn)
+                @if (IsConnected)
                 {
+                    <button type="button" class="auth-dialog__btn auth-dialog__btn--cancel" @onclick="Close">
+                        Close
+                    </button>
                     <button type="button"
-                            class="auth-dialog__btn auth-dialog__btn--authorize"
-                            style="--plat-color: @Color"
-                            @onclick="OpenAuthTab">
-                        Authorize with @PlatformName
+                            class="auth-dialog__btn auth-dialog__btn--disconnect"
+                            @onclick="Disconnect">
+                        Disconnect
                     </button>
                 }
                 else
                 {
-                    <button type="button"
-                            class="auth-dialog__btn auth-dialog__btn--done"
-                            style="--plat-color: @Color"
-                            @onclick="ConfirmConnected">
-                        Done — I'm Connected
+                    <button type="button" class="auth-dialog__btn auth-dialog__btn--cancel" @onclick="Close">
+                        Cancel
                     </button>
+                    @if (!_awaitingReturn)
+                    {
+                        <button type="button"
+                                class="auth-dialog__btn auth-dialog__btn--authorize"
+                                style="--plat-color: @Color"
+                                @onclick="OpenAuthTab">
+                            Authorize with @PlatformName
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button"
+                                class="auth-dialog__btn auth-dialog__btn--done"
+                                style="--plat-color: @Color"
+                                @onclick="ConfirmConnected">
+                            Done — I'm Connected
+                        </button>
+                    }
                 }
             </footer>
 
@@ -75,9 +95,11 @@
     [Parameter] public string Color { get; set; } = "rgba(255,255,255,0.5)";
     [Parameter] public string AuthorizationUrl { get; set; } = string.Empty;
     [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public bool IsConnected { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnConnected { get; set; }
+    [Parameter] public EventCallback OnDisconnect { get; set; }
 
     private bool _awaitingReturn;
 
@@ -96,6 +118,11 @@
     {
         _awaitingReturn = false;
         await OnConnected.InvokeAsync();
+    }
+
+    private async Task Disconnect()
+    {
+        await OnDisconnect.InvokeAsync();
     }
 
     private async Task Close()

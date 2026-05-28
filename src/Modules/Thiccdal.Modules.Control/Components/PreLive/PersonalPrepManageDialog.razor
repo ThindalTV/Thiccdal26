@@ -1,0 +1,287 @@
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Modules.Control.Components.Dialogs
+@inject ICustomChecklistItemManagementService CustomChecklistItemManagementService
+@inject IPreLiveChecklistService PreLiveChecklistService
+@implements IAsyncDisposable
+
+@if (_isOpen)
+{
+    <div class="personal-prep-dialog-backdrop" @onclick="Close" role="presentation">
+        <div class="personal-prep-dialog"
+             @onclick:stopPropagation="true"
+             role="dialog"
+             aria-modal="true"
+             aria-label="Manage personal prep items">
+            <header class="personal-prep-dialog__header">
+                <div>
+                    <h2 class="personal-prep-dialog__title">Manage Personal Prep</h2>
+                    <p class="personal-prep-dialog__subtitle">Keep optional operator reminders editable before the show starts. Every change saves immediately and refreshes the checklist.</p>
+                </div>
+                <button type="button" class="personal-prep-dialog__close" @onclick="Close" aria-label="Close">✕</button>
+            </header>
+
+            <div class="personal-prep-dialog__body">
+                @if (!string.IsNullOrWhiteSpace(_errorMessage))
+                {
+                    <div class="personal-prep-dialog__error" role="alert">@_errorMessage</div>
+                }
+
+                @if (_items.Count == 0)
+                {
+                    <div class="personal-prep-dialog__empty">
+                        No custom reminders yet. Add the checklist items you want available before going live.
+                    </div>
+                }
+                else
+                {
+                    <div class="personal-prep-dialog__list" role="list">
+                        @for (int index = 0; index < _items.Count; index++)
+                        {
+                            CustomChecklistItemDefinition item = _items[index];
+
+                            <section class="personal-prep-dialog__item" role="listitem">
+                                <div class="personal-prep-dialog__item-main">
+                                    <label class="personal-prep-dialog__field">
+                                        <span class="personal-prep-dialog__label">Label</span>
+                                        <input type="text"
+                                               class="personal-prep-dialog__input"
+                                               value="@GetDraftLabel(item)"
+                                               maxlength="120"
+                                               disabled="@_isBusy"
+                                               @oninput="args => UpdateDraftLabel(item.Id, args)"
+                                               @onblur="@(() => SaveLabel(item))" />
+                                    </label>
+
+                                    <label class="personal-prep-dialog__toggle">
+                                        <input type="checkbox"
+                                               checked="@item.IsEnabled"
+                                               disabled="@_isBusy"
+                                               @onchange="args => SaveEnabled(item, args)" />
+                                        <span>
+                                            <strong>@(item.IsEnabled ? "Enabled" : "Disabled")</strong>
+                                            <small>Disabled items stay editable here but disappear from the live checklist.</small>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div class="personal-prep-dialog__item-actions">
+                                    <button type="button"
+                                            class="personal-prep-dialog__action personal-prep-dialog__action--ghost"
+                                            disabled="@(_isBusy || index == 0)"
+                                            @onclick="() => MoveUp(item.Id)">
+                                        ↑
+                                    </button>
+                                    <button type="button"
+                                            class="personal-prep-dialog__action personal-prep-dialog__action--ghost"
+                                            disabled="@(_isBusy || index == _items.Count - 1)"
+                                            @onclick="() => MoveDown(item.Id)">
+                                        ↓
+                                    </button>
+                                    <button type="button"
+                                            class="personal-prep-dialog__action personal-prep-dialog__action--danger"
+                                            disabled="@_isBusy"
+                                            @onclick="() => Delete(item)">
+                                        Delete
+                                    </button>
+                                </div>
+                            </section>
+                        }
+                    </div>
+                }
+            </div>
+
+            <footer class="personal-prep-dialog__footer">
+                <label class="personal-prep-dialog__field personal-prep-dialog__field--add">
+                    <span class="personal-prep-dialog__label">Add item</span>
+                    <div class="personal-prep-dialog__add-row">
+                        <input type="text"
+                               class="personal-prep-dialog__input"
+                               value="@_newItemLabel"
+                               maxlength="120"
+                               placeholder="Drink water"
+                               disabled="@_isBusy"
+                               @oninput="HandleNewItemChanged" />
+                        <button type="button"
+                                class="personal-prep-dialog__action personal-prep-dialog__action--primary"
+                                disabled="@(_isBusy || string.IsNullOrWhiteSpace(_newItemLabel))"
+                                @onclick="AddItem">
+                            Add item
+                        </button>
+                    </div>
+                </label>
+            </footer>
+        </div>
+    </div>
+}
+
+<ConfirmDialog @ref="_confirmDialog" />
+
+@code {
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private ConfirmDialog? _confirmDialog;
+    private IReadOnlyList<CustomChecklistItemDefinition> _items = Array.Empty<CustomChecklistItemDefinition>();
+    private readonly Dictionary<int, string> _draftLabels = [];
+    private bool _isBusy;
+    private bool _isOpen;
+    private string? _errorMessage;
+    private string _newItemLabel = string.Empty;
+
+    public async Task Open()
+    {
+        _isOpen = true;
+        _errorMessage = null;
+        _newItemLabel = string.Empty;
+        await RefreshItems();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public Task Close()
+    {
+        _isOpen = false;
+        _errorMessage = null;
+        _newItemLabel = string.Empty;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _cancellationTokenSource.CancelAsync();
+        _cancellationTokenSource.Dispose();
+    }
+
+    private Task HandleNewItemChanged(ChangeEventArgs args)
+    {
+        _newItemLabel = args.Value?.ToString() ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task AddItem()
+    {
+        string label = _newItemLabel.Trim();
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return;
+        }
+
+        await RunMutation(async cancellationToken =>
+        {
+            await CustomChecklistItemManagementService.Create(label, cancellationToken);
+            _newItemLabel = string.Empty;
+        });
+    }
+
+    private Task UpdateDraftLabel(int itemId, ChangeEventArgs args)
+    {
+        _draftLabels[itemId] = args.Value?.ToString() ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveLabel(CustomChecklistItemDefinition item)
+    {
+        string label = GetDraftLabel(item);
+        if (string.Equals(item.Label, label, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await RunMutation(async cancellationToken =>
+        {
+            await CustomChecklistItemManagementService.Update(item with { Label = label }, cancellationToken);
+        });
+    }
+
+    private async Task SaveEnabled(CustomChecklistItemDefinition item, ChangeEventArgs args)
+    {
+        bool isEnabled = args.Value is bool boolValue && boolValue;
+        if (item.IsEnabled == isEnabled)
+        {
+            return;
+        }
+
+        await RunMutation(async cancellationToken =>
+        {
+            await CustomChecklistItemManagementService.Update(item with { IsEnabled = isEnabled }, cancellationToken);
+        });
+    }
+
+    private Task MoveUp(int itemId)
+    {
+        return RunMutation(cancellationToken => CustomChecklistItemManagementService.MoveUp(itemId, cancellationToken));
+    }
+
+    private Task MoveDown(int itemId)
+    {
+        return RunMutation(cancellationToken => CustomChecklistItemManagementService.MoveDown(itemId, cancellationToken));
+    }
+
+    private async Task Delete(CustomChecklistItemDefinition item)
+    {
+        if (_confirmDialog is null)
+        {
+            return;
+        }
+
+        bool confirmed = await _confirmDialog.Show(new ConfirmDialogOptions
+        {
+            Title = "Delete Personal Prep Item",
+            Body = $"Remove \"{item.Label}\" from the Personal Prep checklist?",
+            ConfirmText = "Delete item",
+            ConfirmStyle = ConfirmStyle.Danger
+        });
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await RunMutation(cancellationToken => CustomChecklistItemManagementService.Delete(item.Id, cancellationToken));
+    }
+
+    private async Task RefreshItems()
+    {
+        _items = await CustomChecklistItemManagementService.List(_cancellationTokenSource.Token);
+        _draftLabels.Clear();
+
+        foreach (CustomChecklistItemDefinition item in _items)
+        {
+            _draftLabels[item.Id] = item.Label;
+        }
+    }
+
+    private async Task RunMutation(Func<CancellationToken, Task> mutation)
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _errorMessage = null;
+
+        try
+        {
+            await mutation(_cancellationTokenSource.Token);
+            await RefreshItems();
+            await PreLiveChecklistService.Reload(_cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetDraftLabel(CustomChecklistItemDefinition item)
+    {
+        return _draftLabels.TryGetValue(item.Id, out string? label)
+            ? label
+            : item.Label;
+    }
+}

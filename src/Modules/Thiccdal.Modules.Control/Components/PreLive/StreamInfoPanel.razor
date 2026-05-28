@@ -1,0 +1,262 @@
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Infrastructure.Remotes
+@using Microsoft.Extensions.Logging
+@inject IOperatorStateService OperatorStateService
+@inject IEnumerable<IStreamInfoProvider> StreamInfoProviders
+@inject ILogger<StreamInfoPanel> Logger
+@implements IAsyncDisposable
+
+<div class="ctrl-panel stream-info-panel">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Stream Info</span>
+        <span class="stream-info-panel__summary">@GetSummaryText()</span>
+    </div>
+
+    <div class="ctrl-panel__body stream-info-panel__body">
+        <p class="stream-info-panel__intro">Stage your title, category, and tags here. The staged values update the shared operator state immediately, and <strong>Update All Platforms</strong> pushes them through each registered stream info provider.</p>
+
+        <label class="stream-info-panel__field">
+            <span class="stream-info-panel__label">Title</span>
+            <input type="text"
+                   class="ctrl-input"
+                   placeholder="What are you streaming today?"
+                   value="@_title"
+                   @oninput="HandleTitleInput" />
+        </label>
+
+        <label class="stream-info-panel__field">
+            <span class="stream-info-panel__label">Category / game</span>
+            <input type="text"
+                   class="ctrl-input"
+                   placeholder="Science & Technology"
+                   value="@_category"
+                   @oninput="HandleCategoryInput" />
+        </label>
+
+        <label class="stream-info-panel__field">
+            <span class="stream-info-panel__label">Tags</span>
+            <input type="text"
+                   class="ctrl-input"
+                   placeholder="dotnet, blazor, csharp"
+                   value="@_tagsText"
+                   @oninput="HandleTagsInput" />
+            <span class="stream-info-panel__hint">Comma-separated tags. Unsupported platforms will report that back in the results below.</span>
+        </label>
+
+        <button type="button"
+                class="stream-info-panel__submit"
+                disabled="@(_isUpdating || !CanPushToPlatforms)"
+                @onclick="UpdateAllPlatforms">
+            @(_isUpdating ? "Updating..." : "Update All Platforms")
+        </button>
+
+        <div class="stream-info-panel__results">
+            <div class="stream-info-panel__results-title">Per-platform results</div>
+            @if (_providers.Count == 0)
+            {
+                <div class="stream-info-panel__empty">No stream info providers are registered yet.</div>
+            }
+            else
+            {
+                @foreach (IStreamInfoProvider provider in _providers)
+                {
+                    bool hasResult = _results.TryGetValue(provider.PlatformName, out StreamInfoUpdateResult? result);
+
+                    <div class="stream-info-panel__result @GetResultClass(result)">
+                        <div class="stream-info-panel__result-header">
+                            <span class="stream-info-panel__result-platform">@provider.PlatformName</span>
+                            <span class="stream-info-panel__result-status">@GetResultStatusLabel(result)</span>
+                        </div>
+                        <p class="stream-info-panel__result-message">@GetResultMessage(result, hasResult)</p>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private IReadOnlyList<IStreamInfoProvider> _providers = [];
+    private readonly Dictionary<string, StreamInfoUpdateResult> _results = new(StringComparer.OrdinalIgnoreCase);
+    private string _title = string.Empty;
+    private string _category = string.Empty;
+    private string _tagsText = string.Empty;
+    private bool _isUpdating;
+
+    private bool CanPushToPlatforms =>
+        !string.IsNullOrWhiteSpace(_title) ||
+        !string.IsNullOrWhiteSpace(_category) ||
+        ParseTags(_tagsText).Count > 0;
+
+    protected override void OnInitialized()
+    {
+        _providers = StreamInfoProviders
+            .OrderBy(static provider => provider.PlatformName, StringComparer.Ordinal)
+            .ToArray();
+
+        RefreshFromOperatorState();
+        OperatorStateService.StateChanged += HandleOperatorStateChanged;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        OperatorStateService.StateChanged -= HandleOperatorStateChanged;
+        await _cancellationTokenSource.CancelAsync();
+        _cancellationTokenSource.Dispose();
+    }
+
+    private void HandleOperatorStateChanged(object? sender, EventArgs args)
+    {
+        RefreshFromOperatorState();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void RefreshFromOperatorState()
+    {
+        _title = OperatorStateService.StreamTitle;
+        _category = OperatorStateService.StreamCategory;
+        _tagsText = string.Join(", ", OperatorStateService.StreamTags);
+    }
+
+    private void HandleTitleInput(ChangeEventArgs args)
+    {
+        _title = args.Value?.ToString() ?? string.Empty;
+        PersistStagedState();
+    }
+
+    private void HandleCategoryInput(ChangeEventArgs args)
+    {
+        _category = args.Value?.ToString() ?? string.Empty;
+        PersistStagedState();
+    }
+
+    private void HandleTagsInput(ChangeEventArgs args)
+    {
+        _tagsText = args.Value?.ToString() ?? string.Empty;
+        PersistStagedState();
+    }
+
+    private void PersistStagedState()
+    {
+        OperatorStateService.SetStreamInfo(_title, _category, ParseTags(_tagsText));
+    }
+
+    private async Task UpdateAllPlatforms()
+    {
+        if (_providers.Count == 0)
+        {
+            return;
+        }
+
+        PersistStagedState();
+        _isUpdating = true;
+        _results.Clear();
+
+        StreamInfoUpdateRequest request = new()
+        {
+            Title = OperatorStateService.StreamTitle,
+            Category = OperatorStateService.StreamCategory,
+            Tags = OperatorStateService.StreamTags
+        };
+
+        try
+        {
+            StreamInfoUpdateResult[] results = await Task.WhenAll(_providers.Select(provider => UpdateProvider(provider, request)));
+            foreach (StreamInfoUpdateResult result in results)
+            {
+                _results[result.PlatformName] = result;
+            }
+        }
+        finally
+        {
+            _isUpdating = false;
+        }
+    }
+
+    private async Task<StreamInfoUpdateResult> UpdateProvider(IStreamInfoProvider provider, StreamInfoUpdateRequest request)
+    {
+        try
+        {
+            return await provider.UpdateStreamInfo(request, _cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException) when (_cancellationTokenSource.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Updating stream info failed for {PlatformName}", provider.PlatformName);
+            return new StreamInfoUpdateResult
+            {
+                PlatformName = provider.PlatformName,
+                Status = StreamInfoUpdateStatus.Failed,
+                Message = string.IsNullOrWhiteSpace(ex.Message)
+                    ? "The provider threw an unexpected error."
+                    : ex.Message
+            };
+        }
+    }
+
+    private string GetSummaryText()
+    {
+        int tagCount = ParseTags(_tagsText).Count;
+        return $"{tagCount} tag{(tagCount == 1 ? string.Empty : "s")} staged";
+    }
+
+    private static string GetResultClass(StreamInfoUpdateResult? result)
+    {
+        if (result is null)
+        {
+            return "stream-info-panel__result--idle";
+        }
+
+        return result.Status switch
+        {
+            StreamInfoUpdateStatus.Succeeded => "stream-info-panel__result--success",
+            StreamInfoUpdateStatus.PartiallySucceeded => "stream-info-panel__result--partial",
+            StreamInfoUpdateStatus.Unsupported => "stream-info-panel__result--unsupported",
+            _ => "stream-info-panel__result--error"
+        };
+    }
+
+    private static string GetResultStatusLabel(StreamInfoUpdateResult? result)
+    {
+        return result?.Status switch
+        {
+            StreamInfoUpdateStatus.Succeeded => "Updated",
+            StreamInfoUpdateStatus.PartiallySucceeded => "Partial",
+            StreamInfoUpdateStatus.Unsupported => "Unsupported",
+            StreamInfoUpdateStatus.Failed => "Failed",
+            _ => "Pending"
+        };
+    }
+
+    private static string GetResultMessage(StreamInfoUpdateResult? result, bool hasResult)
+    {
+        if (!hasResult || result is null)
+        {
+            return "No update has been pushed yet.";
+        }
+
+        return string.IsNullOrWhiteSpace(result.Message)
+            ? "The provider returned no additional detail."
+            : result.Message;
+    }
+
+    private static IReadOnlyList<string> ParseTags(string tagsText)
+    {
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        List<string> tags = [];
+
+        foreach (string tag in tagsText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (seen.Add(tag))
+            {
+                tags.Add(tag);
+            }
+        }
+
+        return tags;
+    }
+}

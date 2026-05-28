@@ -1,0 +1,112 @@
+@using Thiccdal.Infrastructure.Operators
+@using Thiccdal.Infrastructure.Remotes
+@inject IEnumerable<IPlatformConnection> PlatformConnections
+@inject IOperatorStateService OperatorStateService
+@inject IPreLiveChecklistService PreLiveChecklistService
+@implements IDisposable
+
+<div class="platform-connection-badges" role="list" aria-label="Platform connection status">
+    @foreach (IPlatformConnection platform in _platforms)
+    {
+        <div class="platform-connection-badges__item @GetStateClass(platform.State)"
+             title="@GetTooltip(platform)"
+             role="listitem">
+            <span class="platform-connection-badges__dot" aria-hidden="true"></span>
+            <span class="platform-connection-badges__name">@platform.PlatformName</span>
+            @if (ShouldShowStateLabel(platform.State))
+            {
+                <span class="platform-connection-badges__state">@GetStateLabel(platform.State)</span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly IReadOnlyDictionary<string, int> PlatformOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Twitch"] = 0,
+        ["YouTube"] = 1,
+        ["Discord"] = 2,
+        ["Facebook"] = 3,
+        ["X"] = 4,
+        ["LinkedIn"] = 5,
+        ["TikTok"] = 6
+    };
+
+    private IReadOnlyList<IPlatformConnection> _platforms = [];
+
+    protected override void OnInitialized()
+    {
+        LoadPlatforms();
+        OperatorStateService.StateChanged += HandleStateChanged;
+        PreLiveChecklistService.StateChanged += HandleStateChanged;
+    }
+
+    public void Dispose()
+    {
+        OperatorStateService.StateChanged -= HandleStateChanged;
+        PreLiveChecklistService.StateChanged -= HandleStateChanged;
+    }
+
+    private void HandleStateChanged(object? sender, EventArgs args)
+    {
+        LoadPlatforms();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void LoadPlatforms()
+    {
+        _platforms = PlatformConnections
+            .Where(static platform => platform.State != PlatformConnectionState.Disabled)
+            .OrderBy(GetPlatformOrder)
+            .ThenBy(static platform => platform.PlatformName, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static int GetPlatformOrder(IPlatformConnection platform)
+    {
+        return PlatformOrder.TryGetValue(platform.PlatformName, out int order) ? order : int.MaxValue;
+    }
+
+    private static bool ShouldShowStateLabel(PlatformConnectionState state)
+    {
+        return state != PlatformConnectionState.Connected;
+    }
+
+    private static string GetStateClass(PlatformConnectionState state)
+    {
+        return state switch
+        {
+            PlatformConnectionState.Connected => "platform-connection-badges__item--connected",
+            PlatformConnectionState.Connecting => "platform-connection-badges__item--connecting",
+            PlatformConnectionState.Error => "platform-connection-badges__item--error",
+            PlatformConnectionState.PendingApproval => "platform-connection-badges__item--pending",
+            _ => "platform-connection-badges__item--disconnected"
+        };
+    }
+
+    private static string GetStateLabel(PlatformConnectionState state)
+    {
+        return state switch
+        {
+            PlatformConnectionState.Connecting => "Connecting",
+            PlatformConnectionState.Error => "Error",
+            PlatformConnectionState.PendingApproval => "Pending",
+            _ => "Offline"
+        };
+    }
+
+    private static string GetTooltip(IPlatformConnection platform)
+    {
+        return platform.State switch
+        {
+            PlatformConnectionState.Connected => $"{platform.PlatformName} is connected.",
+            PlatformConnectionState.Connecting => $"{platform.PlatformName} is connecting.",
+            PlatformConnectionState.Error => string.IsNullOrWhiteSpace(platform.LastError)
+                ? $"{platform.PlatformName} reported a connection error."
+                : $"{platform.PlatformName} error: {platform.LastError}",
+            PlatformConnectionState.PendingApproval => $"{platform.PlatformName} is waiting on API approval before it can be enabled.",
+            _ => $"{platform.PlatformName} is not connected."
+        };
+    }
+}
