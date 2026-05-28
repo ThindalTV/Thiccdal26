@@ -21,6 +21,7 @@ Zoe handles GitHub coordination, work-item clarity, and delivery status.
 - Zoe owns issue and PR hygiene, but Ralph owns continuous board monitoring.
 - Zoe should make status legible for the team and the user.
 - **Phase 7 deferral pattern (2026-05-27):** When deferring work intentionally, add `status/deferred-phase7` label, comment on each issue explaining the deferral and Phase 6 priority, and document the decision in `.squad/decisions/inbox/zoe-{topic}-deferral.md`. This keeps the backlog truthful and visible without closing legitimate but deferred issues.
+- **Product direction alignment (2026-05-28):** Chat surface consolidates on the prompter (operator focus). Dashboard chat feed (#100) intentionally not built — close as designed-out feature, not missed implementation. Question queue flash (#103) implemented on both dashboard and prompter. Keep GitHub in sync with actual product direction, not original spec.
 - **Project structure:** .NET Aspire-based system; Blazor Server host controls platform adapters (Twitch, YouTube, Discord, Facebook, X). Streaming (RTMP relay), overlay SignalR, teleprompter UI, and operator control UI are the main modules.
 - **Issue phases:** 11 (overlay), 12 (status API), 13 (identity merge), 14 (hardening), 15 (operator state), 16 (pre-live checklist) — currently at phase 16.
 - **PR board:** Zero open PRs (clean state, ready for new work).

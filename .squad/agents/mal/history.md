@@ -319,3 +319,44 @@ Mal leads cross-cutting decisions and reviewer gates for the Firefly squad.
 
 **Status:** Revision complete; ready for Jayne's security re-review.
 
+### 2026-06-01: Phase 10 Question Flash Scope
+
+**Question asked:** What is the acceptance slice for the dashboard/prompter question-attention flash after the user directive to skip dashboard chat feed?
+
+**Scope locked:**
+- Dashboard stays focused on the queue; do **not** add a duplicate chat feed to `/dashboard` because `/prompter` already owns operator chat visibility.
+- Feature-complete dashboard flash = a transient attention treatment on `QuestionQueuePanel` when the waiting-question count increases.
+- Feature-complete prompter flash = the same new-question attention behavior remains on `/prompter`, while the existing significant-event flash stays separate.
+
+**Current seams to reuse:**
+- `src\Thiccdal.Infrastructure\Questions\QuestionOverlayService.cs` is the source of truth for queue mutations and raises `StateChanged` after enqueue/add/select/promote/dismiss/clear operations.
+- `src\Thiccdal.Infrastructure\Operators\OperatorStateService.cs` already forwards question state through `GetQuestionState()` and rebroadcasts `StateChanged`, which is the right dashboard seam.
+- `src\Modules\Thiccdal.Modules.Teleprompter\Pages\Prompter.razor` already implements the desired detection pattern: cache last waiting count, trigger only on increases, and use a versioned async flash reset.
+
+**User preference captured:**
+- Keep chat on the prompter; use flash as the dashboard's attention cue instead of duplicating chat UI.
+
+**Likely review/test surfaces:**
+- `src\Tests\Thiccdal.Tests\QuestionOverlayServiceTests.cs`
+- `src\Tests\Thiccdal.Tests\OperatorStateServiceTests.cs`
+- `src\Tests\Thiccdal.Tests\ActivityFeedServiceTests.cs`
+- `src\Tests\Thiccdal.Tests\RouteRenderingTests.cs`
+
+### 2026-05-28: Phase 10 Question Flash Acceptance Slice
+
+**Work completed:**
+- Defined acceptance slice for dashboard + prompter question attention flash.
+- Scope document captured.
+- Extracted reusable operator-attention-flash skill.
+
+**Scope locked:**
+- Dashboard question-queue flash on new event
+- Prompter attention circuit notification
+- Dashboard chat feed deferred (prompter owns operator chat visibility)
+
+**Coordination:**
+- Inara implements dashboard flash + prompter notification
+- Tests: all passing with no regressions
+- Orchestration logs: `2026-05-28T00-16-16Z-mal.md` and `2026-05-28T00-16-16Z-inara.md`
+
+**Status:** ✅ Phase 10 increment closed. Ready for operator validation.

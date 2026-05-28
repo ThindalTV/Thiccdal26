@@ -103,3 +103,17 @@ Inara owns the Blazor operator experience, UX polish, and UI ergonomics.
 - `ChatMessagePart` + `ChatBadge` is the current rendering seam for Twitch rich chat in this repo, not the older `ChatFragment` plan in the architecture draft; UI should prefer `Parts`/`Badges` and fall back to `Content`.
 - Safe Twitch emote rendering should only trust `static-cdn.jtvnw.net` image URLs and keep a plain-text fallback path for stream-safe readability.
 - The overnight Twitch rendering slice lives primarily in `src\Modules\Thiccdal.Modules.Teleprompter\Pages\Prompter.razor`, `src\Modules\Thiccdal.Modules.Teleprompter\Components\PrompterLine.razor`, `src\Modules\Thiccdal.Modules.Overlay\Components\ChatView.razor`, `src\Remote\Thiccdal.Remote.Twitch\TwitchEventSubClient.cs`, and `src\Remote\Thiccdal.Remote.Twitch\TwitchEventSubNotificationMapper.cs`.
+- `QuestionDashboardState.AttentionSequence` is the shared UI-safe signal for new-question attention across `QuestionQueuePanel` and `/prompter`; it advances only when a question is newly queued, not on select/promote/dismiss mutations.
+- Phase 10 question attention should stay on the existing queue + prompter surfaces; do not add a separate dashboard chat feed when the prompter already owns live chat focus.
+- Key file paths for the shared question-attention pass: `src\Thiccdal.Infrastructure\Questions\QuestionDashboardState.cs`, `src\Thiccdal.Infrastructure\Questions\QuestionOverlayService.cs`, `src\Modules\Thiccdal.Modules.Control\Components\Questions\QuestionQueuePanel.razor`, `src\Modules\Thiccdal.Modules.Control\Components\Questions\QuestionQueuePanel.razor.css`, `src\Modules\Thiccdal.Modules.Teleprompter\Pages\Prompter.razor`, `src\Modules\Thiccdal.Modules.Teleprompter\Pages\Prompter.razor.css`, and `src\Tests\Thiccdal.Tests\RouteRenderingTests.cs`.
+
+### 2026-05-28: Phase 10 Question Flash Implementation
+
+**Work completed:**
+- Implemented dashboard question-queue flash on new event
+- Implemented prompter attention circuit notification
+- Updated integration and unit tests; all passing
+- Validation: `dotnet test .\\Thiccdal.slnx --verbosity minimal` confirms no regressions
+- Deferred dashboard chat feed (prompter owns operator chat visibility)
+
+**Status:** ✅ Phase 10 increment complete. Ready for operator validation.
