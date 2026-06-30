@@ -13,7 +13,7 @@ public sealed class RtmpFanoutService : IRtmpFanoutService
     private readonly IStreamingService _streamingService;
     private readonly IStreamingRelaySessionFactory _relaySessionFactory;
     private readonly IBrbSlateInjector _brbSlateInjector;
-    private readonly RtmpEventPublisher _eventPublisher;
+    private readonly IRtmpEventPublisher _eventPublisher;
     private readonly ILogger<RtmpFanoutService> _logger;
     private readonly Lock _stateLock = new();
     private readonly SemaphoreSlim _transitionLock = new(1, 1);
@@ -28,7 +28,7 @@ public sealed class RtmpFanoutService : IRtmpFanoutService
         IStreamingService streamingService,
         IStreamingRelaySessionFactory relaySessionFactory,
         IBrbSlateInjector brbSlateInjector,
-        RtmpEventPublisher eventPublisher,
+        IRtmpEventPublisher eventPublisher,
         ILogger<RtmpFanoutService> logger)
     {
         ArgumentNullException.ThrowIfNull(holder);

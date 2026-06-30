@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Thiccdal.Data\Thiccdal.Data.csproj" />
+    <ProjectReference Include="..\..\Thiccdal.RtmpServer\Thiccdal.RtmpServer.csproj" />
     <ProjectReference Include="..\..\Thiccdal.Streaming\Thiccdal.Streaming.csproj" />
     <ProjectReference Include="..\..\Remote\Thiccdal.Remote.Null\Thiccdal.Remote.Null.csproj" />
   </ItemGroup>

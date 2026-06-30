@@ -10,7 +10,7 @@ builder.Services.Configure<RtmpServerOptions>(builder.Configuration.GetSection(R
 builder.Services.Configure<StreamingOptions>(builder.Configuration.GetSection(StreamingOptions.SectionName));
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IRtmpServerConfigurationHolder, RtmpServerConfigurationHolder>();
-builder.Services.AddSingleton<RtmpEventPublisher>();
+builder.Services.AddSingleton<IRtmpEventPublisher, RtmpEventPublisher>();
 builder.Services.AddSingleton<IRtmpIngestListener, RtmpIngestListener>();
 builder.Services.AddSingleton<IStreamingRelaySessionFactory, FfmpegStreamingRelaySessionFactory>();
 builder.Services.AddSingleton<IBrbSlateInjector, BrbSlateInjector>();

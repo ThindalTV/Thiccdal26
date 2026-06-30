@@ -9,13 +9,13 @@ namespace Thiccdal.RtmpServer.Services;
 public sealed class RtmpEventBridgeService : IHostedService
 {
     private readonly IStreamingService _streamingService;
-    private readonly RtmpEventPublisher _eventPublisher;
+    private readonly IRtmpEventPublisher _eventPublisher;
     private StreamingState _previousState = StreamingState.Idle;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RtmpEventBridgeService"/> class.
     /// </summary>
-    public RtmpEventBridgeService(IStreamingService streamingService, RtmpEventPublisher eventPublisher)
+    public RtmpEventBridgeService(IStreamingService streamingService, IRtmpEventPublisher eventPublisher)
     {
         ArgumentNullException.ThrowIfNull(streamingService);
         ArgumentNullException.ThrowIfNull(eventPublisher);

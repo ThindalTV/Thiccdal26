@@ -7,7 +7,7 @@ namespace Thiccdal.RtmpServer.Services;
 /// <summary>
 /// Publishes typed RTMP server events to all connected SignalR clients.
 /// </summary>
-public sealed class RtmpEventPublisher
+public sealed class RtmpEventPublisher : IRtmpEventPublisher
 {
     private readonly IHubContext<RtmpEventsHub> _hubContext;
 
