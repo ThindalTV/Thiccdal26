@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Thiccdal.Infrastructure.Streaming;
 
 namespace Thiccdal.RtmpServer.Services;
@@ -10,18 +11,21 @@ public sealed class RtmpEventBridgeService : IHostedService
 {
     private readonly IStreamingService _streamingService;
     private readonly IRtmpEventPublisher _eventPublisher;
+    private readonly ILogger<RtmpEventBridgeService> _logger;
     private StreamingState _previousState = StreamingState.Idle;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RtmpEventBridgeService"/> class.
     /// </summary>
-    public RtmpEventBridgeService(IStreamingService streamingService, IRtmpEventPublisher eventPublisher)
+    public RtmpEventBridgeService(IStreamingService streamingService, IRtmpEventPublisher eventPublisher, ILogger<RtmpEventBridgeService> logger)
     {
         ArgumentNullException.ThrowIfNull(streamingService);
         ArgumentNullException.ThrowIfNull(eventPublisher);
+        ArgumentNullException.ThrowIfNull(logger);
 
         _streamingService = streamingService;
         _eventPublisher = eventPublisher;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -41,7 +45,12 @@ public sealed class RtmpEventBridgeService : IHostedService
     private void OnStateChanged(object? sender, StreamingState state)
     {
         _ = sender;
-        _ = PublishTransition(state);
+        Task publish = PublishTransition(state);
+        publish.ContinueWith(
+            t => _logger.LogError(t.Exception, "Unhandled error publishing RTMP state transition {State}.", state),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
     }
 
     private async Task PublishTransition(StreamingState state)

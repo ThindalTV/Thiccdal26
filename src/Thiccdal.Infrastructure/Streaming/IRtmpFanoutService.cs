@@ -11,6 +11,11 @@ public interface IRtmpFanoutService
     bool IsRunning { get; }
 
     /// <summary>
+    /// Gets the number of currently active relay sessions.
+    /// </summary>
+    int ActiveRelayCount { get; }
+
+    /// <summary>
     /// Starts RTMP fanout.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token for the operation.</param>
