@@ -96,7 +96,7 @@ public sealed class StreamingServiceTests
     [Fact]
     public async Task WhenIngestListenerStartFails_ThenStreamingMovesToErrorAndIsNotRunning()
     {
-        FakeRtmpIngestListener ingestListener = new
+        FakeRtmpIngestListener ingestListener = new FakeRtmpIngestListener
         {
             ThrowOnStart = true
         };

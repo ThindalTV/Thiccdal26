@@ -44,6 +44,8 @@ public sealed class ApplicationDbContext : DbContext
 
     public DbSet<StreamRecording> StreamRecordings { get; set; }
 
+    public DbSet<AppConfiguration> AppConfigurations { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -345,5 +347,21 @@ public sealed class ApplicationDbContext : DbContext
             .WithMany(platformUser => platformUser.ChatMessages)
             .HasForeignKey(chatMessage => chatMessage.PlatformUserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<AppConfiguration>(appConfig =>
+        {
+            appConfig.Property(c => c.Key)
+                .IsRequired()
+                .HasMaxLength(256);
+
+            appConfig.Property(c => c.Value)
+                .IsRequired();
+
+            appConfig.Property(c => c.UpdatedAt)
+                .IsRequired();
+
+            appConfig.HasIndex(c => c.Key)
+                .IsUnique();
+        });
     }
 }
