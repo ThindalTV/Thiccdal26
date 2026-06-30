@@ -9,7 +9,7 @@ public sealed class WizardStepCatalogTests
     {
         var steps = WizardStepCatalog.GetSteps();
 
-        Assert.Equal(6, steps.Count);
+        Assert.Equal(7, steps.Count);
     }
 
     [Fact]
@@ -37,19 +37,21 @@ public sealed class WizardStepCatalogTests
 
         Assert.Equal(WizardStep.Welcome, steps[0].Step);
         Assert.Equal(WizardStep.Database, steps[1].Step);
-        Assert.Equal(WizardStep.Platforms, steps[2].Step);
-        Assert.Equal(WizardStep.AiSetup, steps[3].Step);
-        Assert.Equal(WizardStep.BotConfig, steps[4].Step);
-        Assert.Equal(WizardStep.Summary, steps[5].Step);
+        Assert.Equal(WizardStep.Streaming, steps[2].Step);
+        Assert.Equal(WizardStep.Platforms, steps[3].Step);
+        Assert.Equal(WizardStep.AiSetup, steps[4].Step);
+        Assert.Equal(WizardStep.BotConfig, steps[5].Step);
+        Assert.Equal(WizardStep.Summary, steps[6].Step);
     }
 
     [Theory]
     [InlineData(0, false)] // Welcome - required
     [InlineData(1, false)] // Database - required
-    [InlineData(2, true)]  // Platforms - optional
-    [InlineData(3, true)]  // AI Setup - optional
-    [InlineData(4, false)] // Bot Config - required
-    [InlineData(5, false)] // Summary - required
+    [InlineData(2, false)] // Streaming - required
+    [InlineData(3, true)]  // Platforms - optional
+    [InlineData(4, true)]  // AI Setup - optional
+    [InlineData(5, false)] // Bot Config - required
+    [InlineData(6, false)] // Summary - required
     public void GetSteps_OptionalFlagIsCorrect(int index, bool expectedOptional)
     {
         var steps = WizardStepCatalog.GetSteps();
