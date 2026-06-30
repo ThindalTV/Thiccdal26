@@ -3,8 +3,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Streaming;
 
-namespace Thiccdal.Streaming;
+namespace Thiccdal.RtmpServer.Services;
 
+/// <summary>
+/// Launches FFmpeg processes to relay live or BRB streams to downstream platforms.
+/// </summary>
 public sealed class FfmpegStreamingRelaySessionFactory : IStreamingRelaySessionFactory
 {
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -17,18 +20,22 @@ public sealed class FfmpegStreamingRelaySessionFactory : IStreamingRelaySessionF
         ".webp"
     };
 
-    private readonly StreamingOptions _options;
+    private readonly IOptions<RtmpServerOptions> _rtmpServerOptions;
     private readonly ILoggerFactory _loggerFactory;
 
-    public FfmpegStreamingRelaySessionFactory(IOptions<StreamingOptions> options, ILoggerFactory loggerFactory)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FfmpegStreamingRelaySessionFactory"/> class.
+    /// </summary>
+    public FfmpegStreamingRelaySessionFactory(IOptions<RtmpServerOptions> rtmpServerOptions, ILoggerFactory loggerFactory)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(rtmpServerOptions);
         ArgumentNullException.ThrowIfNull(loggerFactory);
 
-        _options = options.Value;
+        _rtmpServerOptions = rtmpServerOptions;
         _loggerFactory = loggerFactory;
     }
 
+    /// <inheritdoc />
     public Task<IStreamingRelaySession> StartLiveRelay(
         string platformName,
         string sourceUrl,
@@ -39,6 +46,7 @@ public sealed class FfmpegStreamingRelaySessionFactory : IStreamingRelaySessionF
             StartProcess(platformName, BuildLiveArguments(sourceUrl, destinationUrl), cancellationToken));
     }
 
+    /// <inheritdoc />
     public Task<IStreamingRelaySession> StartBrbRelay(
         string platformName,
         string slatePath,
@@ -53,11 +61,11 @@ public sealed class FfmpegStreamingRelaySessionFactory : IStreamingRelaySessionF
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        Process process = new()
+        Process process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
-                FileName = _options.FfmpegExecutablePath,
+                FileName = _rtmpServerOptions.Value.FfmpegExecutablePath,
                 Arguments = arguments,
                 UseShellExecute = false,
                 CreateNoWindow = true,

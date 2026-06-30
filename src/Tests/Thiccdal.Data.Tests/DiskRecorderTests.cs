@@ -2,7 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Streaming;
-using Thiccdal.Streaming;
+using Thiccdal.RtmpServer.Services;
 
 namespace Thiccdal.Data.Tests;
 

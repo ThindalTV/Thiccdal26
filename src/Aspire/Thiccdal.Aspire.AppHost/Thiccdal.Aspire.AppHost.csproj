@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Thiccdal\Thiccdal.csproj" />
+    <ProjectReference Include="..\..\Thiccdal.RtmpServer\Thiccdal.RtmpServer.csproj" />
   </ItemGroup>
 
 </Project>

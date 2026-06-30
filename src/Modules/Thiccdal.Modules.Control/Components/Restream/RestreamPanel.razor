@@ -45,6 +45,51 @@
         else
         {
             <div class="restream-panel__configuration" aria-label="Restream configuration">
+                <div class="restream-panel__server-section" style="grid-column: 1 / -1;">
+                    <h4 class="restream-panel__section-heading">RTMP Server</h4>
+
+                    <div class="restream-panel__server-fields">
+                        <label class="restream-panel__field">
+                            <span class="restream-panel__field-label">Server URL</span>
+                            <input class="form-control"
+                                   inputmode="url"
+                                   autocomplete="off"
+                                   placeholder="http://rtmp-server:8080"
+                                   @bind="_rtmpServerUrl" />
+                        </label>
+
+                        <label class="restream-panel__field">
+                            <span class="restream-panel__field-label">API key</span>
+                            <input class="form-control"
+                                   type="password"
+                                   autocomplete="new-password"
+                                   placeholder="Leave blank to keep existing"
+                                   @bind="_rtmpServerApiKey" />
+                        </label>
+                    </div>
+
+                    @if (_state?.IsRtmpServerConnected == true)
+                    {
+                        <div class="restream-panel__obs-helper">
+                            <span class="restream-panel__obs-helper-title">OBS Settings</span>
+                            <div class="restream-panel__obs-helper-row">
+                                <span class="restream-panel__obs-helper-label">RTMP Server</span>
+                                <code class="restream-panel__obs-helper-value">@GetObsRtmpUrl()</code>
+                            </div>
+                            <div class="restream-panel__obs-helper-row">
+                                <span class="restream-panel__obs-helper-label">Stream key</span>
+                                <code class="restream-panel__obs-helper-value">@GetObsStreamKey()</code>
+                            </div>
+                        </div>
+                    }
+                    else if (_hasState)
+                    {
+                        <p class="restream-panel__server-status restream-panel__server-status--offline">
+                            RTMP server not connected. Enter the server URL and save to connect.
+                        </p>
+                    }
+                </div>
+
                 <label class="restream-panel__field">
                     <span class="restream-panel__field-label">RTMP ingest URL</span>
                     <input class="form-control"
@@ -142,6 +187,8 @@
     private string _recordingOutputPath = string.Empty;
     private string _brbSlatePath = string.Empty;
     private bool _startWithHost;
+    private string _rtmpServerUrl = string.Empty;
+    private string _rtmpServerApiKey = string.Empty;
 
     private bool _hasState => _state is not null;
     private RestreamControlState CurrentState => _state ?? throw new InvalidOperationException("Restream state has not loaded yet.");
@@ -165,8 +212,11 @@
                     IngestUrl = _ingestUrl,
                     RecordingOutputPath = _recordingOutputPath,
                     StartWithHost = _startWithHost,
-                    BrbSlatePath = _brbSlatePath
+                    BrbSlatePath = _brbSlatePath,
+                    RtmpServerUrl = _rtmpServerUrl,
+                    RtmpServerApiKey = _rtmpServerApiKey
                 }));
+        _rtmpServerApiKey = string.Empty;
     }
 
     private async Task ToggleRuntime()
@@ -224,6 +274,8 @@
         _recordingOutputPath = state.RecordingOutputPath;
         _brbSlatePath = state.BrbSlatePath;
         _startWithHost = state.StartWithHost;
+        _rtmpServerUrl = state.RtmpServerUrl;
+        // _rtmpServerApiKey intentionally not populated from state — user must re-enter to change
     }
 
     private string GetRuntimeSummary()
@@ -231,6 +283,11 @@
         if (_state is null)
         {
             return "Loading current destination state.";
+        }
+
+        if (!_state.IsRtmpServerConnected)
+        {
+            return "RTMP server not connected — configure server URL above.";
         }
 
         string startMode = _state.StartWithHost
@@ -285,6 +342,27 @@
     private static string GetPluralSuffix(int count)
     {
         return count == 1 ? string.Empty : "s";
+    }
+
+    private string GetObsRtmpUrl()
+    {
+        if (string.IsNullOrWhiteSpace(_ingestUrl) || !Uri.TryCreate(_ingestUrl, UriKind.Absolute, out Uri? uri))
+        {
+            return string.Empty;
+        }
+
+        int port = uri.IsDefaultPort ? 1935 : uri.Port;
+        return $"{uri.Scheme}://{uri.Host}:{port}";
+    }
+
+    private string GetObsStreamKey()
+    {
+        if (string.IsNullOrWhiteSpace(_ingestUrl) || !Uri.TryCreate(_ingestUrl, UriKind.Absolute, out Uri? uri))
+        {
+            return string.Empty;
+        }
+
+        return uri.AbsolutePath.Trim('/');
     }
 }
 

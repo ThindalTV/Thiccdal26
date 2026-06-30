@@ -46,6 +46,7 @@ builder.Services.Configure<PrompterOptions>(builder.Configuration.GetSection(Pro
 builder.Services.AddTeleprompterServices();
 builder.Services.AddOverlay();
 builder.Services.Configure<StreamingOptions>(builder.Configuration.GetSection(StreamingOptions.SectionName));
+builder.Services.Configure<RtmpServerOptions>(builder.Configuration.GetSection(RtmpServerOptions.SectionName));
 builder.Services.AddStreamingServices();
 builder.Services.AddSingleton<IRecordingStorageProbe, RecordingStorageProbe>();
 builder.Services.AddScoped<IRestreamControlClient, RestreamControlClient>();

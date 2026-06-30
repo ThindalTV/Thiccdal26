@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Thiccdal.Infrastructure.Streaming;
 
-namespace Thiccdal.Streaming;
+namespace Thiccdal.RtmpServer.Services;
 
 /// <summary>
 /// Starts and stops the FFmpeg process used for local recordings.
@@ -10,6 +10,7 @@ public sealed class FfmpegRecordingProcessRunner : IRecordingProcessRunner
 {
     private static readonly TimeSpan GracefulShutdownTimeout = TimeSpan.FromSeconds(5);
 
+    /// <inheritdoc />
     public IRecordingProcess Start(RecordingProcessRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
