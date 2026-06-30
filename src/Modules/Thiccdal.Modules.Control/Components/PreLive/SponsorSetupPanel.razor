@@ -1,0 +1,118 @@
+@using Thiccdal.Infrastructure.Sponsors
+@inject ISponsorshipService SponsorshipService
+
+<div class="ctrl-panel sponsor-setup-panel">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Sponsorship</span>
+    </div>
+    <div class="ctrl-panel__body sponsor-setup-panel__body">
+
+        <label class="sponsor-setup-panel__toggle-row">
+            <input type="checkbox" checked="@_hasSponsor" @onchange="HandleHasSponsorChanged" />
+            <span>This stream has a sponsor</span>
+        </label>
+
+        @if (_hasSponsor)
+        {
+            <label class="sponsor-setup-panel__field">
+                <span class="sponsor-setup-panel__label">Read every (minutes)</span>
+                <input type="number" class="ctrl-input" min="1" max="120"
+                       value="@_intervalMinutes"
+                       @oninput="HandleIntervalInput" />
+            </label>
+
+            <label class="sponsor-setup-panel__field">
+                <span class="sponsor-setup-panel__label">Read script</span>
+                <textarea class="ctrl-input sponsor-setup-panel__script"
+                          placeholder="What to say during the sponsor read..."
+                          value="@_script"
+                          @oninput="HandleScriptInput"></textarea>
+            </label>
+
+            <div class="sponsor-setup-panel__section-title">Overlay badge (optional)</div>
+
+            <label class="sponsor-setup-panel__field">
+                <span class="sponsor-setup-panel__label">Logo image URL</span>
+                <input type="text" class="ctrl-input"
+                       placeholder="https://example.com/logo.png"
+                       value="@_overlayImageUrl"
+                       @oninput="HandleImageUrlInput" />
+            </label>
+
+            <label class="sponsor-setup-panel__field">
+                <span class="sponsor-setup-panel__label">Sponsor name / title</span>
+                <input type="text" class="ctrl-input"
+                       placeholder="Acme Corp"
+                       value="@_overlayTitle"
+                       @oninput="HandleTitleInput" />
+            </label>
+
+            <label class="sponsor-setup-panel__field">
+                <span class="sponsor-setup-panel__label">Link URL</span>
+                <input type="text" class="ctrl-input"
+                       placeholder="https://example.com"
+                       value="@_overlayLinkUrl"
+                       @oninput="HandleLinkUrlInput" />
+            </label>
+        }
+
+        <button type="button" class="sponsor-setup-panel__apply" @onclick="ApplyConfig">
+            Apply
+        </button>
+
+    </div>
+</div>
+
+@code {
+    private bool _hasSponsor;
+    private int _intervalMinutes = 20;
+    private string _script = string.Empty;
+    private string _overlayImageUrl = string.Empty;
+    private string _overlayTitle = string.Empty;
+    private string _overlayLinkUrl = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        SponsorConfig? existing = SponsorshipService.Config;
+        if (existing is not null)
+        {
+            _hasSponsor = existing.HasSponsor;
+            _intervalMinutes = existing.ReadIntervalMinutes > 0 ? existing.ReadIntervalMinutes : 20;
+            _script = existing.Script;
+            _overlayImageUrl = existing.OverlayImageUrl;
+            _overlayTitle = existing.OverlayTitle;
+            _overlayLinkUrl = existing.OverlayLinkUrl;
+        }
+    }
+
+    private void HandleHasSponsorChanged(ChangeEventArgs e)
+    {
+        _hasSponsor = (bool)(e.Value ?? false);
+    }
+
+    private void HandleIntervalInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int parsed) && parsed > 0)
+        {
+            _intervalMinutes = parsed;
+        }
+    }
+
+    private void HandleScriptInput(ChangeEventArgs e) => _script = e.Value?.ToString() ?? string.Empty;
+    private void HandleImageUrlInput(ChangeEventArgs e) => _overlayImageUrl = e.Value?.ToString() ?? string.Empty;
+    private void HandleTitleInput(ChangeEventArgs e) => _overlayTitle = e.Value?.ToString() ?? string.Empty;
+    private void HandleLinkUrlInput(ChangeEventArgs e) => _overlayLinkUrl = e.Value?.ToString() ?? string.Empty;
+
+    private void ApplyConfig()
+    {
+        SponsorshipService.Configure(new SponsorConfig
+        {
+            HasSponsor = _hasSponsor,
+            ReadIntervalMinutes = _intervalMinutes,
+            Script = _script,
+            OverlayImageUrl = _overlayImageUrl,
+            OverlayTitle = _overlayTitle,
+            OverlayLinkUrl = _overlayLinkUrl
+        });
+    }
+}

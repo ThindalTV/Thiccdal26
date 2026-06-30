@@ -1,6 +1,7 @@
 using Thiccdal;
 using Thiccdal.API.Status;
 using Thiccdal.API.Restream;
+using Thiccdal.Infrastructure.Sponsors;
 using Thiccdal.AI;
 using Thiccdal.Components;
 using Thiccdal.Data;
@@ -52,6 +53,7 @@ builder.Services.AddSingleton<PreLiveChecklistService>();
 builder.Services.AddSingleton<IPreLiveChecklistService>(static serviceProvider => serviceProvider.GetRequiredService<PreLiveChecklistService>());
 builder.Services.AddSingleton<IGoLiveActionService, GoLiveActionService>();
 builder.Services.AddHostedService(static serviceProvider => serviceProvider.GetRequiredService<PreLiveChecklistService>());
+builder.Services.AddSingleton<ISponsorshipService, SponsorshipService>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
