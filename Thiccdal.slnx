@@ -48,5 +48,7 @@
     <Project Path="src/Tests/Remote/Thiccdal.Remote.Instagram.Tests/Thiccdal.Remote.Instagram.Tests.csproj" />
     <Project Path="src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/Thiccdal.Remote.Twitch.Tests.csproj" Id="34ac27cc-0c68-40db-937e-66539374ef8e" />
   </Folder>
+  <!-- Teleprompter Display is excluded from main solution (Windows-only, built separately) -->
+  <!-- Build with: dotnet publish src/Tools/Thiccdal.Teleprompter.Display -c Release -->
   <Project Path="docs/docs.csproj" Id="4ee1e30f-b64c-4f8c-be08-dfe195c51340" />
 </Solution>

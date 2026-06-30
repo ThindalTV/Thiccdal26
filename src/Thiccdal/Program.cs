@@ -1,6 +1,7 @@
 using Thiccdal;
 using Thiccdal.API.Status;
 using Thiccdal.API.Restream;
+using Thiccdal.API.StreamDeck;
 using Thiccdal.Infrastructure.Sponsors;
 using Thiccdal.AI;
 using Thiccdal.Components;
@@ -66,6 +67,7 @@ await app.Services.InitializeDatabase(app.Lifetime.ApplicationStopping);
 app.MapDefaultEndpoints();
 app.MapStatusEndpoints();
 app.MapRestreamEndpoints();
+app.MapStreamDeckEndpoints();
 app.MapTwitchEndpoints();
 app.MapYouTubeEndpoints();
 
