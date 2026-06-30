@@ -1,0 +1,21 @@
+# docker-compose.rtmp.yml
+# Standalone deployment of the Thiccdal RTMP server.
+# Set RTMP_SERVER_API_KEY to the same value configured in the bot.
+services:
+  rtmp-server:
+    build:
+      context: .
+      dockerfile: src/Thiccdal.RtmpServer/Dockerfile
+    ports:
+      - "1935:1935"   # RTMP ingest (OBS connects here)
+      - "8080:8080"   # HTTP API + SignalR
+    volumes:
+      - ./recordings:/app/recordings   # stream recordings written here on the host
+      - ./brb:/app/brb:ro              # drop BRB slate file(s) here on the host
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      RtmpServer__ApiKey: "${RTMP_SERVER_API_KEY}"
+      RtmpServer__FfmpegExecutablePath: "ffmpeg"
+      Streaming__IngestUrl: "rtmp://0.0.0.0:1935/live"
+      Streaming__RecordingOutputPath: "/app/recordings"
+    restart: unless-stopped

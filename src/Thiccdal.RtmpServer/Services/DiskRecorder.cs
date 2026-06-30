@@ -18,7 +18,6 @@ public sealed class DiskRecorder : IDiskRecorder
     private readonly ILogger<DiskRecorder> _logger;
     private readonly Lock _stateLock = new();
     private IRecordingProcess? _currentProcess;
-    private bool _stopRequested;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiskRecorder"/> class.
@@ -88,7 +87,6 @@ public sealed class DiskRecorder : IDiskRecorder
         lock (_stateLock)
         {
             _currentProcess = process;
-            _stopRequested = false;
         }
 
         _logger.LogInformation(
@@ -113,8 +111,6 @@ public sealed class DiskRecorder : IDiskRecorder
             {
                 return;
             }
-
-            _stopRequested = true;
         }
 
         try
@@ -162,7 +158,6 @@ public sealed class DiskRecorder : IDiskRecorder
         {
             process = _currentProcess;
             _currentProcess = null;
-            _stopRequested = false;
         }
 
         process?.Dispose();

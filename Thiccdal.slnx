@@ -7,6 +7,7 @@
     <Project Path="src/Thiccdal.API/Thiccdal.API.csproj" Id="49984546-143b-4e53-9164-172f20b1e224" />
     <Project Path="src/Thiccdal.Data/Thiccdal.Data.csproj" Id="50ba3a3e-0279-4a7f-8077-be723255c8e0" />
     <Project Path="src/Thiccdal.Infrastructure/Thiccdal.Infrastructure.csproj" Id="4f756cb2-ac68-4950-b39b-d3c73457c969" />
+    <Project Path="src/Thiccdal.RtmpServer/Thiccdal.RtmpServer.csproj" />
     <Project Path="src/Thiccdal.Streaming/Thiccdal.Streaming.csproj" Id="1e138a55-2e2e-4fba-995d-0a0d78a85b07" />
     <Project Path="src/Thiccdal/Thiccdal.csproj" />
   </Folder>
