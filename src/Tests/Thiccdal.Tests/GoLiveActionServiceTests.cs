@@ -250,6 +250,8 @@ public sealed class GoLiveActionServiceTests
 
         public bool IsRunning { get; private set; }
 
+        public int ActiveRelayCount => 0;
+
         public Task StartFanout(CancellationToken cancellationToken = default)
         {
             _events.Add("fanout.start");

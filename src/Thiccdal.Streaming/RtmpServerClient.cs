@@ -59,6 +59,9 @@ public sealed class RtmpServerClient : IRtmpServerClient, IAsyncDisposable
     /// <inheritdoc/>
     public async Task Connect(CancellationToken cancellationToken = default)
     {
+        // Disconnect any existing hub before building a new one.
+        await Disconnect(cancellationToken);
+
         string baseUrl;
         string apiKey;
         lock (_connectionLock)

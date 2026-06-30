@@ -35,6 +35,9 @@ public sealed class RemoteRtmpFanoutService : IRtmpFanoutService
     }
 
     /// <inheritdoc/>
+    public int ActiveRelayCount => 0;
+
+    /// <inheritdoc/>
     public Task StartFanout(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

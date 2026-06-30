@@ -10,7 +10,7 @@ namespace Thiccdal.RtmpServer.Middleware;
 public sealed class ApiKeyMiddleware
 {
     private const string ApiKeyHeader = "X-Api-Key";
-    private static readonly string[] ExemptPaths = ["/healthz", "/hubs/events"];
+    private static readonly string[] ExemptPaths = ["/healthz"];
 
     private readonly RequestDelegate _next;
     private readonly IOptions<RtmpServerOptions> _options;
