@@ -1,31 +1,37 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Streaming;
 
-namespace Thiccdal.Streaming;
+namespace Thiccdal.RtmpServer.Services;
 
+/// <summary>
+/// Publishes BRB slate relays to the currently armed fanout destinations.
+/// </summary>
 public sealed class BrbSlateInjector : IBrbSlateInjector
 {
     private readonly IStreamingRelaySessionFactory _relaySessionFactory;
-    private readonly StreamingOptions _options;
+    private readonly IRtmpServerConfigurationHolder _holder;
     private readonly ILogger<BrbSlateInjector> _logger;
     private readonly Lock _stateLock = new();
     private Dictionary<string, IStreamingRelaySession> _sessions = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BrbSlateInjector"/> class.
+    /// </summary>
     public BrbSlateInjector(
         IStreamingRelaySessionFactory relaySessionFactory,
-        IOptions<StreamingOptions> options,
+        IRtmpServerConfigurationHolder holder,
         ILogger<BrbSlateInjector> logger)
     {
         ArgumentNullException.ThrowIfNull(relaySessionFactory);
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(holder);
         ArgumentNullException.ThrowIfNull(logger);
 
         _relaySessionFactory = relaySessionFactory;
-        _options = options.Value;
+        _holder = holder;
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public bool IsRunning
     {
         get
@@ -37,6 +43,7 @@ public sealed class BrbSlateInjector : IBrbSlateInjector
         }
     }
 
+    /// <inheritdoc />
     public async Task Start(IReadOnlyList<RtmpRelayDestination> destinations, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(destinations);
@@ -49,11 +56,11 @@ public sealed class BrbSlateInjector : IBrbSlateInjector
             return;
         }
 
-        string slatePath = _options.BrbSlatePath.Trim();
+        string slatePath = _holder.GetCurrent().BrbSlatePath.Trim();
         if (string.IsNullOrWhiteSpace(slatePath) || !File.Exists(slatePath))
         {
             _logger.LogWarning(
-                "BRB slate injection was requested for {DestinationCount} destination(s), but Streaming:BrbSlatePath is not configured to an existing media file.",
+                "BRB slate injection was requested for {DestinationCount} destination(s), but BrbSlatePath is not configured to an existing media file.",
                 destinations.Count);
             return;
         }
@@ -87,6 +94,7 @@ public sealed class BrbSlateInjector : IBrbSlateInjector
         }
     }
 
+    /// <inheritdoc />
     public async Task Stop(CancellationToken cancellationToken = default)
     {
         Dictionary<string, IStreamingRelaySession> sessions;

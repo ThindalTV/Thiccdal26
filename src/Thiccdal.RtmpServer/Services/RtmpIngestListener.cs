@@ -5,29 +5,35 @@ using LiveStreamingServerNet.Rtmp.Server.Auth;
 using LiveStreamingServerNet.Rtmp.Server.Auth.Contracts;
 using LiveStreamingServerNet.Rtmp.Server.Contracts;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Streaming;
 
-namespace Thiccdal.Streaming;
+namespace Thiccdal.RtmpServer.Services;
 
+/// <summary>
+/// Hosts the RTMP ingest listener for the standalone RTMP server process.
+/// </summary>
 public sealed class RtmpIngestListener : IRtmpIngestListener
 {
-    private readonly StreamingOptions _options;
+    private readonly IRtmpServerConfigurationHolder _holder;
     private readonly ILogger<RtmpIngestListener> _logger;
     private readonly Lock _stateLock = new();
     private readonly IngestReservationState _reservationState = new();
     private ILiveStreamingServer? _server;
     private Task? _runTask;
 
-    public RtmpIngestListener(IOptions<StreamingOptions> options, ILogger<RtmpIngestListener> logger)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RtmpIngestListener"/> class.
+    /// </summary>
+    public RtmpIngestListener(IRtmpServerConfigurationHolder holder, ILogger<RtmpIngestListener> logger)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(holder);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _options = options.Value;
+        _holder = holder;
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public bool IsListening
     {
         get
@@ -39,8 +45,10 @@ public sealed class RtmpIngestListener : IRtmpIngestListener
         }
     }
 
+    /// <inheritdoc />
     public event EventHandler<RtmpIngestStateChanged>? StateChanged;
 
+    /// <inheritdoc />
     public Task Start(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -52,7 +60,8 @@ public sealed class RtmpIngestListener : IRtmpIngestListener
                 return Task.CompletedTask;
             }
 
-            (IPEndPoint listenEndPoint, string expectedStreamPath) = ParseIngestEndpoint(_options.IngestUrl);
+            string ingestUrl = _holder.GetCurrent().IngestUrl;
+            (IPEndPoint listenEndPoint, string expectedStreamPath) = ParseIngestEndpoint(ingestUrl);
             _reservationState.Reset(expectedStreamPath);
 
             _server = LiveStreamingServerBuilder.Create()
@@ -97,6 +106,7 @@ public sealed class RtmpIngestListener : IRtmpIngestListener
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public async Task Stop(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -136,19 +146,19 @@ public sealed class RtmpIngestListener : IRtmpIngestListener
     {
         if (!Uri.TryCreate(ingestUrl, UriKind.Absolute, out Uri? uri))
         {
-            throw new InvalidOperationException("Streaming:IngestUrl must be a valid absolute RTMP URL.");
+            throw new InvalidOperationException("RtmpServer ingest URL must be a valid absolute RTMP URL.");
         }
 
         if (!string.Equals(uri.Scheme, "rtmp", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(uri.Scheme, "rtmps", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Streaming:IngestUrl must use the rtmp or rtmps scheme.");
+            throw new InvalidOperationException("RtmpServer ingest URL must use the rtmp or rtmps scheme.");
         }
 
         string streamPath = NormalizeStreamPath(uri.AbsolutePath);
         if (string.IsNullOrWhiteSpace(streamPath))
         {
-            throw new InvalidOperationException("Streaming:IngestUrl must include a stream path, for example rtmp://localhost:1935/live.");
+            throw new InvalidOperationException("RtmpServer ingest URL must include a stream path, for example rtmp://localhost:1935/live.");
         }
 
         IPAddress listenAddress = uri.Host switch
