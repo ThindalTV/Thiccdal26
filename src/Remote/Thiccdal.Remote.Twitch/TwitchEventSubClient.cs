@@ -266,8 +266,32 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         IReadOnlyList<TwitchEventSubSubscription> existingSubscriptions = await _helixClient.GetEventSubscriptions(cancellationToken);
         foreach (TwitchEventSubSubscriptionRequest request in BuildSubscriptionRequests(profile, sessionId))
         {
-            bool exists = existingSubscriptions.Any(subscription => SubscriptionMatches(subscription, request));
-            if (exists)
+            TwitchEventSubSubscription? stale = existingSubscriptions.FirstOrDefault(
+                subscription => SubscriptionMatchesRequest(subscription, request) &&
+                                !string.Equals(subscription.SessionId, sessionId, StringComparison.Ordinal));
+
+            if (stale is not null)
+            {
+                _logger.LogInformation(
+                    "Deleting stale EventSub subscription {SubscriptionId} ({Type}) bound to previous session.",
+                    stale.Id,
+                    stale.Type);
+
+                try
+                {
+                    await _helixClient.DeleteEventSubscription(stale.Id, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Failed to delete stale Twitch EventSub subscription {SubscriptionId}.", stale.Id);
+                }
+            }
+
+            bool alreadyCurrent = existingSubscriptions.Any(
+                subscription => SubscriptionMatchesRequest(subscription, request) &&
+                                string.Equals(subscription.SessionId, sessionId, StringComparison.Ordinal));
+
+            if (alreadyCurrent)
             {
                 continue;
             }
@@ -367,7 +391,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         };
     }
 
-    private static bool SubscriptionMatches(
+    private static bool SubscriptionMatchesRequest(
         TwitchEventSubSubscription existing,
         TwitchEventSubSubscriptionRequest request)
     {

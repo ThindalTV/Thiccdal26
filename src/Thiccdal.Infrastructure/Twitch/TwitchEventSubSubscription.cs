@@ -24,4 +24,9 @@ public sealed record TwitchEventSubSubscription
     /// Gets the normalized condition map for the subscription.
     /// </summary>
     public IReadOnlyDictionary<string, string> Condition { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Gets the WebSocket session ID this subscription is bound to, or empty for webhook subscriptions.
+    /// </summary>
+    public string SessionId { get; init; } = string.Empty;
 }

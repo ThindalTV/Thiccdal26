@@ -229,7 +229,8 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
             Condition = subscription.Condition?.ToDictionary(
                 static pair => pair.Key,
                 static pair => pair.Value.ValueKind == JsonValueKind.String ? pair.Value.GetString() ?? string.Empty : pair.Value.ToString(),
-                StringComparer.Ordinal) ?? new Dictionary<string, string>()
+                StringComparer.Ordinal) ?? new Dictionary<string, string>(),
+            SessionId = subscription.Transport?.SessionId ?? string.Empty
         }).ToArray();
     }
 
@@ -262,6 +263,28 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
         ApplyAuthentication(httpRequest, token);
 
         using HttpResponseMessage response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteEventSubscription(string subscriptionId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(subscriptionId))
+        {
+            return;
+        }
+
+        string? token = await _tokenManager.GetToken(cancellationToken);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException("Twitch is not authorized.");
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Delete,
+            $"eventsub/subscriptions?id={Uri.EscapeDataString(subscriptionId)}");
+        ApplyAuthentication(request, token);
+
+        using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 
@@ -361,7 +384,12 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
         [property: JsonPropertyName("id")] string? Id,
         [property: JsonPropertyName("type")] string? Type,
         [property: JsonPropertyName("version")] string? Version,
-        [property: JsonPropertyName("condition")] Dictionary<string, JsonElement>? Condition);
+        [property: JsonPropertyName("condition")] Dictionary<string, JsonElement>? Condition,
+        [property: JsonPropertyName("transport")] HelixTransportData? Transport);
+
+    private sealed record HelixTransportData(
+        [property: JsonPropertyName("method")] string? Method,
+        [property: JsonPropertyName("session_id")] string? SessionId);
 
     private sealed record CreateEventSubSubscriptionHttpRequest(
         [property: JsonPropertyName("type")] string Type,

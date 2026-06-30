@@ -71,7 +71,10 @@ public sealed class ChatAggregationService : IChatService, IChatAggregationServi
                 return;
             }
 
-            CancellationTokenSource lifetimeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            // The lifetime CTS must NOT be linked to the caller token: the caller's token only governs the
+            // connection attempt itself and may be short-lived (e.g., a request token). Linking it would
+            // disconnect all platforms when the caller cancels.
+            CancellationTokenSource lifetimeCancellationTokenSource = new CancellationTokenSource();
             List<Task> lifetimeTasks = [];
 
             foreach (IPlatformConnection platformConnection in _platformConnections)
