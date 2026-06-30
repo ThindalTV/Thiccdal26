@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Moq.AutoMock;
+using Moq;
+using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Twitch;
 using Thiccdal.Remote.Twitch;
 
@@ -7,7 +9,6 @@ namespace Thiccdal.Remote.Twitch.Tests;
 
 public class TwitchServiceTests
 {
-    private readonly AutoMocker _mocker = new AutoMocker();
     private readonly TwitchOptions _options = new TwitchOptions
     {
         ClientId = "id",
@@ -17,14 +18,20 @@ public class TwitchServiceTests
 
     private TwitchService BuildService()
     {
-        _mocker.Use(Options.Create(_options));
-        return _mocker.CreateInstance<TwitchService>();
+        return new TwitchService(
+            Options.Create(_options),
+            new Mock<ITwitchTokenManager>().Object,
+            new Mock<ITwitchTargetChannelService>().Object,
+            new Mock<ITwitchHelixClient>().Object,
+            new Mock<ITwitchEventSubClient>().Object,
+            new Mock<IEventBus>().Object,
+            NullLogger<TwitchService>.Instance);
     }
 
     [Fact]
     public void WhenCreated_ThenConnectedIsFalse()
     {
-        var service = BuildService();
+        TwitchService service = BuildService();
 
         Assert.False(service.Connected);
     }
@@ -32,9 +39,9 @@ public class TwitchServiceTests
     [Fact]
     public async Task WhenNotConnected_ThenSendMessageDoesNotThrow()
     {
-        var service = BuildService();
+        TwitchService service = BuildService();
 
-        var exception = await Record.ExceptionAsync(() => service.SendMessage("hello"));
+        Exception? exception = await Record.ExceptionAsync(() => service.SendMessage("hello"));
 
         Assert.Null(exception);
     }

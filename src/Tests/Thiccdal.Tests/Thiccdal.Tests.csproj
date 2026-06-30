@@ -8,9 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="bunit" Version="1.39.5" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.8" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -27,7 +25,6 @@
     <ProjectReference Include="..\..\Remote\Thiccdal.Remote.Null\Thiccdal.Remote.Null.csproj" />
     <ProjectReference Include="..\..\Thiccdal.API\Thiccdal.API.csproj" />
     <ProjectReference Include="..\..\Thiccdal.Infrastructure\Thiccdal.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\Thiccdal\Thiccdal.csproj" />
   </ItemGroup>
 
 </Project>

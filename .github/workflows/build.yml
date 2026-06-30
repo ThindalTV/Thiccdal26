@@ -88,7 +88,8 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test --no-build --configuration Release --logger trx --results-directory testresults --collect:"XPlat Code Coverage"
+        run: dotnet test --no-build --configuration Release --logger trx --results-directory testresults --collect:"XPlat Code Coverage" -- xunit.commandLine.maxParallelThreads=4 xunit.commandLine.diagnosticMessages=false
+        timeout-minutes: 10
 
       - name: Test report
         uses: dorny/test-reporter@v2
