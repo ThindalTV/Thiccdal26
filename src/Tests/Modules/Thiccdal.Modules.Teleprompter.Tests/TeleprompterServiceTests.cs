@@ -1,3 +1,5 @@
+using Moq;
+using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Teleprompter;
 using Thiccdal.Modules.Teleprompter.Services;
 
@@ -5,10 +7,16 @@ namespace Thiccdal.Modules.Teleprompter.Tests;
 
 public class TeleprompterServiceTests
 {
+    private static TeleprompterService BuildService()
+    {
+        var operatorStateService = new Mock<IOperatorStateService>();
+        return new TeleprompterService(operatorStateService.Object);
+    }
+
     [Fact]
     public void WhenScrollUp_ThenOnScrollRequestedIsRaised()
     {
-        var service = new TeleprompterService();
+        var service = BuildService();
         ScrollEventArgs? received = null;
         service.OnScrollRequested += (_, args) => received = args;
 
@@ -21,7 +29,7 @@ public class TeleprompterServiceTests
     [Fact]
     public void WhenScrollDown_ThenOnScrollRequestedIsRaised()
     {
-        var service = new TeleprompterService();
+        var service = BuildService();
         ScrollEventArgs? received = null;
         service.OnScrollRequested += (_, args) => received = args;
 
@@ -34,7 +42,7 @@ public class TeleprompterServiceTests
     [Fact]
     public void WhenScrollReset_ThenOnScrollRequestedIsRaised()
     {
-        var service = new TeleprompterService();
+        var service = BuildService();
         ScrollEventArgs? received = null;
         service.OnScrollRequested += (_, args) => received = args;
 
@@ -50,7 +58,7 @@ public class TeleprompterServiceTests
     [InlineData(ScrollDirection.Down, 50)]
     public void WhenScrollRequested_ThenScrollAmountMatchesRequest(ScrollDirection direction, int amount)
     {
-        var service = new TeleprompterService();
+        var service = BuildService();
         ScrollEventArgs? received = null;
         service.OnScrollRequested += (_, args) => received = args;
 
@@ -62,7 +70,7 @@ public class TeleprompterServiceTests
     [Fact]
     public void WhenScrollRequested_ThenSenderIsPassedToEvent()
     {
-        var service = new TeleprompterService();
+        var service = BuildService();
         object? receivedSender = null;
         service.OnScrollRequested += (sender, _) => receivedSender = sender;
 
@@ -74,7 +82,7 @@ public class TeleprompterServiceTests
     [Fact]
     public void WhenNoSubscribers_ThenRequestScrollDoesNotThrow()
     {
-        var service = new TeleprompterService();
+        var service = BuildService();
 
         var exception = Record.Exception(() => service.RequestScroll(this, ScrollDirection.Up, 10));
 

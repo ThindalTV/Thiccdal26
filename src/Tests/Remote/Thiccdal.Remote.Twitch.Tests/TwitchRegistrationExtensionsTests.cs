@@ -17,6 +17,7 @@ using Thiccdal.Remote.Twitch;
 
 namespace Thiccdal.Remote.Twitch.Tests;
 
+[Collection("NetworkIntegration")]
 public class TwitchRegistrationExtensionsTests
 {
     [Fact]

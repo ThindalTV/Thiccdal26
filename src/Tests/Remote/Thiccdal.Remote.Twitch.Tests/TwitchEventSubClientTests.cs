@@ -9,6 +9,14 @@ using Thiccdal.Remote.Twitch;
 
 namespace Thiccdal.Remote.Twitch.Tests;
 
+/// <summary>
+/// Tests in this collection use real network sockets (HttpListener / WebSocket) and must not run
+/// in parallel with other network-heavy tests to avoid resource conflicts during cleanup.
+/// </summary>
+[CollectionDefinition("NetworkIntegration", DisableParallelization = true)]
+public sealed class NetworkIntegrationCollection { }
+
+[Collection("NetworkIntegration")]
 public sealed class TwitchEventSubClientTests
 {
     private static TwitchChatConnectionProfile BuildProfile() => new TwitchChatConnectionProfile
@@ -122,14 +130,18 @@ public sealed class TwitchEventSubClientTests
     [Fact]
     public async Task WhenSessionReconnectReceived_ThenClientConnectsToNewUrl()
     {
-        // Server 2 must be created first so its URL can be embedded in server 1's reconnect message
+        // Server 2 must be created first so its URL can be embedded in server 1's reconnect message.
         await using FakeEventSubServer server2 = new(
             new[] { BuildWelcomePayload("reconnect-session") },
             closeAfterSending: false);
 
+        await server2.WaitForReady();
+
         await using FakeEventSubServer server1 = new(
             new[] { BuildWelcomePayload("initial-session"), BuildReconnectPayload(server2.WebSocketUrl, "reconnect-session") },
             closeAfterSending: false);
+
+        await server1.WaitForReady();
 
         List<TwitchEventSubSubscriptionRequest> captured = new List<TwitchEventSubSubscriptionRequest>();
         Mock<ITwitchHelixClient> helixMock = BuildHelixMock();
@@ -144,11 +156,17 @@ public sealed class TwitchEventSubClientTests
         using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await client.Connect(BuildProfile(), cts.Token);
 
-        // Wait for server 2 to receive the reconnect connection
-        bool reconnected = await Task.WhenAny(server2.ConnectionTask, Task.Delay(TimeSpan.FromSeconds(5))) == server2.ConnectionTask;
+        // Wait for server2 to accept the reconnect connection and then allow a short settling
+        // period for the listen task to finish ConnectCore and release _connectionGate.
+        // Without this padding the test's await-using cleanup would race against the gate release.
+        bool reconnected = await Task.WhenAny(server2.ConnectionTask, Task.Delay(TimeSpan.FromSeconds(10), cts.Token)) == server2.ConnectionTask;
+        if (reconnected)
+        {
+            await Task.Delay(500, cts.Token); // let ConnectCore finish and release the gate
+        }
 
         Assert.True(reconnected, "Client should connect to the reconnect URL provided by Twitch");
-        // Subscriptions are created only on initial connect (subscribe: true), not on reconnect (subscribe: false)
+        // Subscriptions are created only on initial connect (subscribe: true), not on reconnect
         Assert.NotEmpty(captured);
         Assert.All(captured, req => Assert.Equal("initial-session", req.SessionId));
     }
@@ -171,6 +189,8 @@ public sealed class TwitchEventSubClientTests
         private readonly string[] _messages;
         private readonly bool _closeAfterSending;
         private readonly TaskCompletionSource<WebSocket> _connectionTcs = new TaskCompletionSource<WebSocket>();
+        private readonly TaskCompletionSource _readyTcs = new TaskCompletionSource();
+        private readonly CancellationTokenSource _serverCts = new CancellationTokenSource();
 
         public FakeEventSubServer(string[] messages, bool closeAfterSending)
         {
@@ -188,8 +208,12 @@ public sealed class TwitchEventSubClientTests
         public string WebSocketUrl { get; }
         public Task<WebSocket> ConnectionTask => _connectionTcs.Task;
 
+        /// <summary>Resolves when <see cref="ServeAsync"/> has started and is ready to accept connections.</summary>
+        public Task WaitForReady() => _readyTcs.Task;
+
         private async Task ServeAsync()
         {
+            _readyTcs.TrySetResult();
             try
             {
                 HttpListenerContext context = await _listener.GetContextAsync().ConfigureAwait(false);
@@ -206,7 +230,7 @@ public sealed class TwitchEventSubClientTests
 
                 foreach (string message in _messages)
                 {
-                    if (socket.State != WebSocketState.Open)
+                    if (socket.State != WebSocketState.Open || _serverCts.IsCancellationRequested)
                     {
                         break;
                     }
@@ -216,7 +240,7 @@ public sealed class TwitchEventSubClientTests
                         new ArraySegment<byte>(bytes),
                         WebSocketMessageType.Text,
                         true,
-                        CancellationToken.None).ConfigureAwait(false);
+                        _serverCts.Token).ConfigureAwait(false);
                 }
 
                 if (_closeAfterSending && socket.State == WebSocketState.Open)
@@ -228,14 +252,30 @@ public sealed class TwitchEventSubClientTests
                 }
                 else if (!_closeAfterSending)
                 {
-                    // Drain messages until the client closes the connection
+                    // Drain until the client closes or server is disposed; complete the close handshake properly
                     byte[] buf = new byte[64];
-                    while (socket.State == WebSocketState.Open)
+                    while (socket.State == WebSocketState.Open && !_serverCts.IsCancellationRequested)
                     {
-                        WebSocketReceiveResult result = await socket.ReceiveAsync(
-                            new ArraySegment<byte>(buf),
-                            CancellationToken.None).ConfigureAwait(false);
-                        if (result.MessageType == WebSocketMessageType.Close)
+                        try
+                        {
+                            WebSocketReceiveResult result = await socket.ReceiveAsync(
+                                new ArraySegment<byte>(buf),
+                                _serverCts.Token).ConfigureAwait(false);
+                            if (result.MessageType == WebSocketMessageType.Close)
+                            {
+                                // Acknowledge the close frame so the client's CloseAsync can complete
+                                if (socket.State == WebSocketState.CloseReceived)
+                                {
+                                    await socket.CloseOutputAsync(
+                                        WebSocketCloseStatus.NormalClosure,
+                                        string.Empty,
+                                        CancellationToken.None).ConfigureAwait(false);
+                                }
+
+                                break;
+                            }
+                        }
+                        catch (OperationCanceledException)
                         {
                             break;
                         }
@@ -245,18 +285,19 @@ public sealed class TwitchEventSubClientTests
             catch (ObjectDisposedException) { }
             catch (HttpListenerException) { }
             catch (WebSocketException) { }
+            catch (OperationCanceledException) { }
         }
 
-        public ValueTask DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             _connectionTcs.TrySetCanceled();
+            await _serverCts.CancelAsync().ConfigureAwait(false);
+            _serverCts.Dispose();
             try
             {
                 _listener.Stop();
             }
             catch (ObjectDisposedException) { }
-
-            return ValueTask.CompletedTask;
         }
 
         private static int FindFreePort()

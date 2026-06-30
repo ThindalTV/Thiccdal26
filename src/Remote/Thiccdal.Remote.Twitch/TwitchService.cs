@@ -383,9 +383,10 @@ public class TwitchService : ITwitchService, IStreamInfoProvider, IChatSource, I
         };
     }
 
-    private static bool CanSendViaHelix(TwitchChatConnectionProfile profile)
+    private static bool CanSendViaHelix(TwitchChatConnectionProfile? profile)
     {
-        return !string.IsNullOrWhiteSpace(profile.BroadcasterId) &&
+        return profile is not null &&
+               !string.IsNullOrWhiteSpace(profile.BroadcasterId) &&
                !string.IsNullOrWhiteSpace(profile.BotUserId);
     }
 
