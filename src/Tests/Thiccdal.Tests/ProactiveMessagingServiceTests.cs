@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Modules.ChatBot.Services;
@@ -71,7 +71,7 @@ public sealed class ProactiveMessagingServiceTests
     {
         public bool Connected { get; private set; }
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }

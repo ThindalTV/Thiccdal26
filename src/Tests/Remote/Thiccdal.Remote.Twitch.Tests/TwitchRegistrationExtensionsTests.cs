@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +17,7 @@ using Thiccdal.Remote.Twitch;
 
 namespace Thiccdal.Remote.Twitch.Tests;
 
+[Collection("NetworkIntegration")]
 public class TwitchRegistrationExtensionsTests
 {
     [Fact]
@@ -321,7 +322,7 @@ public class TwitchRegistrationExtensionsTests
             remove { }
         }
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }

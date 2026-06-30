@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Thiccdal.API.Status;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Operators;
@@ -150,7 +150,7 @@ public sealed class StreamStatusServiceTests
             remove { }
         }
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }
@@ -209,7 +209,7 @@ public sealed class StreamStatusServiceTests
             remove { }
         }
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }

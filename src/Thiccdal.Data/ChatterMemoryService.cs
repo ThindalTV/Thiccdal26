@@ -19,6 +19,23 @@ public sealed class ChatterMemoryService : IChatterMemoryService
         @"\b(?:i\s+(?:really\s+)?(?:like|love|prefer|enjoy)|my\s+favorite(?:\s+\w+)?\s+is|i(?:'m| am)\s+into)\s+(?<topic>[a-z0-9][a-z0-9\s'\-]{1,40})",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
+    private static readonly string[] PositiveWords =
+    [
+        "love", "great", "awesome", "amazing", "nice", "good", "cool", "thanks",
+        "thank", "excellent", "fantastic", "wonderful", "brilliant", "perfect",
+        "haha", "lol", "lmao", "hehe", "🙂", "😄", "😂", "❤", "🔥", "👍",
+        "poggers", "pog", "pog champ", "hyped", "hype", "lets go", "let's go",
+        "happy", "glad", "enjoy", "enjoying", "fun", "funny", "interesting"
+    ];
+
+    private static readonly string[] NegativeWords =
+    [
+        "hate", "bad", "terrible", "awful", "boring", "trash", "stupid", "dumb",
+        "worst", "horrible", "annoying", "disappointing", "sad", "angry", "mad",
+        "😡", "😤", "💀", "💩", "👎", "ugh", "smh", "wtf", "waste", "unfair",
+        "dislike", "sucks", "lame", "cringe", "meh", "not good", "terrible"
+    ];
+
     private static readonly HashSet<string> StopWords =
     [
         "about", "after", "again", "been", "being", "because", "before", "chat", "could", "didn", "does", "doing",
@@ -124,8 +141,9 @@ public sealed class ChatterMemoryService : IChatterMemoryService
             return null;
         }
 
+        SentimentLabel sentiment = ScoreSentiment(messages.Select(static chatMessage => chatMessage.Content));
         DateTime lastInteractionAt = messages.Max(static chatMessage => chatMessage.SentAt);
-        return new ChatterMemoryContext(platformUser.DisplayName, lastInteractionAt, facts);
+        return new ChatterMemoryContext(platformUser.DisplayName, lastInteractionAt, facts, sentiment);
     }
 
     /// <inheritdoc />
@@ -338,5 +356,29 @@ public sealed class ChatterMemoryService : IChatterMemoryService
         }
 
         return normalized;
+    }
+
+    private static SentimentLabel ScoreSentiment(IEnumerable<string> messages)
+    {
+        int positiveCount = 0;
+        int negativeCount = 0;
+
+        foreach (string message in messages)
+        {
+            string lower = message.ToLowerInvariant();
+            foreach (string word in PositiveWords)
+            {
+                if (lower.Contains(word, StringComparison.Ordinal)) positiveCount++;
+            }
+            foreach (string word in NegativeWords)
+            {
+                if (lower.Contains(word, StringComparison.Ordinal)) negativeCount++;
+            }
+        }
+
+        if (positiveCount == 0 && negativeCount == 0) return SentimentLabel.Unknown;
+        if (positiveCount > negativeCount * 2) return SentimentLabel.Positive;
+        if (negativeCount > positiveCount * 2) return SentimentLabel.Negative;
+        return SentimentLabel.Neutral;
     }
 }

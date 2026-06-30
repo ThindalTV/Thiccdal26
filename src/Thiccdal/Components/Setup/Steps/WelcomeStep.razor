@@ -1,0 +1,68 @@
+@using Thiccdal.Infrastructure.Setup
+
+<div class="welcome-step text-center">
+    <div class="mb-4">
+        <span class="display-1">🎬</span>
+    </div>
+    
+    <h2 class="mb-3">Welcome to Thiccdal</h2>
+    
+    <p class="lead text-muted mb-4">
+        Your streaming command and control center for multi-platform broadcasting.
+    </p>
+
+    <div class="row g-3 mb-4 text-start">
+        <div class="col-md-6">
+            <div class="d-flex align-items-start">
+                <span class="bi bi-database fs-4 text-primary me-3"></span>
+                <div>
+                    <strong>Database Setup</strong>
+                    <p class="small text-muted mb-0">Connect to PostgreSQL or SQL Server</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="d-flex align-items-start">
+                <span class="bi bi-broadcast fs-4 text-primary me-3"></span>
+                <div>
+                    <strong>Platform Connections</strong>
+                    <p class="small text-muted mb-0">Twitch, YouTube, Discord (optional)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="d-flex align-items-start">
+                <span class="bi bi-robot fs-4 text-primary me-3"></span>
+                <div>
+                    <strong>AI Integration</strong>
+                    <p class="small text-muted mb-0">OpenAI-compatible endpoints (optional)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="d-flex align-items-start">
+                <span class="bi bi-chat-dots fs-4 text-primary me-3"></span>
+                <div>
+                    <strong>Bot Configuration</strong>
+                    <p class="small text-muted mb-0">Chatbot name and messages</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-muted">
+        <span class="bi bi-info-circle me-1"></span>
+        This wizard will guide you through the initial setup. You can change these settings later.
+    </p>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<bool> OnValidationChanged { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Welcome step is always valid
+        await OnValidationChanged.InvokeAsync(true);
+    }
+}

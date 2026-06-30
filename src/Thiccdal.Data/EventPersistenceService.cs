@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,8 @@ namespace Thiccdal.Data;
 /// </summary>
 public sealed class EventPersistenceService : IEventPersistenceService
 {
+    private static readonly ActivitySource _activitySource = new ActivitySource("Thiccdal.EventPersistence");
+
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<EventPersistenceService> _logger;
@@ -37,6 +40,10 @@ public sealed class EventPersistenceService : IEventPersistenceService
         {
             return;
         }
+
+        using Activity? activity = _activitySource.StartActivity("EventPersistence.Persist");
+        activity?.SetTag("event.type", platformEvent.Type.ToString());
+        activity?.SetTag("event.source", platformEvent.Source.ToString());
 
         if (platformEvent is RuntimeChatEvent chatEvent)
         {

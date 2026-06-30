@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -230,7 +230,7 @@ public sealed class StatusEndpointTests : IClassFixture<ThiccdalApplicationFacto
 
         public bool Connected => State == PlatformConnectionState.Connected;
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }
@@ -285,7 +285,7 @@ public sealed class StatusEndpointTests : IClassFixture<ThiccdalApplicationFacto
             remove { }
         }
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }
@@ -342,7 +342,7 @@ public sealed class StatusEndpointTests : IClassFixture<ThiccdalApplicationFacto
             remove { }
         }
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }

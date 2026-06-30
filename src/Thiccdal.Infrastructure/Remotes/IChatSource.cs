@@ -1,4 +1,4 @@
-using Thiccdal.Infrastructure.Bot.Models;
+﻿using Thiccdal.Infrastructure.Bot.Models;
 
 namespace Thiccdal.Infrastructure.Remotes;
 
@@ -45,5 +45,5 @@ public interface IChatSource : IPlatformEventSource
     /// <summary>
     /// Raised when a chat message is received from the platform.
     /// </summary>
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageReceived;
 }

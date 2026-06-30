@@ -221,8 +221,9 @@ public sealed class ObsWebSocketClient : IDisposable, IAsyncDisposable
                 await ConnectInternalAsync(CancellationToken.None).ConfigureAwait(false);
                 return;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[ObsWebSocketClient] Reconnect attempt failed: {ex.Message}");
                 delay = Math.Min(delay * 2, MaxReconnectDelaySeconds);
             }
         }

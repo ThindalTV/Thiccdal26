@@ -2,11 +2,13 @@
 @using Thiccdal.Modules.Control.Components.Dialogs
 @using Microsoft.AspNetCore.Hosting
 @using Microsoft.Extensions.Logging
+@using Thiccdal.Infrastructure.Twitch
 @inject IOperatorStateService OperatorStateService
 @inject IPreLiveChecklistService PreLiveChecklistService
 @inject IGoLiveActionService GoLiveActionService
 @inject IWebHostEnvironment HostEnvironment
 @inject ILogger<TopBar> Logger
+@inject ITwitchStreamInfoService TwitchStreamInfoService
 @implements IDisposable
 
 <header class="topbar topbar--@(_mode == OperatorMode.Live ? "live" : "prelive")">
@@ -51,6 +53,13 @@
         }
         else
         {
+            @if (_twitchStreamState?.IsLive == true)
+            {
+                <span class="topbar__viewer-count">
+                    <span class="topbar__viewer-count-icon" aria-hidden="true">👁</span>
+                    @_twitchStreamState.ViewerCount.ToString("N0")
+                </span>
+            }
             <button type="button" class="topbar__action topbar__action--danger" @onclick="HandleGoOfflineClicked">Go Offline</button>
         }
     </div>
@@ -65,10 +74,11 @@
 
     private const string ManualRemindersItemId = "stream-info.manual-reminders";
     private OperatorMode _mode;
-    private PreLiveChecklistState _checklistState = new();
-    private GoLiveActionState _goLiveActionState = new();
+    private PreLiveChecklistState _checklistState = new PreLiveChecklistState();
+    private GoLiveActionState _goLiveActionState = new GoLiveActionState();
     private GoLiveConfirmDialog? _goLiveConfirmDialog;
     private ConfirmDialog? _confirmDialog;
+    private TwitchStreamState? _twitchStreamState;
 
     private bool IsGoLiveReady => _checklistState.AllRequiredChecked;
 
@@ -80,10 +90,12 @@
 
     protected override void OnInitialized()
     {
+        _twitchStreamState = TwitchStreamInfoService.CurrentState;
         RefreshState();
         OperatorStateService.StateChanged += HandleStateChanged;
         PreLiveChecklistService.StateChanged += HandleStateChanged;
         GoLiveActionService.StateChanged += HandleStateChanged;
+        TwitchStreamInfoService.StreamStateChanged += HandleStreamStateChanged;
     }
 
     public void Dispose()
@@ -91,6 +103,7 @@
         OperatorStateService.StateChanged -= HandleStateChanged;
         PreLiveChecklistService.StateChanged -= HandleStateChanged;
         GoLiveActionService.StateChanged -= HandleStateChanged;
+        TwitchStreamInfoService.StreamStateChanged -= HandleStreamStateChanged;
     }
 
     private Task HandleStreamInfoClicked()
@@ -165,6 +178,12 @@
     private void HandleStateChanged(object? sender, EventArgs args)
     {
         RefreshState();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleStreamStateChanged(object? sender, TwitchStreamState? state)
+    {
+        _twitchStreamState = state;
         _ = InvokeAsync(StateHasChanged);
     }
 

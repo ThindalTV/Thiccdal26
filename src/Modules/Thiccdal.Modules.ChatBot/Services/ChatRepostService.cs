@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Thiccdal.Infrastructure.Bot;
@@ -42,14 +42,14 @@ public sealed class ChatRepostService : IChatRepostService, IHostedService, IDis
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _chatService.OnChatMessageRecieved += HandleChatMessageReceived;
+        _chatService.OnChatMessageReceived += HandleChatMessageReceived;
         _logger.LogInformation("Chat repost service started");
         return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        _chatService.OnChatMessageRecieved -= HandleChatMessageReceived;
+        _chatService.OnChatMessageReceived -= HandleChatMessageReceived;
         _logger.LogInformation("Chat repost service stopped");
         return Task.CompletedTask;
     }
@@ -61,7 +61,7 @@ public sealed class ChatRepostService : IChatRepostService, IHostedService, IDis
             return;
         }
 
-        _chatService.OnChatMessageRecieved -= HandleChatMessageReceived;
+        _chatService.OnChatMessageReceived -= HandleChatMessageReceived;
         _disposed = true;
         GC.SuppressFinalize(this);
     }

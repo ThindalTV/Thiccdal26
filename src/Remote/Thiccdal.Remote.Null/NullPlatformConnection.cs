@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Integrations;
@@ -34,7 +34,7 @@ public sealed class NullPlatformConnection : IPlatformConnection, IIntegrationCo
 
     public string? LastError => null;
 
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageReceived;
 
     public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
@@ -106,7 +106,7 @@ public sealed class NullPlatformConnection : IPlatformConnection, IIntegrationCo
 
         if (platformEvent is ChatEvent chatEvent)
         {
-            OnChatMessageRecieved?.Invoke(this, chatEvent);
+            OnChatMessageReceived?.Invoke(this, chatEvent);
         }
 
         return Task.CompletedTask;

@@ -10,11 +10,11 @@ namespace Thiccdal.Remote.Twitch;
 
 public sealed class TwitchEventSubNotificationMapper
 {
-    private readonly TwitchOptions _options;
+    private readonly IEmoteRenderingOptions _emoteRenderingOptions;
 
-    public TwitchEventSubNotificationMapper(IOptions<TwitchOptions> options)
+    public TwitchEventSubNotificationMapper(IEmoteRenderingOptions emoteRenderingOptions)
     {
-        _options = options.Value;
+        _emoteRenderingOptions = emoteRenderingOptions;
     }
 
     public PlatformEvent Map(string rawPayload)
@@ -264,7 +264,7 @@ public sealed class TwitchEventSubNotificationMapper
                         ReferenceId = emoteId,
                         AssetUrl = string.IsNullOrWhiteSpace(emoteId)
                             ? string.Empty
-                            : TwitchEmoteCdn.GetUrl(emoteId, _options.EventSub.UseAnimatedEmotes && supportsAnimated)
+                            : TwitchEmoteCdn.GetUrl(emoteId, _emoteRenderingOptions.UseAnimatedEmotes && supportsAnimated)
                     });
                     break;
 

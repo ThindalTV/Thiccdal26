@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -16,7 +15,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
     private readonly TwitchEventSubNotificationMapper _mapper;
     private readonly ILogger<TwitchEventSubClient> _logger;
     private readonly SemaphoreSlim _connectionGate;
-    private readonly ConcurrentQueue<string> _recentMessageIds;
+    private readonly Queue<string> _recentMessageIds;
     private readonly HashSet<string> _recentMessageIdSet;
 
     private ClientWebSocket? _socket;
@@ -35,7 +34,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         _mapper = mapper;
         _logger = logger;
         _connectionGate = new SemaphoreSlim(1, 1);
-        _recentMessageIds = new ConcurrentQueue<string>();
+        _recentMessageIds = new Queue<string>();
         _recentMessageIdSet = [];
     }
 
@@ -78,7 +77,17 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
 
     public async ValueTask DisposeAsync()
     {
-        await Disconnect();
+        // Use a generous timeout so callers are not blocked indefinitely if a reconnect is in progress.
+        using CancellationTokenSource disposeCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try
+        {
+            await Disconnect(disposeCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("TwitchEventSubClient disposal timed out waiting to acquire the connection gate");
+        }
+
         _connectionGate.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -88,9 +97,9 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
-    private async Task ConnectCore(string webSocketUrl, TwitchChatConnectionProfile profile, bool subscribe, CancellationToken cancellationToken)
+    private async Task ConnectCore(string webSocketUrl, TwitchChatConnectionProfile profile, bool subscribe, CancellationToken cancellationToken, bool calledFromListenTask = false)
     {
-        await DisconnectCore(cancellationToken);
+        await DisconnectCore(cancellationToken, awaitListenTask: !calledFromListenTask);
 
         ClientWebSocket socket = new();
         await socket.ConnectAsync(new Uri(webSocketUrl, UriKind.Absolute), cancellationToken);
@@ -165,7 +174,12 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
                             await _connectionGate.WaitAsync(cancellationToken);
                             try
                             {
-                                await ConnectCore(reconnectUrl, profile, subscribe: false, cancellationToken);
+                                // CancellationToken.None would be cancelled by DisconnectCore (which cancels
+                                // _listenCancellation, the same source as `cancellationToken`). Use a fresh
+                                // timeout-bounded token so the reconnect attempt can be cancelled independently.
+                                using CancellationTokenSource reconnectCts = new CancellationTokenSource(
+                                    TimeSpan.FromSeconds(60));
+                                await ConnectCore(reconnectUrl, profile, subscribe: false, reconnectCts.Token, calledFromListenTask: true);
                             }
                             finally
                             {
@@ -202,7 +216,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         }
     }
 
-    private async Task DisconnectCore(CancellationToken cancellationToken)
+    private async Task DisconnectCore(CancellationToken cancellationToken, bool awaitListenTask = true)
     {
         CancellationTokenSource? listenCancellation = _listenCancellation;
         Task? listenTask = _listenTask;
@@ -229,7 +243,10 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
             socket.Dispose();
         }
 
-        if (listenTask != null && listenTask.Id != Task.CurrentId)
+        // Skip awaiting the listen task when DisconnectCore is called from within the listen task
+        // itself (e.g. during session_reconnect handling). Task.CurrentId is unreliable in async
+        // continuations, so callers must pass awaitListenTask=false to signal this.
+        if (awaitListenTask && listenTask != null)
         {
             try
             {
@@ -249,8 +266,32 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         IReadOnlyList<TwitchEventSubSubscription> existingSubscriptions = await _helixClient.GetEventSubscriptions(cancellationToken);
         foreach (TwitchEventSubSubscriptionRequest request in BuildSubscriptionRequests(profile, sessionId))
         {
-            bool exists = existingSubscriptions.Any(subscription => SubscriptionMatches(subscription, request));
-            if (exists)
+            TwitchEventSubSubscription? stale = existingSubscriptions.FirstOrDefault(
+                subscription => SubscriptionMatchesRequest(subscription, request) &&
+                                !string.Equals(subscription.SessionId, sessionId, StringComparison.Ordinal));
+
+            if (stale is not null)
+            {
+                _logger.LogInformation(
+                    "Deleting stale EventSub subscription {SubscriptionId} ({Type}) bound to previous session.",
+                    stale.Id,
+                    stale.Type);
+
+                try
+                {
+                    await _helixClient.DeleteEventSubscription(stale.Id, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Failed to delete stale Twitch EventSub subscription {SubscriptionId}.", stale.Id);
+                }
+            }
+
+            bool alreadyCurrent = existingSubscriptions.Any(
+                subscription => SubscriptionMatchesRequest(subscription, request) &&
+                                string.Equals(subscription.SessionId, sessionId, StringComparison.Ordinal));
+
+            if (alreadyCurrent)
             {
                 continue;
             }
@@ -350,7 +391,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         };
     }
 
-    private static bool SubscriptionMatches(
+    private static bool SubscriptionMatchesRequest(
         TwitchEventSubSubscription existing,
         TwitchEventSubSubscriptionRequest request)
     {
@@ -390,8 +431,9 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
 
             _recentMessageIdSet.Add(messageId);
             _recentMessageIds.Enqueue(messageId);
-            while (_recentMessageIds.Count > 256 && _recentMessageIds.TryDequeue(out string? removedMessageId))
+            while (_recentMessageIds.Count > 256)
             {
+                string removedMessageId = _recentMessageIds.Dequeue();
                 _recentMessageIdSet.Remove(removedMessageId);
             }
         }

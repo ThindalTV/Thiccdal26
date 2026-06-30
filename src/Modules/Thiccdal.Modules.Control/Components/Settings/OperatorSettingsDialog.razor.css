@@ -33,3 +33,16 @@
 .operator-settings-dialog__panel {
     min-height: 0;
 }
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3, 12px);
+    padding: var(--spacing-2, 8px) 0;
+}
+
+.settings-label {
+    font-weight: 700;
+    min-width: 160px;
+    color: var(--color-text);
+}

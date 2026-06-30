@@ -7,6 +7,7 @@ using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Remotes.Models;
 using Thiccdal.Infrastructure.Streaming;
 using Thiccdal.Infrastructure.TikTok;
+using Thiccdal.Infrastructure.Twitch;
 using Thiccdal.Modules.Control.Components.Settings;
 
 namespace Thiccdal.Tests;
@@ -23,6 +24,7 @@ public sealed class OperatorSettingsDialogTests
         context.Services.AddSingleton<IOptions<LinkedInOptions>>(Options.Create(new LinkedInOptions()));
         context.Services.AddSingleton<IOptions<TikTokOptions>>(Options.Create(new TikTokOptions()));
         context.Services.AddSingleton<IRestreamControlClient>(new FakeRestreamControlClient());
+        context.Services.AddSingleton<IEmoteRenderingOptions>(new EmoteRenderingOptions(false));
 
         IRenderedComponent<OperatorSettingsDialog> cut = context.RenderComponent<OperatorSettingsDialog>();
 
@@ -49,6 +51,7 @@ public sealed class OperatorSettingsDialogTests
         context.Services.AddSingleton<IOptions<LinkedInOptions>>(Options.Create(new LinkedInOptions()));
         context.Services.AddSingleton<IOptions<TikTokOptions>>(Options.Create(new TikTokOptions()));
         context.Services.AddSingleton<IRestreamControlClient>(new FakeRestreamControlClient());
+        context.Services.AddSingleton<IEmoteRenderingOptions>(new EmoteRenderingOptions(false));
 
         IRenderedComponent<OperatorSettingsDialog> cut = context.RenderComponent<OperatorSettingsDialog>();
 

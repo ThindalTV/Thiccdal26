@@ -1,4 +1,6 @@
 @using Thiccdal.Modules.Control.Components.Restream
+@using Thiccdal.Infrastructure.Twitch
+@inject IEmoteRenderingOptions EmoteRenderingOptions
 
 <div class="operator-settings-dialog">
     <div class="operator-settings-dialog__tabs" role="tablist" aria-label="Operator settings sections">
@@ -29,6 +31,15 @@
                 @onclick="() => SelectTab(OperatorSettingsTab.Restream)">
             Restream
         </button>
+        <button type="button"
+                id="operator-settings-tab-emotes"
+                class="operator-settings-dialog__tab @GetTabCssClass(OperatorSettingsTab.Emotes)"
+                role="tab"
+                aria-selected="@(_selectedTab == OperatorSettingsTab.Emotes)"
+                aria-controls="operator-settings-panel-emotes"
+                @onclick="() => SelectTab(OperatorSettingsTab.Emotes)">
+            Emotes
+        </button>
     </div>
 
     <div id="operator-settings-panel-stream-checks"
@@ -54,10 +65,28 @@
          hidden="@(_selectedTab != OperatorSettingsTab.Restream)">
         <RestreamPanel />
     </div>
+
+    <div id="operator-settings-panel-emotes"
+         class="operator-settings-dialog__panel"
+         role="tabpanel"
+         aria-labelledby="operator-settings-tab-emotes"
+         hidden="@(_selectedTab != OperatorSettingsTab.Emotes)">
+        <div class="settings-row">
+            <span class="settings-label">Animated emotes</span>
+            <input type="checkbox" checked="@_useAnimatedEmotes" @onchange="HandleAnimatedEmotesChanged" id="emote-anim-toggle" />
+            <label for="emote-anim-toggle">Use animated emotes in teleprompter &amp; overlay</label>
+        </div>
+    </div>
 </div>
 
 @code {
     private OperatorSettingsTab _selectedTab = OperatorSettingsTab.StreamChecks;
+    private bool _useAnimatedEmotes;
+
+    protected override void OnInitialized()
+    {
+        _useAnimatedEmotes = EmoteRenderingOptions.UseAnimatedEmotes;
+    }
 
     private void SelectTab(OperatorSettingsTab tab)
     {
@@ -71,10 +100,17 @@
             : string.Empty;
     }
 
+    private void HandleAnimatedEmotesChanged(ChangeEventArgs e)
+    {
+        _useAnimatedEmotes = (bool)(e.Value ?? false);
+        EmoteRenderingOptions.SetUseAnimatedEmotes(_useAnimatedEmotes);
+    }
+
     private enum OperatorSettingsTab
     {
         StreamChecks = 0,
         ViewerIdentities = 1,
-        Restream = 2
+        Restream = 2,
+        Emotes = 3
     }
 }

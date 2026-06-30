@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Thiccdal.Infrastructure.Bot;
@@ -380,7 +380,7 @@ public sealed class ChatAggregationServiceTests
 
         public bool Connected { get; private set; }
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+        public event EventHandler<ChatEvent>? OnChatMessageReceived;
 
         public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
@@ -405,7 +405,7 @@ public sealed class ChatAggregationServiceTests
             OnPlatformEventReceived?.Invoke(this, platformEvent);
             if (platformEvent is ChatEvent chatEvent)
             {
-                OnChatMessageRecieved?.Invoke(this, chatEvent);
+                OnChatMessageReceived?.Invoke(this, chatEvent);
             }
         }
 

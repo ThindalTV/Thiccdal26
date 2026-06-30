@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,6 +20,7 @@
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Overlay\Thiccdal.Modules.Overlay.csproj" />
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Teleprompter\Thiccdal.Modules.Teleprompter.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.Discord\Thiccdal.Remote.Discord.csproj" />
+    <ProjectReference Include="..\Remote\Thiccdal.Remote.Instagram\Thiccdal.Remote.Instagram.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.LinkedIn\Thiccdal.Remote.LinkedIn.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.TikTok\Thiccdal.Remote.TikTok.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.Twitch\Thiccdal.Remote.Twitch.csproj" />

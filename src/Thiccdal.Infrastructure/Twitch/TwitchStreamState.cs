@@ -11,4 +11,6 @@ public sealed record TwitchStreamState
     public IReadOnlyList<string> Tags { get; init; } = [];
 
     public DateTimeOffset? StartedAt { get; init; }
+
+    public int ViewerCount { get; init; }
 }

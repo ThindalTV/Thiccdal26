@@ -6,7 +6,9 @@ namespace Thiccdal.Infrastructure.Bot;
 /// <param name="DisplayName">The latest public display name recorded for the chatter.</param>
 /// <param name="LastInteractionAt">The last interaction time considered while building the memory summary.</param>
 /// <param name="Facts">The bounded set of public, filtered facts that may be injected into an AI prompt.</param>
+/// <param name="RecentSentiment">The prevailing emotional tone derived from the chatter's recent messages.</param>
 public sealed record ChatterMemoryContext(
     string DisplayName,
     DateTime LastInteractionAt,
-    IReadOnlyList<string> Facts);
+    IReadOnlyList<string> Facts,
+    SentimentLabel RecentSentiment);

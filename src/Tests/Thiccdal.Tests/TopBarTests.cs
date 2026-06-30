@@ -1,10 +1,11 @@
-using Bunit;
+﻿using Bunit;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Overlay;
@@ -141,6 +142,8 @@ public sealed class TopBarTests
             _context.Services.AddSingleton<ILogger<TopBar>>(NullLogger<TopBar>.Instance);
             _context.Services.AddSingleton<IPlatformConnection>(TwitchService);
             _context.Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment(environmentName));
+            _context.Services.AddSingleton<IEmoteRenderingOptions>(new Mock<IEmoteRenderingOptions>().Object);
+            _context.Services.AddSingleton<ITwitchStreamInfoService>(new Mock<ITwitchStreamInfoService>().Object);
         }
 
         public OperatorStateService OperatorStateService { get; }
@@ -322,7 +325,7 @@ public sealed class TopBarTests
             remove { }
         }
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }

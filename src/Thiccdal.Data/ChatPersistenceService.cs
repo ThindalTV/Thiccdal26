@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Thiccdal.Data.Models;
@@ -11,6 +12,8 @@ namespace Thiccdal.Data;
 /// </summary>
 public sealed class ChatPersistenceService : IChatPersistenceService
 {
+    private static readonly ActivitySource _activitySource = new ActivitySource("Thiccdal.ChatPersistence");
+
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
     private readonly ILogger<ChatPersistenceService> _logger;
 
@@ -31,6 +34,9 @@ public sealed class ChatPersistenceService : IChatPersistenceService
         {
             return;
         }
+
+        using Activity? activity = _activitySource.StartActivity("ChatPersistence.Persist");
+        activity?.SetTag("chat.platform", chatEvent.Source.ToString());
 
         await using ApplicationDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 

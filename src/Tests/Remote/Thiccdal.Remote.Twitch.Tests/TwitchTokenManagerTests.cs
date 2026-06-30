@@ -19,8 +19,6 @@ public class TwitchTokenManagerTests : IDisposable
     {
         ClientId = "test-client-id",
         ClientSecret = "test-client-secret",
-        Channel = "testchannel",
-        Username = "testbot",
         RedirectUri = "https://localhost/callback"
     };
 
@@ -36,8 +34,11 @@ public class TwitchTokenManagerTests : IDisposable
     {
         var httpClientFactory = _mocker.GetMock<IHttpClientFactory>();
         httpClientFactory
-            .Setup(f => f.CreateClient("Twitch"))
+            .Setup(f => f.CreateClient(TwitchClientNames.OAuth))
             .Returns(new HttpClient(_httpHandler));
+        httpClientFactory
+            .Setup(f => f.CreateClient(TwitchClientNames.Helix))
+            .Returns(new HttpClient(new FakeHttpMessageHandler(HttpStatusCode.OK, "{}")));
 
         return _mocker.CreateInstance<TwitchTokenManager>();
     }
@@ -66,9 +67,11 @@ public class TwitchTokenManagerTests : IDisposable
     }
 
     [Fact]
-    public async Task WhenNoTokenExists_ThenGetTokenThrowsInvalidOperationException()
+    public async Task WhenNoTokenExists_ThenGetTokenReturnsNull()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(() => BuildManager().GetToken());
+        var result = await BuildManager().GetToken();
+
+        Assert.Null(result);
     }
 
     [Fact]

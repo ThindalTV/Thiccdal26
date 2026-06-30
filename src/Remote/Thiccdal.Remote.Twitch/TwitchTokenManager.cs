@@ -11,7 +11,7 @@ using Thiccdal.Infrastructure.Twitch;
 
 namespace Thiccdal.Remote.Twitch;
 
-public class TwitchTokenManager : ITwitchTokenManager
+internal sealed class TwitchTokenManager : ITwitchTokenManager
 {
     private readonly TwitchOptions _options;
     private readonly ILogger<TwitchTokenManager> _logger;
