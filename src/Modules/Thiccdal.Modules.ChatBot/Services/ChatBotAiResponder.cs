@@ -135,7 +135,7 @@ public sealed class ChatBotAiResponder : IChatBotAiResponder
             promptMessages.Add(
                 new AiChatMessage(
                     AiChatMessageRole.System,
-                    CreateMemoryPrompt(memoryContext, responderOptions.SentimentEnabled));
+                    CreateMemoryPrompt(memoryContext, responderOptions.SentimentEnabled)));
         }
 
         promptMessages.Add(
