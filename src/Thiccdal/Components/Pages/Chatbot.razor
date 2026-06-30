@@ -1,8 +1,12 @@
 @page "/chatbot"
 @inject IChatterMemoryService ChatterMemoryService
 @inject IOptions<ChatBotOptions> ChatBotOptionsAccessor
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
 
 @using Microsoft.Extensions.Options
+@using Microsoft.JSInterop
+@using System.Text.Json
 @using Thiccdal.Infrastructure.Bot
 @using Thiccdal.Infrastructure.Bot.Models
 
@@ -87,6 +91,38 @@
                     <div class="d-flex flex-wrap gap-2">
                         <button class="btn btn-warning" @onclick="ResetScope" disabled="@_isSubmitting">Reset chatter memory</button>
                         <button class="btn btn-outline-danger" @onclick="ResetAll" disabled="@_isSubmitting">Reset all chatter memory</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h4">Teleprompter Display</h2>
+                    <p class="text-muted">
+                        A standalone Windows application that displays the teleprompter in fullscreen on a secondary monitor.
+                        Features include mouse blocking, global hotkeys, and OBS integration for auto-start/stop with your stream.
+                    </p>
+
+                    <div class="row g-3 align-items-end">
+                        <div class="col-auto">
+                            <a href="/downloads/Thiccdal.Teleprompter.Display.exe" class="btn btn-primary" download>
+                                <i class="bi bi-download me-1"></i> Download Application
+                            </a>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-outline-secondary" @onclick="DownloadConfiguration">
+                                <i class="bi bi-file-earmark-code me-1"></i> Download Configuration
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <strong>Setup:</strong> Download both files to the same folder. The configuration file points to this server
+                            (<code>@GetServerUrl()</code>). Edit <code>displayconfig.json</code> to customize hotkeys, monitor index, or OBS settings.
+                        </small>
                     </div>
                 </div>
             </div>
@@ -182,6 +218,46 @@
     private static string GetDefaultRequestedBy()
     {
         return string.IsNullOrWhiteSpace(Environment.UserName) ? "operator" : Environment.UserName;
+    }
+
+    private string GetServerUrl()
+    {
+        return NavigationManager.BaseUri.TrimEnd('/');
+    }
+
+    private async Task DownloadConfiguration()
+    {
+        var config = new
+        {
+            serverUrl = GetServerUrl(),
+            viewPath = "/prompter",
+            monitorIndex = 1,
+            blockMouse = true,
+            hotkeys = new
+            {
+                toggleDisplay = "Ctrl+Shift+T"
+            },
+            obs = new
+            {
+                enabled = true,
+                host = "localhost",
+                port = 4455,
+                password = "",
+                autoStartOnStream = true,
+                autoStopOnStreamEnd = true
+            }
+        };
+
+        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        var base64 = Convert.ToBase64String(bytes);
+
+        await JS.InvokeVoidAsync("eval", $@"
+            const link = document.createElement('a');
+            link.href = 'data:application/json;base64,{base64}';
+            link.download = 'displayconfig.json';
+            link.click();
+        ");
     }
 
     private sealed class ResetScopeModel
