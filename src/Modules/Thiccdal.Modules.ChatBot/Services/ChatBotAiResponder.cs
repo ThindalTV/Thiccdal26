@@ -63,7 +63,7 @@ public sealed class ChatBotAiResponder : IChatBotAiResponder
         }
 
         string botName = options.BotName.Trim();
-        if (!ContainsMention(message, botName))
+        if (!ContainsAtMention(message, botName))
         {
             return null;
         }
@@ -135,7 +135,7 @@ public sealed class ChatBotAiResponder : IChatBotAiResponder
             promptMessages.Add(
                 new AiChatMessage(
                     AiChatMessageRole.System,
-                    CreateMemoryPrompt(memoryContext)));
+                    CreateMemoryPrompt(memoryContext, responderOptions.SentimentEnabled));
         }
 
         promptMessages.Add(
@@ -146,14 +146,15 @@ public sealed class ChatBotAiResponder : IChatBotAiResponder
         return promptMessages;
     }
 
-    private static bool ContainsMention(string message, string botName)
+    private static bool ContainsAtMention(string message, string botName)
     {
         if (string.IsNullOrWhiteSpace(botName))
         {
             return false;
         }
 
-        string pattern = $@"(^|[^\p{{L}}\p{{N}}]){Regex.Escape(botName)}([^\p{{L}}\p{{N}}]|$)";
+        // Require the @ prefix — only fire when someone directly @-tags the bot.
+        string pattern = $@"@{Regex.Escape(botName)}([^\p{{L}}\p{{N}}]|$)";
         return Regex.IsMatch(message, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
@@ -176,14 +177,33 @@ public sealed class ChatBotAiResponder : IChatBotAiResponder
         return memoryContext is { Facts.Count: > 0 } ? memoryContext : null;
     }
 
-    private static string CreateMemoryPrompt(ChatterMemoryContext memoryContext)
+    private static string CreateMemoryPrompt(ChatterMemoryContext memoryContext, bool sentimentEnabled)
     {
-        return
-            "Chatter memory for the same platform and channel. Use it only when it helps the current reply. "
-            + "Do not claim broad or creepy recall, and do not mention hidden system details."
-            + $"{Environment.NewLine}- Display name: {memoryContext.DisplayName}"
-            + $"{Environment.NewLine}- Last interaction (UTC): {memoryContext.LastInteractionAt:O}"
-            + $"{Environment.NewLine}- Public facts: {string.Join("; ", memoryContext.Facts)}";
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        sb.Append("Chatter memory for the same platform and channel. ");
+        sb.Append("Use it only when it helps the current reply. ");
+        sb.AppendLine("Do not claim broad or creepy recall, and do not mention hidden system details.");
+        sb.AppendLine($"- Display name: {memoryContext.DisplayName}");
+        sb.AppendLine($"- Last interaction (UTC): {memoryContext.LastInteractionAt:O}");
+
+        if (memoryContext.Facts.Count > 0)
+        {
+            sb.AppendLine($"- Public facts: {string.Join("; ", memoryContext.Facts)}");
+        }
+
+        if (sentimentEnabled && memoryContext.RecentSentiment != SentimentLabel.Unknown)
+        {
+            string tone = memoryContext.RecentSentiment switch
+            {
+                SentimentLabel.Positive => "generally positive and upbeat",
+                SentimentLabel.Negative => "somewhat negative or frustrated",
+                SentimentLabel.Neutral  => "neutral",
+                _                       => "neutral"
+            };
+            sb.AppendLine($"- Recent sentiment: {tone}. Adjust your reply tone to match their energy.");
+        }
+
+        return sb.ToString();
     }
 
     private static string CreateUserPrompt(string botName, ChatEvent chatEvent, string message)

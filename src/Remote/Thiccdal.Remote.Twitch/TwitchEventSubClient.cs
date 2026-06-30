@@ -165,7 +165,10 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
                             await _connectionGate.WaitAsync(cancellationToken);
                             try
                             {
-                                await ConnectCore(reconnectUrl, profile, subscribe: false, cancellationToken);
+                                // CancellationToken.None: DisconnectCore cancels _listenCancellation (this task's token),
+                                // so the caller's token must not be passed or the socket close and new ConnectAsync would
+                                // be pre-cancelled by the same source they're trying to shut down.
+                                await ConnectCore(reconnectUrl, profile, subscribe: false, CancellationToken.None);
                             }
                             finally
                             {

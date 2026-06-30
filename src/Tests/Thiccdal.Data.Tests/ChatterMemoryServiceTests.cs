@@ -117,6 +117,60 @@ public sealed class ChatterMemoryServiceTests : ApplicationDbContextTestFixture
         Assert.Null(memoryContext);
     }
 
+    [Fact]
+    public async Task WhenMessagesArePositive_ThenSentimentIsPositive()
+    {
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "I love this stream, it's amazing!", DateTime.UtcNow.AddMinutes(-10));
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "This is great, thanks so much! I enjoy watching you", DateTime.UtcNow.AddMinutes(-9));
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "I like awesome games, let's go!", DateTime.UtcNow.AddMinutes(-8));
+
+        ChatterMemoryContext? memoryContext = await CreateService()
+            .GetMemoryContext(PlatformEventSource.Twitch, "main-channel", "viewer-1");
+
+        Assert.NotNull(memoryContext);
+        Assert.Equal(SentimentLabel.Positive, memoryContext.RecentSentiment);
+    }
+
+    [Fact]
+    public async Task WhenMessagesAreNegative_ThenSentimentIsNegative()
+    {
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "I like games but this is terrible and boring", DateTime.UtcNow.AddMinutes(-10));
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "ugh, that was awful and horrible, smh", DateTime.UtcNow.AddMinutes(-9));
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "I enjoy nothing, this is trash and lame", DateTime.UtcNow.AddMinutes(-8));
+
+        ChatterMemoryContext? memoryContext = await CreateService()
+            .GetMemoryContext(PlatformEventSource.Twitch, "main-channel", "viewer-1");
+
+        Assert.NotNull(memoryContext);
+        Assert.Equal(SentimentLabel.Negative, memoryContext.RecentSentiment);
+    }
+
+    [Fact]
+    public async Task WhenMessagesAreMixed_ThenSentimentIsNeutral()
+    {
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "I love this, it's great and amazing!", DateTime.UtcNow.AddMinutes(-10));
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "I like games but this is terrible and boring", DateTime.UtcNow.AddMinutes(-9));
+
+        ChatterMemoryContext? memoryContext = await CreateService()
+            .GetMemoryContext(PlatformEventSource.Twitch, "main-channel", "viewer-1");
+
+        Assert.NotNull(memoryContext);
+        Assert.Equal(SentimentLabel.Neutral, memoryContext.RecentSentiment);
+    }
+
+    [Fact]
+    public async Task WhenMessagesHaveNoSentimentWords_ThenSentimentIsUnknown()
+    {
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "I prefer metroidvanias over platformers", DateTime.UtcNow.AddMinutes(-10));
+        await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "My favorite genre is roguelike", DateTime.UtcNow.AddMinutes(-9));
+
+        ChatterMemoryContext? memoryContext = await CreateService()
+            .GetMemoryContext(PlatformEventSource.Twitch, "main-channel", "viewer-1");
+
+        Assert.NotNull(memoryContext);
+        Assert.Equal(SentimentLabel.Unknown, memoryContext.RecentSentiment);
+    }
+
     private ChatterMemoryService CreateService(int? retentionDays = null, DateTimeOffset? now = null)
     {
         return new ChatterMemoryService(

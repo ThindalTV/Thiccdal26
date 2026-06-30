@@ -20,6 +20,7 @@
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Overlay\Thiccdal.Modules.Overlay.csproj" />
     <ProjectReference Include="..\Modules\Thiccdal.Modules.Teleprompter\Thiccdal.Modules.Teleprompter.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.Discord\Thiccdal.Remote.Discord.csproj" />
+    <ProjectReference Include="..\Remote\Thiccdal.Remote.Instagram\Thiccdal.Remote.Instagram.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.LinkedIn\Thiccdal.Remote.LinkedIn.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.TikTok\Thiccdal.Remote.TikTok.csproj" />
     <ProjectReference Include="..\Remote\Thiccdal.Remote.Twitch\Thiccdal.Remote.Twitch.csproj" />
