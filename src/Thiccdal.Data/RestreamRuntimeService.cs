@@ -18,6 +18,8 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
     private readonly IStreamingService _streamingService;
     private readonly IRtmpFanoutService _fanoutService;
     private readonly IStreamRecordingService _streamRecordingService;
+    private readonly IRtmpServerClient _rtmpServerClient;
+    private readonly RtmpServerOptions _defaultRtmpServerOptions;
     private readonly StreamingOptions _defaultStreamingOptions;
     private readonly ILogger<RestreamRuntimeService> _logger;
     private readonly Lock _configurationLock = new();
@@ -30,7 +32,9 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
         IStreamingService streamingService,
         IRtmpFanoutService fanoutService,
         IStreamRecordingService streamRecordingService,
+        IRtmpServerClient rtmpServerClient,
         IOptions<StreamingOptions> defaultStreamingOptions,
+        IOptions<RtmpServerOptions> rtmpServerOptions,
         ILogger<RestreamRuntimeService> logger)
     {
         ArgumentNullException.ThrowIfNull(dbContextFactory);
@@ -39,7 +43,9 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
         ArgumentNullException.ThrowIfNull(streamingService);
         ArgumentNullException.ThrowIfNull(fanoutService);
         ArgumentNullException.ThrowIfNull(streamRecordingService);
+        ArgumentNullException.ThrowIfNull(rtmpServerClient);
         ArgumentNullException.ThrowIfNull(defaultStreamingOptions);
+        ArgumentNullException.ThrowIfNull(rtmpServerOptions);
         ArgumentNullException.ThrowIfNull(logger);
 
         _dbContextFactory = dbContextFactory;
@@ -52,6 +58,8 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
         _streamingService = streamingService;
         _fanoutService = fanoutService;
         _streamRecordingService = streamRecordingService;
+        _rtmpServerClient = rtmpServerClient;
+        _defaultRtmpServerOptions = rtmpServerOptions.Value;
         _defaultStreamingOptions = defaultStreamingOptions.Value;
         _logger = logger;
         _currentConfiguration = new RestreamConfigurationSnapshot
@@ -61,6 +69,7 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
             StartWithHost = _defaultStreamingOptions.StartWithHost,
             BrbSlatePath = _defaultStreamingOptions.BrbSlatePath
         };
+        _rtmpServerClient.Configure(_defaultRtmpServerOptions.BaseUrl, _defaultRtmpServerOptions.ApiKey);
     }
 
     public RestreamConfigurationSnapshot GetCurrent()
@@ -107,7 +116,14 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
         configuration.BrbSlatePath = brbSlatePath;
         configuration.UpdatedAt = DateTimeOffset.UtcNow;
 
+        if (!string.IsNullOrWhiteSpace(request.RtmpServerUrl))
+        {
+            configuration.RtmpServerUrl = request.RtmpServerUrl.Trim();
+            configuration.RtmpServerApiKey = request.RtmpServerApiKey.Trim();
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
+        _rtmpServerClient.Configure(configuration.RtmpServerUrl, configuration.RtmpServerApiKey);
 
         _logger.LogInformation(
             "Updated restream configuration: ingest={IngestUrl}, recordingPathConfigured={HasRecordingPath}, startWithHost={StartWithHost}, brbSlateConfigured={HasBrbSlate}",
@@ -168,6 +184,19 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
                 OperatorMessage = "Enable at least one connected destination before starting restreaming."
             };
         }
+
+        RestreamConfigurationSnapshot snapshot = GetCurrent();
+        IReadOnlyList<RtmpRelayDestination> destinations = await GetActiveDestinations(cancellationToken);
+
+        RtmpServerConfigurationPush push = new RtmpServerConfigurationPush(
+            IngestUrl: snapshot.IngestUrl,
+            RecordingOutputPath: snapshot.RecordingOutputPath,
+            BrbSlatePath: snapshot.BrbSlatePath,
+            Destinations: destinations
+                .Select(static d => new RtmpRelayDestinationPush(d.PlatformName, d.DestinationUrl))
+                .ToArray());
+
+        await _rtmpServerClient.PushConfiguration(push, cancellationToken);
 
         await _streamingService.Start(cancellationToken);
         await _fanoutService.StartFanout(cancellationToken);
@@ -238,6 +267,13 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
         string recordingOutputPath = persistedConfiguration?.RecordingOutputPath ?? _defaultStreamingOptions.RecordingOutputPath;
         bool startWithHost = persistedConfiguration?.StartWithHost ?? _defaultStreamingOptions.StartWithHost;
         string brbSlatePath = persistedConfiguration?.BrbSlatePath ?? _defaultStreamingOptions.BrbSlatePath;
+        string rtmpServerUrl = string.IsNullOrWhiteSpace(persistedConfiguration?.RtmpServerUrl)
+            ? _defaultRtmpServerOptions.BaseUrl
+            : persistedConfiguration.RtmpServerUrl;
+        string rtmpServerApiKey = string.IsNullOrWhiteSpace(persistedConfiguration?.RtmpServerApiKey)
+            ? _defaultRtmpServerOptions.ApiKey
+            : persistedConfiguration.RtmpServerApiKey;
+        _rtmpServerClient.Configure(rtmpServerUrl, rtmpServerApiKey);
         StreamRecordingSnapshot? latestRecording = await _streamRecordingService.GetLatest(LocalRecordingPlatform, cancellationToken);
 
         IReadOnlyList<RestreamDestinationSnapshot> destinationSnapshots =
@@ -282,12 +318,44 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
             EnabledDestinationCount = enabledDestinationCount,
             ConnectedDestinationCount = connectedDestinationCount,
             ActiveDestinationCount = activeDestinationCount,
-            CanStart = activeDestinationCount > 0,
+            CanStart = activeDestinationCount > 0 && _rtmpServerClient.IsConnected,
             OperatorMessage = operatorMessage,
             DependencyNote = DependencyNote,
             LatestRecording = latestRecording,
-            Destinations = destinations
+            Destinations = destinations,
+            IsRtmpServerConnected = _rtmpServerClient.IsConnected,
+            RtmpServerUrl = rtmpServerUrl
         };
+    }
+
+    private async Task<IReadOnlyList<RtmpRelayDestination>> GetActiveDestinations(CancellationToken cancellationToken)
+    {
+        await using ApplicationDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        Dictionary<string, bool> enabledByPlatform = await dbContext.RestreamDestinationConfigurations
+            .AsNoTracking()
+            .ToDictionaryAsync(
+                static d => d.PlatformName,
+                static d => d.IsEnabled,
+                StringComparer.OrdinalIgnoreCase,
+                cancellationToken);
+
+        List<RtmpRelayDestination> results = new List<RtmpRelayDestination>();
+        foreach (KeyValuePair<string, IRtmpRelayDestinationProvider> entry in _relayProviders)
+        {
+            if (!enabledByPlatform.TryGetValue(entry.Key, out bool isEnabled) || !isEnabled)
+            {
+                continue;
+            }
+
+            RtmpRelayDestination? destination = await entry.Value.GetRelayDestination(cancellationToken);
+            if (destination is not null)
+            {
+                results.Add(destination);
+            }
+        }
+
+        return results;
     }
 
     private async Task RefreshMonitors(CancellationToken cancellationToken)

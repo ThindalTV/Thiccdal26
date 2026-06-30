@@ -84,4 +84,10 @@ public sealed record RestreamControlState
     /// Gets the current per-platform restream destination state.
     /// </summary>
     public IReadOnlyList<RestreamDestinationState> Destinations { get; init; } = Array.Empty<RestreamDestinationState>();
+
+    /// <summary>Gets a value indicating whether the remote RTMP server SignalR hub is currently reachable.</summary>
+    public bool IsRtmpServerConnected { get; init; }
+
+    /// <summary>Gets the configured RTMP server base URL.</summary>
+    public string RtmpServerUrl { get; init; } = string.Empty;
 }

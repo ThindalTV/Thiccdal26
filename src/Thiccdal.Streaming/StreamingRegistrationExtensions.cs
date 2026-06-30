@@ -17,7 +17,9 @@ public static class StreamingRegistrationExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddHttpClient<IRtmpServerClient, RtmpServerClient>();
+        services.AddHttpClient();
+        services.AddSingleton<RtmpServerClient>();
+        services.AddSingleton<IRtmpServerClient>(static sp => sp.GetRequiredService<RtmpServerClient>());
         services.AddSingleton<RemoteStreamingService>();
         services.AddSingleton<IStreamingService>(static sp => sp.GetRequiredService<RemoteStreamingService>());
         services.AddHostedService(static sp => sp.GetRequiredService<RemoteStreamingService>());

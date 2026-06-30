@@ -51,4 +51,12 @@ public interface IRtmpServerClient
     /// </summary>
     /// <param name="cancellationToken">The cancellation token for the operation.</param>
     Task<RtmpServerStatusResponse> Stop(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the connection settings used for subsequent HTTP and SignalR connections.
+    /// Call before or after <see cref="Connect"/> to apply new server coordinates.
+    /// </summary>
+    /// <param name="baseUrl">The base URL of the remote RTMP server.</param>
+    /// <param name="apiKey">The API key used to authenticate requests.</param>
+    void Configure(string baseUrl, string apiKey);
 }

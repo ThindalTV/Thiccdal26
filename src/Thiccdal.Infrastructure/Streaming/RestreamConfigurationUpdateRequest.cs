@@ -24,4 +24,10 @@ public sealed record RestreamConfigurationUpdateRequest
     /// Gets the optional BRB slate media path reserved for ingest disconnect recovery.
     /// </summary>
     public string BrbSlatePath { get; init; } = string.Empty;
+
+    /// <summary>Gets the base URL of the remote RTMP server (e.g., http://rtmp-server:8080).</summary>
+    public string RtmpServerUrl { get; init; } = string.Empty;
+
+    /// <summary>Gets the API key used to authenticate with the remote RTMP server.</summary>
+    public string RtmpServerApiKey { get; init; } = string.Empty;
 }

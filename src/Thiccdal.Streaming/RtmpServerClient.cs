@@ -15,25 +15,28 @@ public sealed class RtmpServerClient : IRtmpServerClient, IAsyncDisposable
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _httpClient;
-    private readonly RtmpServerOptions _options;
     private readonly ILogger<RtmpServerClient> _logger;
+    private readonly Lock _connectionLock = new();
     private HubConnection? _hubConnection;
     private bool _isConnected;
+    private string _baseUrl;
+    private string _apiKey;
 
     /// <summary>
     /// Initializes a new instance of <see cref="RtmpServerClient"/>.
     /// </summary>
     public RtmpServerClient(
-        HttpClient httpClient,
+        IHttpClientFactory httpClientFactory,
         IOptions<RtmpServerOptions> options,
         ILogger<RtmpServerClient> logger)
     {
-        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _httpClient = httpClient;
-        _options = options.Value;
+        _httpClient = httpClientFactory.CreateClient(nameof(RtmpServerClient));
+        _baseUrl = options.Value.BaseUrl;
+        _apiKey = options.Value.ApiKey;
         _logger = logger;
     }
 
@@ -44,12 +47,30 @@ public sealed class RtmpServerClient : IRtmpServerClient, IAsyncDisposable
     public event EventHandler<RtmpServerEvent>? EventReceived;
 
     /// <inheritdoc/>
+    public void Configure(string baseUrl, string apiKey)
+    {
+        lock (_connectionLock)
+        {
+            _baseUrl = baseUrl;
+            _apiKey = apiKey;
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task Connect(CancellationToken cancellationToken = default)
     {
+        string baseUrl;
+        string apiKey;
+        lock (_connectionLock)
+        {
+            baseUrl = _baseUrl;
+            apiKey = _apiKey;
+        }
+
         HubConnection hub = new HubConnectionBuilder()
             .WithUrl(
-                $"{_options.BaseUrl}/hubs/events",
-                opts => opts.Headers.Add("X-Api-Key", _options.ApiKey))
+                $"{baseUrl}/hubs/events",
+                opts => opts.Headers.Add("X-Api-Key", apiKey))
             .WithAutomaticReconnect()
             .Build();
 
@@ -81,11 +102,11 @@ public sealed class RtmpServerClient : IRtmpServerClient, IAsyncDisposable
             await hub.StartAsync(cancellationToken);
             _hubConnection = hub;
             _isConnected = true;
-            _logger.LogInformation("Connected to RTMP server event hub at {BaseUrl}.", _options.BaseUrl);
+            _logger.LogInformation("Connected to RTMP server event hub at {BaseUrl}.", baseUrl);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "Failed to connect to RTMP server event hub at {BaseUrl}.", _options.BaseUrl);
+            _logger.LogError(ex, "Failed to connect to RTMP server event hub at {BaseUrl}.", baseUrl);
             await hub.DisposeAsync();
         }
     }
@@ -187,8 +208,16 @@ public sealed class RtmpServerClient : IRtmpServerClient, IAsyncDisposable
 
     private HttpRequestMessage BuildRequest(HttpMethod method, string path)
     {
-        HttpRequestMessage request = new HttpRequestMessage(method, $"{_options.BaseUrl}{path}");
-        request.Headers.Add("X-Api-Key", _options.ApiKey);
+        string baseUrl;
+        string apiKey;
+        lock (_connectionLock)
+        {
+            baseUrl = _baseUrl;
+            apiKey = _apiKey;
+        }
+
+        HttpRequestMessage request = new HttpRequestMessage(method, $"{baseUrl}{path}");
+        request.Headers.Add("X-Api-Key", apiKey);
         return request;
     }
 
