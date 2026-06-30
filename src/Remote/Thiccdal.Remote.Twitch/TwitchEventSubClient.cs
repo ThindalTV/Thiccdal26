@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -16,7 +15,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
     private readonly TwitchEventSubNotificationMapper _mapper;
     private readonly ILogger<TwitchEventSubClient> _logger;
     private readonly SemaphoreSlim _connectionGate;
-    private readonly ConcurrentQueue<string> _recentMessageIds;
+    private readonly Queue<string> _recentMessageIds;
     private readonly HashSet<string> _recentMessageIdSet;
 
     private ClientWebSocket? _socket;
@@ -35,7 +34,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         _mapper = mapper;
         _logger = logger;
         _connectionGate = new SemaphoreSlim(1, 1);
-        _recentMessageIds = new ConcurrentQueue<string>();
+        _recentMessageIds = new Queue<string>();
         _recentMessageIdSet = [];
     }
 
@@ -408,8 +407,9 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
 
             _recentMessageIdSet.Add(messageId);
             _recentMessageIds.Enqueue(messageId);
-            while (_recentMessageIds.Count > 256 && _recentMessageIds.TryDequeue(out string? removedMessageId))
+            while (_recentMessageIds.Count > 256)
             {
+                string removedMessageId = _recentMessageIds.Dequeue();
                 _recentMessageIdSet.Remove(removedMessageId);
             }
         }

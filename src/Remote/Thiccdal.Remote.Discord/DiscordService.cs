@@ -1,4 +1,4 @@
-using Discord;
+﻿using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -33,7 +33,7 @@ public class DiscordService : IDiscordService, IAsyncDisposable, IDisposable
                             _connectionState == DiscordConnectionState.Connected;
 
     public event EventHandler<DiscordConnectionState>? ConnectionStateChanged;
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageReceived;
     public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
     public DiscordService(
@@ -443,7 +443,7 @@ public class DiscordService : IDiscordService, IAsyncDisposable, IDisposable
 
         if (platformEvent is ChatEvent chatEvent)
         {
-            OnChatMessageRecieved?.Invoke(this, chatEvent);
+            OnChatMessageReceived?.Invoke(this, chatEvent);
         }
     }
 

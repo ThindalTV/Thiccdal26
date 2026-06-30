@@ -14,6 +14,9 @@ public sealed class ChatBotAiResponder : IChatBotAiResponder
 {
     private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(5);
 
+    // Keyed by bot name (lowercased) so we re-use the compiled pattern across messages.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Regex> _mentionPatternCache = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly IChatCompletionClient _chatCompletionClient;
     private readonly IChatterMemoryService _chatterMemoryService;
     private readonly IOptions<ChatBotOptions> _options;
@@ -153,9 +156,13 @@ public sealed class ChatBotAiResponder : IChatBotAiResponder
             return false;
         }
 
-        // Require the @ prefix — only fire when someone directly @-tags the bot.
-        string pattern = $@"@{Regex.Escape(botName)}([^\p{{L}}\p{{N}}]|$)";
-        return Regex.IsMatch(message, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        Regex pattern = _mentionPatternCache.GetOrAdd(
+            botName,
+            static name => new Regex(
+                $@"@{Regex.Escape(name)}([^\p{{L}}\p{{N}}]|$)",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled));
+
+        return pattern.IsMatch(message);
     }
 
     private async Task<ChatterMemoryContext?> GetMemoryContext(

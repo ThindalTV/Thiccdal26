@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Remotes;
@@ -73,7 +73,7 @@ public sealed class ChatServiceCommandResponseSinkTests
 
         public List<(string Message, string? ChannelId)> Messages { get; } = [];
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }

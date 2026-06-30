@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,7 +46,7 @@ public sealed class ChatAggregationService : IChatService, IChatAggregationServi
         }
     }
 
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageReceived;
 
     public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
@@ -246,7 +246,7 @@ public sealed class ChatAggregationService : IChatService, IChatAggregationServi
                 }
 
                 OnPlatformEventReceived?.Invoke(this, chatEvent);
-                OnChatMessageRecieved?.Invoke(this, chatEvent);
+                OnChatMessageReceived?.Invoke(this, chatEvent);
                 DispatchChatEvent(chatEvent);
                 await _commandDispatcher.Dispatch(chatEvent);
                 return;

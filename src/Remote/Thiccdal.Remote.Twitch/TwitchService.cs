@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Remotes;
@@ -6,7 +6,7 @@ using Thiccdal.Infrastructure.Twitch;
 
 namespace Thiccdal.Remote.Twitch;
 
-public class TwitchService : ITwitchService, IStreamInfoProvider, IChatSource, IAsyncDisposable, IDisposable
+internal sealed class TwitchService : ITwitchService, IStreamInfoProvider, IChatSource, IAsyncDisposable, IDisposable
 {
     private readonly TwitchOptions _options;
     private readonly ITwitchTokenManager _tokenManager;
@@ -28,7 +28,7 @@ public class TwitchService : ITwitchService, IStreamInfoProvider, IChatSource, I
 
     public event EventHandler<TwitchConnectionState>? ConnectionStateChanged;
     public event EventHandler<bool>? StreamLiveStateChanged;
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageReceived;
     public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
     public bool Connected => _eventSubClient.Connected && _connectionState == TwitchConnectionState.Connected;
@@ -283,7 +283,7 @@ public class TwitchService : ITwitchService, IStreamInfoProvider, IChatSource, I
         OnPlatformEventReceived?.Invoke(this, platformEvent);
         if (platformEvent is ChatEvent chatEvent)
         {
-            OnChatMessageRecieved?.Invoke(this, chatEvent);
+            OnChatMessageReceived?.Invoke(this, chatEvent);
         }
     }
 

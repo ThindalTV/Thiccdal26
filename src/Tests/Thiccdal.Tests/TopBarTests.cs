@@ -1,4 +1,4 @@
-using Bunit;
+﻿using Bunit;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -325,7 +325,7 @@ public sealed class TopBarTests
             remove { }
         }
 
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
         {
             add { }
             remove { }

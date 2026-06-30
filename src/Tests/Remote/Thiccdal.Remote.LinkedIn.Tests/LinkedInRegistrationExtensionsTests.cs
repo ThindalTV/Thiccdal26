@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -73,7 +73,7 @@ public class LinkedInRegistrationExtensionsTests
         int connectionChanges = 0;
 
         connection.OnPlatformEventReceived += (_, _) => platformEvents++;
-        connection.OnChatMessageRecieved += (_, _) => chatEvents++;
+        connection.OnChatMessageReceived += (_, _) => chatEvents++;
         connection.ConnectionChanged += (_, _) => connectionChanges++;
 
         string authorizationUrl = connection.GetAuthorizationUrl();
