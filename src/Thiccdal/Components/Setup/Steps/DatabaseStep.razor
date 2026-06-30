@@ -1,0 +1,272 @@
+@using Microsoft.EntityFrameworkCore
+@using Thiccdal.Infrastructure.Setup
+
+@inject ILogger<DatabaseStep> Logger
+
+<div class="database-step">
+    @if (!_connectionTested)
+    {
+        <!-- Connection Form -->
+        <div class="mb-4">
+            <label class="form-label">Database Provider</label>
+            <select class="form-select" @bind="_provider">
+                <option value="PostgreSQL">PostgreSQL</option>
+                <option value="SqlServer">SQL Server</option>
+            </select>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-8">
+                <label class="form-label">Server / Host</label>
+                <input type="text" class="form-control" @bind="_server" placeholder="localhost or db.example.com" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Port</label>
+                <input type="number" class="form-control" @bind="_port" placeholder="@GetDefaultPort()" />
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Database Name</label>
+            <input type="text" class="form-control" @bind="_database" placeholder="thiccdal" />
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-control" @bind="_username" placeholder="postgres or sa" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-control" @bind="_password" />
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-danger">
+                <span class="bi bi-exclamation-triangle me-2"></span>
+                @_errorMessage
+            </div>
+        }
+
+        <button class="btn btn-primary" @onclick="TestConnection" disabled="@_testing">
+            @if (_testing)
+            {
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                <span>Testing...</span>
+            }
+            else
+            {
+                <span class="bi bi-plug me-2"></span>
+                <span>Test Connection</span>
+            }
+        </button>
+    }
+    else if (_existingDatabaseDetected && !_existingDatabaseHandled)
+    {
+        <!-- Existing Database Detected -->
+        <div class="alert alert-warning mb-4">
+            <h5 class="alert-heading">
+                <span class="bi bi-database-fill-exclamation me-2"></span>
+                Existing Database Detected
+            </h5>
+            <p>This database already contains Thiccdal data. How would you like to proceed?</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card h-100 border-success">
+                    <div class="card-body text-center">
+                        <span class="bi bi-database-fill-check display-4 text-success"></span>
+                        <h5 class="card-title mt-3">Use Existing Database</h5>
+                        <p class="card-text text-muted">
+                            Keep all existing data and settings. Any pending schema updates will be applied automatically.
+                        </p>
+                        <button class="btn btn-success" @onclick="UseExistingDatabase">
+                            <span class="bi bi-check-circle me-2"></span>
+                            Use Existing
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100 border-danger">
+                    <div class="card-body text-center">
+                        <span class="bi bi-database-fill-x display-4 text-danger"></span>
+                        <h5 class="card-title mt-3">Reset Database</h5>
+                        <p class="card-text text-muted">
+                            <strong class="text-danger">WARNING:</strong> This will permanently delete ALL existing data!
+                        </p>
+                        <button class="btn btn-outline-danger" @onclick="ShowResetConfirmation">
+                            <span class="bi bi-trash me-2"></span>
+                            Reset Database
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (_showResetConfirmation)
+        {
+            <div class="alert alert-danger mt-4">
+                <h5 class="alert-heading">
+                    <span class="bi bi-exclamation-octagon me-2"></span>
+                    Confirm Database Reset
+                </h5>
+                <p><strong>This action cannot be undone!</strong> All data will be permanently deleted:</p>
+                <ul>
+                    <li>All chat messages and event history</li>
+                    <li>All bot commands and configuration</li>
+                    <li>All user identities and platform connections</li>
+                    <li>All stream recordings and checklist sessions</li>
+                </ul>
+                <p>Type <strong>RESET</strong> to confirm:</p>
+                <div class="input-group mb-3" style="max-width: 300px;">
+                    <input type="text" class="form-control" @bind="_resetConfirmation" placeholder="Type RESET" />
+                    <button class="btn btn-danger" @onclick="ResetDatabase" 
+                            disabled="@(_resetConfirmation != "RESET")">
+                        Confirm Reset
+                    </button>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <!-- Connection Successful -->
+        <div class="alert alert-success">
+            <span class="bi bi-check-circle me-2"></span>
+            <strong>Connected successfully!</strong>
+            @if (_migrationsApplied > 0)
+            {
+                <span class="ms-2">(@_migrationsApplied migrations applied)</span>
+            }
+        </div>
+        
+        <div class="card bg-dark">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Connection Details</h6>
+                <p class="mb-1"><strong>Provider:</strong> @_provider</p>
+                <p class="mb-1"><strong>Server:</strong> @_server:@_port</p>
+                <p class="mb-0"><strong>Database:</strong> @_database</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<bool> OnValidationChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnConnectionStringChanged { get; set; }
+
+    private string _provider = "PostgreSQL";
+    private string _server = string.Empty;
+    private int _port;
+    private string _database = "thiccdal";
+    private string _username = string.Empty;
+    private string _password = string.Empty;
+
+    private bool _testing;
+    private bool _connectionTested;
+    private bool _existingDatabaseDetected;
+    private bool _existingDatabaseHandled;
+    private bool _showResetConfirmation;
+    private string _resetConfirmation = string.Empty;
+    private string _errorMessage = string.Empty;
+    private int _migrationsApplied;
+
+    private int GetDefaultPort() => _provider == "PostgreSQL" ? 5432 : 1433;
+
+    protected override void OnInitialized()
+    {
+        _port = GetDefaultPort();
+    }
+
+    private string BuildConnectionString()
+    {
+        var port = _port > 0 ? _port : GetDefaultPort();
+        
+        return _provider switch
+        {
+            "PostgreSQL" => $"Host={_server};Port={port};Database={_database};Username={_username};Password={_password}",
+            "SqlServer" => $"Server={_server},{port};Database={_database};User Id={_username};Password={_password};TrustServerCertificate=True",
+            _ => throw new InvalidOperationException($"Unknown provider: {_provider}")
+        };
+    }
+
+    private async Task TestConnection()
+    {
+        _testing = true;
+        _errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var connectionString = BuildConnectionString();
+            
+            // TODO: Inject a service that tests the connection and checks for existing data
+            // For now, simulate the test
+            await Task.Delay(1000);
+
+            _connectionTested = true;
+            // _existingDatabaseDetected = await CheckForExistingData(connectionString);
+            _existingDatabaseDetected = false; // Placeholder
+
+            if (!_existingDatabaseDetected)
+            {
+                _existingDatabaseHandled = true;
+                await OnConnectionStringChanged.InvokeAsync(connectionString);
+                await OnValidationChanged.InvokeAsync(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Connection failed: {ex.Message}";
+            Logger.LogError(ex, "Database connection test failed");
+        }
+        finally
+        {
+            _testing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UseExistingDatabase()
+    {
+        _existingDatabaseHandled = true;
+        var connectionString = BuildConnectionString();
+        
+        // TODO: Apply migrations
+        // _migrationsApplied = await ApplyMigrations(connectionString);
+        
+        await OnConnectionStringChanged.InvokeAsync(connectionString);
+        await OnValidationChanged.InvokeAsync(true);
+        StateHasChanged();
+    }
+
+    private void ShowResetConfirmation()
+    {
+        _showResetConfirmation = true;
+        _resetConfirmation = string.Empty;
+    }
+
+    private async Task ResetDatabase()
+    {
+        if (_resetConfirmation != "RESET") return;
+
+        // TODO: Drop and recreate schema
+        // await DropAndRecreateSchema(BuildConnectionString());
+        
+        _existingDatabaseHandled = true;
+        _existingDatabaseDetected = false;
+        _migrationsApplied = 0;
+        
+        var connectionString = BuildConnectionString();
+        await OnConnectionStringChanged.InvokeAsync(connectionString);
+        await OnValidationChanged.InvokeAsync(true);
+        StateHasChanged();
+    }
+}

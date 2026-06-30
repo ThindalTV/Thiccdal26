@@ -1,0 +1,47 @@
+.setup-wizard {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+.step-indicator {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+}
+
+.step-pending {
+    background-color: var(--bs-gray-700);
+    color: var(--bs-gray-400);
+}
+
+.step-active {
+    background-color: var(--bs-primary);
+    color: white;
+    box-shadow: 0 0 0 4px rgba(var(--bs-primary-rgb), 0.25);
+}
+
+.step-complete {
+    background-color: var(--bs-success);
+    color: white;
+}
+
+.card {
+    background-color: var(--bs-dark);
+    border: 1px solid var(--bs-gray-700);
+}
+
+.card-header {
+    background-color: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--bs-gray-700);
+}
+
+.card-footer {
+    background-color: rgba(0,0,0,0.1);
+    border-top: 1px solid var(--bs-gray-700);
+}
