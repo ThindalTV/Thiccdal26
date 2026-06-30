@@ -7,8 +7,9 @@ public enum WizardStep
 {
     Welcome = 0,
     Database = 1,
-    Platforms = 2,
-    AiSetup = 3,
-    BotConfig = 4,
-    Summary = 5
+    Streaming = 2,
+    Platforms = 3,
+    AiSetup = 4,
+    BotConfig = 5,
+    Summary = 6
 }

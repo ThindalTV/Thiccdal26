@@ -1,0 +1,407 @@
+@using Thiccdal.Infrastructure.Setup
+@using Thiccdal.Infrastructure.Streaming
+
+@inject ILogger<StreamingStep> Logger
+
+<div class="streaming-step">
+    <!-- Deployment Mode Selection -->
+    <div class="mb-4">
+        <label class="form-label fw-semibold">RTMP Server Deployment</label>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card h-100 @(_deploymentMode == StreamingDeploymentMode.Embedded ? "border-primary" : "")"
+                     style="cursor: pointer;"
+                     @onclick="@(() => SetDeploymentMode(StreamingDeploymentMode.Embedded))">
+                    <div class="card-body">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="deploymentMode"
+                                   checked="@(_deploymentMode == StreamingDeploymentMode.Embedded)"
+                                   @onchange="@(() => SetDeploymentMode(StreamingDeploymentMode.Embedded))" />
+                            <label class="form-check-label fw-semibold">
+                                <span class="bi bi-box-seam me-1"></span> Embedded
+                            </label>
+                        </div>
+                        <p class="text-muted small mt-2 mb-0">
+                            RTMP server runs in this container. Simplest setup — OBS connects directly to Thiccdal.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100 @(_deploymentMode == StreamingDeploymentMode.External ? "border-primary" : "")"
+                     style="cursor: pointer;"
+                     @onclick="@(() => SetDeploymentMode(StreamingDeploymentMode.External))">
+                    <div class="card-body">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="deploymentMode"
+                                   checked="@(_deploymentMode == StreamingDeploymentMode.External)"
+                                   @onchange="@(() => SetDeploymentMode(StreamingDeploymentMode.External))" />
+                            <label class="form-check-label fw-semibold">
+                                <span class="bi bi-diagram-3 me-1"></span> External
+                            </label>
+                        </div>
+                        <p class="text-muted small mt-2 mb-0">
+                            RTMP server runs separately. Better for dedicated encoding hardware or multi-host setups.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="my-4" />
+
+    @if (_deploymentMode == StreamingDeploymentMode.Embedded)
+    {
+        <!-- Embedded Mode Configuration -->
+        <div class="mb-3">
+            <label class="form-label">Ingest URL <span class="text-danger">*</span></label>
+            <input type="text" class="form-control @GetValidationClass(_ingestUrlError)"
+                   @bind="_ingestUrl"
+                   @bind:event="oninput"
+                   @onblur="ValidateIngestUrl"
+                   placeholder="rtmp://0.0.0.0:1935/live" />
+            <div class="form-text">The RTMP URL that OBS will push to. Use 0.0.0.0 to listen on all interfaces.</div>
+            @if (!string.IsNullOrEmpty(_ingestUrlError))
+            {
+                <div class="invalid-feedback d-block">@_ingestUrlError</div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- External Mode Configuration -->
+        <div class="alert alert-info mb-4">
+            <span class="bi bi-info-circle me-2"></span>
+            Configure the connection to your external RTMP server. The server must be running the Thiccdal RTMP service.
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-8">
+                <label class="form-label">External RTMP Host <span class="text-danger">*</span></label>
+                <input type="text" class="form-control @GetValidationClass(_externalHostError)"
+                       @bind="_externalHost"
+                       @bind:event="oninput"
+                       @onblur="ValidateExternalHost"
+                       placeholder="rtmp-server.local or 192.168.1.100" />
+                @if (!string.IsNullOrEmpty(_externalHostError))
+                {
+                    <div class="invalid-feedback d-block">@_externalHostError</div>
+                }
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">API Port</label>
+                <input type="number" class="form-control @GetValidationClass(_apiPortError)"
+                       @bind="_externalApiPort"
+                       @bind:event="oninput"
+                       @onblur="ValidateApiPort" />
+                @if (!string.IsNullOrEmpty(_apiPortError))
+                {
+                    <div class="invalid-feedback d-block">@_apiPortError</div>
+                }
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">API Key <span class="text-danger">*</span></label>
+            <div class="input-group">
+                <input type="@(_showApiKey ? "text" : "password")"
+                       class="form-control @GetValidationClass(_apiKeyError)"
+                       @bind="_apiKey"
+                       @bind:event="oninput"
+                       @onblur="ValidateApiKey"
+                       placeholder="Secure API key for authentication" />
+                <button class="btn btn-outline-secondary" type="button" @onclick="ToggleApiKeyVisibility">
+                    <span class="bi @(_showApiKey ? "bi-eye-slash" : "bi-eye")"></span>
+                </button>
+                <button class="btn btn-outline-secondary" type="button" @onclick="GenerateApiKey">
+                    <span class="bi bi-key me-1"></span> Generate
+                </button>
+            </div>
+            @if (!string.IsNullOrEmpty(_apiKeyError))
+            {
+                <div class="invalid-feedback d-block">@_apiKeyError</div>
+            }
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">OBS Ingest URL</label>
+            <input type="text" class="form-control @GetValidationClass(_ingestUrlError)"
+                   @bind="_ingestUrl"
+                   @bind:event="oninput"
+                   @onblur="ValidateIngestUrl"
+                   placeholder="rtmp://rtmp-server.local:1935/live" />
+            <div class="form-text">The URL OBS should push to on the external server.</div>
+            @if (!string.IsNullOrEmpty(_ingestUrlError))
+            {
+                <div class="invalid-feedback d-block">@_ingestUrlError</div>
+            }
+        </div>
+    }
+
+    <hr class="my-4" />
+
+    <!-- Recording Configuration -->
+    <h6 class="mb-3"><span class="bi bi-record-circle me-2"></span>Local Recording</h6>
+
+    <div class="mb-3">
+        <label class="form-label">Recording Output Path</label>
+        <input type="text" class="form-control @GetValidationClass(_recordingPathError)"
+               @bind="_recordingPath"
+               @bind:event="oninput"
+               @onblur="ValidateRecordingPath"
+               placeholder="/recordings or C:\Recordings" />
+        <div class="form-text">Leave empty to disable local recording.</div>
+        @if (!string.IsNullOrEmpty(_recordingPathError))
+        {
+            <div class="invalid-feedback d-block">@_recordingPathError</div>
+        }
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">FFmpeg Path <span class="text-danger">*</span></label>
+        <input type="text" class="form-control @GetValidationClass(_ffmpegPathError)"
+               @bind="_ffmpegPath"
+               @bind:event="oninput"
+               @onblur="ValidateFfmpegPath"
+               placeholder="ffmpeg or /usr/bin/ffmpeg" />
+        <div class="form-text">Path to FFmpeg executable. Just "ffmpeg" if it's in PATH.</div>
+        @if (!string.IsNullOrEmpty(_ffmpegPathError))
+        {
+            <div class="invalid-feedback d-block">@_ffmpegPathError</div>
+        }
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">BRB Slate Path</label>
+        <input type="text" class="form-control @GetValidationClass(_brbSlatePathError)"
+               @bind="_brbSlatePath"
+               @bind:event="oninput"
+               @onblur="ValidateBrbSlatePath"
+               placeholder="/media/brb.png or leave empty" />
+        <div class="form-text">Image or video to show when OBS disconnects. Optional.</div>
+        @if (!string.IsNullOrEmpty(_brbSlatePathError))
+        {
+            <div class="invalid-feedback d-block">@_brbSlatePathError</div>
+        }
+    </div>
+
+    <div class="form-check mb-4">
+        <input class="form-check-input" type="checkbox" id="startWithHost" @bind="_startWithHost" />
+        <label class="form-check-label" for="startWithHost">
+            Start streaming services automatically when Thiccdal starts
+        </label>
+    </div>
+
+    @if (_configSaved)
+    {
+        <div class="alert alert-success">
+            <span class="bi bi-check-circle me-2"></span>
+            Streaming configuration saved successfully.
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<bool> OnValidationChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<StreamingStepData> OnDataChanged { get; set; }
+
+    private StreamingDeploymentMode _deploymentMode = StreamingDeploymentMode.Embedded;
+    private string _ingestUrl = "rtmp://0.0.0.0:1935/live";
+    private string _externalHost = string.Empty;
+    private int _externalApiPort = 5100;
+    private string _apiKey = string.Empty;
+    private bool _showApiKey;
+    private string _recordingPath = string.Empty;
+    private string _ffmpegPath = "ffmpeg";
+    private string _brbSlatePath = string.Empty;
+    private bool _startWithHost;
+    private bool _configSaved;
+
+    private string? _ingestUrlError;
+    private string? _externalHostError;
+    private string? _apiPortError;
+    private string? _apiKeyError;
+    private string? _recordingPathError;
+    private string? _ffmpegPathError;
+    private string? _brbSlatePathError;
+
+    protected override void OnInitialized()
+    {
+        ValidateAll();
+    }
+
+    private void SetDeploymentMode(StreamingDeploymentMode mode)
+    {
+        _deploymentMode = mode;
+        _configSaved = false;
+        ValidateAll();
+        NotifyDataChanged();
+    }
+
+    private void ToggleApiKeyVisibility()
+    {
+        _showApiKey = !_showApiKey;
+    }
+
+    private void GenerateApiKey()
+    {
+        _apiKey = Convert.ToBase64String(Guid.NewGuid().ToByteArray()) +
+                  Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        _apiKey = _apiKey.Replace("+", "").Replace("/", "").Replace("=", "")[..32];
+        ValidateApiKey();
+        NotifyDataChanged();
+    }
+
+    private void ValidateIngestUrl()
+    {
+        StreamingConfigValidator.ValidateIngestUrl(_ingestUrl, out _ingestUrlError);
+        NotifyValidationChanged();
+    }
+
+    private void ValidateExternalHost()
+    {
+        if (_deploymentMode == StreamingDeploymentMode.External)
+        {
+            StreamingConfigValidator.ValidateExternalHost(_externalHost, out _externalHostError);
+        }
+        else
+        {
+            _externalHostError = null;
+        }
+        NotifyValidationChanged();
+    }
+
+    private void ValidateApiPort()
+    {
+        if (_deploymentMode == StreamingDeploymentMode.External)
+        {
+            StreamingConfigValidator.ValidateApiPort(_externalApiPort, out _apiPortError);
+        }
+        else
+        {
+            _apiPortError = null;
+        }
+        NotifyValidationChanged();
+    }
+
+    private void ValidateApiKey()
+    {
+        if (_deploymentMode == StreamingDeploymentMode.External)
+        {
+            StreamingConfigValidator.ValidateApiKey(_apiKey, out _apiKeyError);
+        }
+        else
+        {
+            _apiKeyError = null;
+        }
+        NotifyValidationChanged();
+    }
+
+    private void ValidateRecordingPath()
+    {
+        StreamingConfigValidator.ValidateRecordingPath(_recordingPath, isRequired: false, out _recordingPathError);
+        NotifyValidationChanged();
+    }
+
+    private void ValidateFfmpegPath()
+    {
+        StreamingConfigValidator.ValidateFfmpegPath(_ffmpegPath, out _ffmpegPathError);
+        NotifyValidationChanged();
+    }
+
+    private void ValidateBrbSlatePath()
+    {
+        StreamingConfigValidator.ValidateBrbSlatePath(_brbSlatePath, out _brbSlatePathError);
+        NotifyValidationChanged();
+    }
+
+    private void ValidateAll()
+    {
+        ValidateIngestUrl();
+        ValidateExternalHost();
+        ValidateApiPort();
+        ValidateApiKey();
+        ValidateRecordingPath();
+        ValidateFfmpegPath();
+        ValidateBrbSlatePath();
+    }
+
+    private bool IsValid()
+    {
+        bool baseValid = string.IsNullOrEmpty(_ingestUrlError) &&
+                         string.IsNullOrEmpty(_recordingPathError) &&
+                         string.IsNullOrEmpty(_ffmpegPathError) &&
+                         string.IsNullOrEmpty(_brbSlatePathError);
+
+        if (_deploymentMode == StreamingDeploymentMode.External)
+        {
+            return baseValid &&
+                   string.IsNullOrEmpty(_externalHostError) &&
+                   string.IsNullOrEmpty(_apiPortError) &&
+                   string.IsNullOrEmpty(_apiKeyError);
+        }
+
+        return baseValid;
+    }
+
+    private void NotifyValidationChanged()
+    {
+        OnValidationChanged.InvokeAsync(IsValid());
+    }
+
+    private void NotifyDataChanged()
+    {
+        var data = new StreamingStepData(
+            _deploymentMode,
+            _ingestUrl,
+            _externalHost,
+            _externalApiPort,
+            _apiKey,
+            _recordingPath,
+            _ffmpegPath,
+            _brbSlatePath,
+            _startWithHost);
+        OnDataChanged.InvokeAsync(data);
+    }
+
+    private string GetValidationClass(string? error)
+    {
+        return string.IsNullOrEmpty(error) ? "" : "is-invalid";
+    }
+
+    public StreamingStepData GetData() => new(
+        _deploymentMode,
+        _ingestUrl,
+        _externalHost,
+        _externalApiPort,
+        _apiKey,
+        _recordingPath,
+        _ffmpegPath,
+        _brbSlatePath,
+        _startWithHost);
+
+    public void LoadData(StreamingStepData data)
+    {
+        _deploymentMode = data.DeploymentMode;
+        _ingestUrl = data.IngestUrl;
+        _externalHost = data.ExternalHost;
+        _externalApiPort = data.ExternalApiPort;
+        _apiKey = data.ApiKey;
+        _recordingPath = data.RecordingPath;
+        _ffmpegPath = data.FfmpegPath;
+        _brbSlatePath = data.BrbSlatePath;
+        _startWithHost = data.StartWithHost;
+        ValidateAll();
+        StateHasChanged();
+    }
+
+    public void MarkSaved()
+    {
+        _configSaved = true;
+        StateHasChanged();
+    }
+}
