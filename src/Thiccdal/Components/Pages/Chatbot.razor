@@ -119,11 +119,27 @@
                     </div>
 
                     <div class="mt-3">
+                        <div class="alert alert-warning mb-2" role="alert">
+                            <strong>Security Note:</strong> The application is unsigned. Windows SmartScreen will show 
+                            "Windows protected your PC" on first run. Click <em>More info</em> → <em>Run anyway</em> to proceed.
+                        </div>
                         <small class="text-muted">
-                            <strong>Setup:</strong> Download both files to the same folder. The configuration file points to this server
-                            (<code>@GetServerUrl()</code>). Edit <code>displayconfig.json</code> to customize hotkeys, monitor index, or OBS settings.
+                            <strong>Setup:</strong> Download the EXE and configuration file to the same folder. 
+                            The configuration points to this server (<code>@GetServerUrl()</code>).
+                            Edit <code>displayconfig.json</code> to customize monitor index, hotkeys, or OBS settings.
                         </small>
                     </div>
+
+                    <details class="mt-3">
+                        <summary class="text-muted" style="cursor: pointer;">Requirements &amp; Features</summary>
+                        <ul class="mt-2 mb-0 small text-muted">
+                            <li><strong>Windows 10/11 (x64)</strong> with multiple monitors</li>
+                            <li><strong>WebView2 Runtime</strong> (pre-installed on Windows 10/11)</li>
+                            <li><strong>Toggle hotkey:</strong> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> (configurable)</li>
+                            <li><strong>OBS integration:</strong> Auto-starts when you go live (requires OBS WebSocket)</li>
+                            <li><strong>Mouse blocking:</strong> Cursor cannot enter teleprompter screen while active</li>
+                        </ul>
+                    </details>
                 </div>
             </div>
         </div>

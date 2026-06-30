@@ -32,7 +32,4 @@
     <ProjectReference Include="..\Thiccdal.AI\Thiccdal.AI.csproj" />
   </ItemGroup>
 
-  <!-- Teleprompter Display EXE is published separately and copied to wwwroot/downloads -->
-  <!-- Run: dotnet publish ../Tools/Thiccdal.Teleprompter.Display -c Release -o wwwroot/downloads -->
-
 </Project>
