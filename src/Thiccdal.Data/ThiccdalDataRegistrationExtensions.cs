@@ -7,6 +7,7 @@ using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Streaming;
+using Thiccdal.Infrastructure.Setup;
 using Thiccdal.Infrastructure.YouTube;
 
 namespace Thiccdal.Data;
@@ -37,7 +38,22 @@ public static class ThiccdalDataRegistrationExtensions
                     .GetRequiredService<IOptions<ConnectionStringsOptions>>()
                     .Value;
 
-                options.UseSqlite(connectionStrings.DefaultConnection);
+                string connectionString = connectionStrings.DefaultConnection;
+                DatabaseProviderDetector.DatabaseProvider provider = DatabaseProviderDetector.Detect(connectionString);
+
+                switch (provider)
+                {
+                    case DatabaseProviderDetector.DatabaseProvider.PostgreSQL:
+                        options.UseNpgsql(connectionString);
+                        break;
+                    case DatabaseProviderDetector.DatabaseProvider.SqlServer:
+                        options.UseSqlServer(connectionString);
+                        break;
+                    case DatabaseProviderDetector.DatabaseProvider.SQLite:
+                    default:
+                        options.UseSqlite(connectionString);
+                        break;
+                }
             });
 
         services.TryAddSingleton<TimeProvider>(TimeProvider.System);
@@ -58,6 +74,8 @@ public static class ThiccdalDataRegistrationExtensions
             static serviceProvider => (IRestreamSettingsAccessor)serviceProvider.GetRequiredService<IRestreamRuntimeService>());
         services.AddSingleton<IEventBus, EventBus>();
         services.AddSingleton<IPlatformEventPump, PlatformEventPump>();
+        services.AddScoped<ISetupStateService, SetupStateService>();
+        services.AddScoped<IConfigurationPersistenceService, ConfigurationPersistenceService>();
 
         return services;
     }
