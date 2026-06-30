@@ -10,8 +10,6 @@ public class TwitchServiceTests
     private readonly AutoMocker _mocker = new AutoMocker();
     private readonly TwitchOptions _options = new TwitchOptions
     {
-        Channel = "testchannel",
-        Username = "testbot",
         ClientId = "id",
         ClientSecret = "secret",
         RedirectUri = "https://localhost/callback"

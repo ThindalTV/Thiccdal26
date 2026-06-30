@@ -19,8 +19,6 @@ public class TwitchTokenManagerTests : IDisposable
     {
         ClientId = "test-client-id",
         ClientSecret = "test-client-secret",
-        Channel = "testchannel",
-        Username = "testbot",
         RedirectUri = "https://localhost/callback"
     };
 
