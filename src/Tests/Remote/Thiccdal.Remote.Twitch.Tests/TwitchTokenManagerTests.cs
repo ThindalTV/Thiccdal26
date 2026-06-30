@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
-using Moq.AutoMock;
 using Thiccdal.Data;
 using Thiccdal.Data.Models;
 using Thiccdal.Infrastructure.Twitch;
@@ -14,7 +14,6 @@ namespace Thiccdal.Remote.Twitch.Tests;
 public class TwitchTokenManagerTests : IDisposable
 {
     private readonly string _dbName = Guid.NewGuid().ToString();
-    private readonly AutoMocker _mocker = new AutoMocker();
     private readonly TwitchOptions _options = new TwitchOptions
     {
         ClientId = "test-client-id",
@@ -24,15 +23,9 @@ public class TwitchTokenManagerTests : IDisposable
 
     private FakeHttpMessageHandler _httpHandler = new FakeHttpMessageHandler(HttpStatusCode.OK, "{}");
 
-    public TwitchTokenManagerTests()
-    {
-        _mocker.Use(Options.Create(_options));
-        _mocker.Use<IDbContextFactory<ApplicationDbContext>>(new InMemoryDbContextFactory(_dbName));
-    }
-
     private TwitchTokenManager BuildManager()
     {
-        var httpClientFactory = _mocker.GetMock<IHttpClientFactory>();
+        Mock<IHttpClientFactory> httpClientFactory = new Mock<IHttpClientFactory>();
         httpClientFactory
             .Setup(f => f.CreateClient(TwitchClientNames.OAuth))
             .Returns(new HttpClient(_httpHandler));
@@ -40,7 +33,11 @@ public class TwitchTokenManagerTests : IDisposable
             .Setup(f => f.CreateClient(TwitchClientNames.Helix))
             .Returns(new HttpClient(new FakeHttpMessageHandler(HttpStatusCode.OK, "{}")));
 
-        return _mocker.CreateInstance<TwitchTokenManager>();
+        return new TwitchTokenManager(
+            Options.Create(_options),
+            NullLogger<TwitchTokenManager>.Instance,
+            httpClientFactory.Object,
+            new InMemoryDbContextFactory(_dbName));
     }
 
     private ApplicationDbContext CreateSeedContext() =>
