@@ -16,7 +16,7 @@ public sealed class ChatBotAiResponderTests
         StubChatterMemoryService memoryService = new();
         ChatBotAiResponder responder = CreateResponder(client, memoryService);
 
-        string? response = await responder.TryRespond(CreateChatEvent("Hey Thiccdal, what's up?"));
+        string? response = await responder.TryRespond(CreateChatEvent("@Thiccdal what's up?"));
 
         Assert.Equal("Short reply", response);
         Assert.Equal(1, client.CallCount);
@@ -55,7 +55,7 @@ public sealed class ChatBotAiResponderTests
         ThrowingChatCompletionClient client = new();
         ChatBotAiResponder responder = CreateResponder(client);
 
-        string? response = await responder.TryRespond(CreateChatEvent("thiccdal, summarize that"));
+        string? response = await responder.TryRespond(CreateChatEvent("@thiccdal summarize that"));
 
         Assert.Null(response);
     }
@@ -68,7 +68,8 @@ public sealed class ChatBotAiResponderTests
             new ChatterMemoryContext(
                 "Viewer",
                 new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc),
-                ["likes soulslikes", "recent topics: speedruns"]));
+                ["likes soulslikes", "recent topics: speedruns"],
+                SentimentLabel.Unknown));
         ChatBotAiResponder responder = CreateResponder(client, memoryService);
 
         await responder.TryRespond(CreateChatEvent("@Thiccdal remember me?"));
@@ -86,13 +87,50 @@ public sealed class ChatBotAiResponderTests
             new ChatterMemoryContext(
                 "Viewer",
                 new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc),
-                ["likes soulslikes"]));
+                ["likes soulslikes"],
+                SentimentLabel.Unknown));
         ChatBotAiResponder responder = CreateResponder(client, memoryService, chatterMemoryEnabled: false);
 
         await responder.TryRespond(CreateChatEvent("@Thiccdal remember me?"));
 
         Assert.Equal(0, memoryService.CallCount);
         Assert.Equal(2, client.LastRequest?.Messages.Count);
+    }
+
+    [Fact]
+    public async Task WhenMessageContainsAtMention_ThenResponderIsTriggered()
+    {
+        StubChatCompletionClient client = new(new AiChatCompletionResult("Hey!", "local-model", "stop"));
+        ChatBotAiResponder responder = CreateResponder(client);
+
+        string? response = await responder.TryRespond(CreateChatEvent("@Thiccdal what's up?"));
+
+        Assert.Equal("Hey!", response);
+        Assert.Equal(1, client.CallCount);
+    }
+
+    [Fact]
+    public async Task WhenMessageContainsBotNameWithoutAt_ThenResponderIsNotTriggered()
+    {
+        StubChatCompletionClient client = new(new AiChatCompletionResult("Should not send", "local-model", "stop"));
+        ChatBotAiResponder responder = CreateResponder(client);
+
+        string? response = await responder.TryRespond(CreateChatEvent("I like Thiccdal"));
+
+        Assert.Null(response);
+        Assert.Equal(0, client.CallCount);
+    }
+
+    [Fact]
+    public async Task WhenMessageContainsBotNameMidWord_ThenResponderIsNotTriggered()
+    {
+        StubChatCompletionClient client = new(new AiChatCompletionResult("Should not send", "local-model", "stop"));
+        ChatBotAiResponder responder = CreateResponder(client);
+
+        string? response = await responder.TryRespond(CreateChatEvent("hithiccdal"));
+
+        Assert.Null(response);
+        Assert.Equal(0, client.CallCount);
     }
 
     private static ChatBotAiResponder CreateResponder(

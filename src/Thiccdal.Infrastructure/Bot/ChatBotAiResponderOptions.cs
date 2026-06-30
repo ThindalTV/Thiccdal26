@@ -36,6 +36,11 @@ public sealed class ChatBotAiResponderOptions
     public double Temperature { get; set; } = 0.3d;
 
     /// <summary>
+    /// Gets or sets a value indicating whether chatter sentiment is analysed and used to adjust AI reply tone.
+    /// </summary>
+    public bool SentimentEnabled { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the safety-minded system prompt used for mention-triggered replies.
     /// </summary>
     public string SystemPrompt { get; set; } =

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +13,8 @@ namespace Thiccdal.Data;
 /// </summary>
 public sealed class EventBus : IEventBus
 {
+    private static readonly ActivitySource _activitySource = new ActivitySource("Thiccdal.EventBus");
+
     private readonly ConcurrentDictionary<Guid, Channel<PlatformEvent>> _subscribers = new();
     private readonly IServiceScopeFactory _serviceScopeFactory;
 
@@ -24,6 +27,10 @@ public sealed class EventBus : IEventBus
     public async Task Publish(PlatformEvent platformEvent, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(platformEvent);
+
+        using Activity? activity = _activitySource.StartActivity("EventBus.Publish");
+        activity?.SetTag("event.type", platformEvent.GetType().Name);
+        activity?.SetTag("event.platform", platformEvent.Source.ToString());
 
         using IServiceScope scope = _serviceScopeFactory.CreateScope();
         IEventPersistenceService persistenceService = scope.ServiceProvider.GetRequiredService<IEventPersistenceService>();

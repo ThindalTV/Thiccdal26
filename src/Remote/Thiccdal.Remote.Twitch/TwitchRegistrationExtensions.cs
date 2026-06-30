@@ -89,6 +89,8 @@ public static class TwitchRegistrationExtensions
                     static (builder, context) => builder.AddRetry(CreateRetryStrategyOptions(context, "Twitch Helix", 5)));
 
             services.AddSingleton<ITwitchTokenManager, TwitchTokenManager>();
+            services.AddSingleton<IEmoteRenderingOptions>(sp =>
+                new EmoteRenderingOptions(sp.GetRequiredService<IOptions<TwitchEventSubOptions>>().Value.UseAnimatedEmotes));
             services.AddSingleton<ITwitchHelixClient, TwitchHelixClient>();
             services.AddSingleton<TwitchEventSubNotificationMapper>();
             services.AddSingleton<ITwitchEventSubClient, TwitchEventSubClient>();
@@ -107,6 +109,10 @@ public static class TwitchRegistrationExtensions
             services.AddSingleton<TwitchConnectionMonitor>();
             services.AddSingleton<ITwitchConnectionMonitor>(sp => sp.GetRequiredService<TwitchConnectionMonitor>());
             services.AddSingleton<IIntegrationConnectionMonitor>(sp => sp.GetRequiredService<TwitchConnectionMonitor>());
+
+            services.AddSingleton<TwitchStreamInfoService>();
+            services.AddSingleton<ITwitchStreamInfoService>(sp => sp.GetRequiredService<TwitchStreamInfoService>());
+            services.AddHostedService(static sp => sp.GetRequiredService<TwitchStreamInfoService>());
 
             return services;
         }

@@ -34,7 +34,7 @@ public class TwitchHelixClientTests
     [Fact]
     public async Task WhenHelixReturnsStreamData_ThenStreamStateIsLive()
     {
-        var client = CreateClient(new CapturingMessageHandler("""{"data":[{"id":"stream-1","title":"Thiccdal Live","game_name":"Science & Technology","tags":["dotnet","blazor"],"started_at":"2024-06-01T14:00:00Z"}]}"""));
+        var client = CreateClient(new CapturingMessageHandler("""{"data":[{"id":"stream-1","title":"Thiccdal Live","game_name":"Science & Technology","tags":["dotnet","blazor"],"started_at":"2024-06-01T14:00:00Z","viewer_count":0}]}"""));
 
         TwitchStreamState state = await client.GetStreamState(new TwitchChatConnectionProfile
         {
@@ -52,8 +52,24 @@ public class TwitchHelixClientTests
     }
 
     [Fact]
-    public async Task WhenSendingChatMessage_ThenPostsBroadcasterAndSenderIds()
+    public async Task WhenGetStreamState_ThenViewerCountIsPopulated()
     {
+        var client = CreateClient(new CapturingMessageHandler("""{"data":[{"id":"stream-1","title":"Test Stream","game_name":"Just Chatting","tags":[],"started_at":"2024-06-01T14:00:00Z","viewer_count":1234}]}"""));
+
+        TwitchStreamState state = await client.GetStreamState(new TwitchChatConnectionProfile
+        {
+            BotUsername = "riverbot",
+            BotUserId = "24680",
+            TargetChannel = "thindal",
+            BroadcasterId = "12345"
+        });
+
+        Assert.True(state.IsLive);
+        Assert.Equal(1234, state.ViewerCount);
+    }
+
+    [Fact]
+    public async Task WhenSendingChatMessage_ThenPostsBroadcasterAndSenderIds()    {
         var messageHandler = new CapturingMessageHandler("""{"data":[{"message_id":"message-1","is_sent":true,"drop_reason":null}]}""");
         var client = CreateClient(messageHandler);
 

@@ -72,6 +72,9 @@ public static class Extensions
             .WithTracing(tracing =>
             {
                 tracing.AddSource(builder.Environment.ApplicationName)
+                    .AddSource("Thiccdal.EventBus")
+                    .AddSource("Thiccdal.EventPersistence")
+                    .AddSource("Thiccdal.ChatPersistence")
                     .AddAspNetCoreInstrumentation(options =>
                     {
                         options.Filter = context => !IsHealthEndpointRequest(context.Request.Path);

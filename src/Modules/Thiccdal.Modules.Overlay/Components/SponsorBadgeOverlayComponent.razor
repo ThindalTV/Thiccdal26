@@ -1,0 +1,37 @@
+@using Thiccdal.Infrastructure.Sponsors
+@implements IDisposable
+
+@inject ISponsorshipService SponsorshipService
+
+@if (_config?.HasSponsor == true && !string.IsNullOrWhiteSpace(_config.OverlayTitle))
+{
+    <div class="sponsor-badge">
+        <span class="sponsor-badge__label">Sponsored by</span>
+        @if (!string.IsNullOrWhiteSpace(_config.OverlayImageUrl))
+        {
+            <img class="sponsor-badge__logo" src="@_config.OverlayImageUrl" alt="@_config.OverlayTitle" />
+        }
+        <span class="sponsor-badge__title">@_config.OverlayTitle</span>
+    </div>
+}
+
+@code {
+    private SponsorConfig? _config;
+
+    protected override void OnInitialized()
+    {
+        _config = SponsorshipService.Config;
+        SponsorshipService.StateChanged += HandleStateChanged;
+    }
+
+    private void HandleStateChanged(object? sender, EventArgs e)
+    {
+        _config = SponsorshipService.Config;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        SponsorshipService.StateChanged -= HandleStateChanged;
+    }
+}

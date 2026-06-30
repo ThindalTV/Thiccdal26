@@ -142,7 +142,8 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
             Tags = stream?.Tags?
                 .Where(static tag => !string.IsNullOrWhiteSpace(tag))
                 .ToArray() ?? [],
-            StartedAt = stream?.StartedAt
+            StartedAt = stream?.StartedAt,
+            ViewerCount = stream?.ViewerCount ?? 0
         };
     }
 
@@ -343,7 +344,8 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
         [property: JsonPropertyName("title")] string? Title,
         [property: JsonPropertyName("game_name")] string? GameName,
         [property: JsonPropertyName("tags")] IReadOnlyList<string>? Tags,
-        [property: JsonPropertyName("started_at")] DateTimeOffset? StartedAt);
+        [property: JsonPropertyName("started_at")] DateTimeOffset? StartedAt,
+        [property: JsonPropertyName("viewer_count")] int ViewerCount);
 
     private sealed record HelixEventSubSubscriptionsResponse(
         [property: JsonPropertyName("data")] IReadOnlyList<HelixEventSubSubscriptionData>? Data);

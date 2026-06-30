@@ -9,7 +9,7 @@
 
 .prompter-heading {
     position: absolute;
-    top: 24px;
+    top: 76px;
     left: 24px;
     right: 24px;
     display: flex;
@@ -52,7 +52,7 @@
 
 .prompter-content {
     position: absolute;
-    top: 148px;
+    top: 200px;
     bottom: 0;
     left: 0;
     right: 0;

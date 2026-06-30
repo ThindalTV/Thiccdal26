@@ -23,6 +23,7 @@
   <Folder Name="/src/Remote/">
     <Project Path="src/Remote/Thiccdal.Remote.Discord/Thiccdal.Remote.Discord.csproj" Id="f9ecf747-5d8a-4ea7-8651-0ad14282523d" />
     <Project Path="src/Remote/Thiccdal.Remote.Facebook/Thiccdal.Remote.Facebook.csproj" Id="b6bbc186-ed62-47c4-b59c-31452d1770af" />
+    <Project Path="src/Remote/Thiccdal.Remote.Instagram/Thiccdal.Remote.Instagram.csproj" />
     <Project Path="src/Remote/Thiccdal.Remote.LinkedIn/Thiccdal.Remote.LinkedIn.csproj" />
     <Project Path="src/Remote/Thiccdal.Remote.LMStudio/Thiccdal.Remote.LMStudio.csproj" />
     <Project Path="src/Remote/Thiccdal.Remote.Null/Thiccdal.Remote.Null.csproj" Id="6122ec03-595d-4ab3-bdc0-95e88cdf540b" />
@@ -44,6 +45,7 @@
     <Project Path="src/Tests/Modules/Thiccdal.Modules.Teleprompter.Tests/Thiccdal.Modules.Teleprompter.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Tests/Remote/">
+    <Project Path="src/Tests/Remote/Thiccdal.Remote.Instagram.Tests/Thiccdal.Remote.Instagram.Tests.csproj" />
     <Project Path="src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/Thiccdal.Remote.Twitch.Tests.csproj" Id="34ac27cc-0c68-40db-937e-66539374ef8e" />
   </Folder>
   <!-- Teleprompter Display is excluded from main solution (Windows-only, built separately) -->

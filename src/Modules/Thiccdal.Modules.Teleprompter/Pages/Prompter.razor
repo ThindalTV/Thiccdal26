@@ -4,6 +4,7 @@
 @using Thiccdal.Infrastructure.Operators
 @using Thiccdal.Infrastructure.Questions
 @using Thiccdal.Infrastructure.Remotes
+@using Thiccdal.Infrastructure.Sponsors
 @using Microsoft.JSInterop
 @using Thiccdal.Modules.Teleprompter.Components
 @using Thiccdal.Modules.Teleprompter.Models
@@ -32,6 +33,8 @@
     {
         <div class="prompter-flash prompter-flash--event"></div>
     }
+
+    <SponsorBar />
 
     <header class="prompter-heading">
         <span class="prompter-heading__label">Staged Stream Title</span>

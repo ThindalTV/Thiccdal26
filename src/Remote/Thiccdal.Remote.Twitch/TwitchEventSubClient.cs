@@ -78,7 +78,17 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
 
     public async ValueTask DisposeAsync()
     {
-        await Disconnect();
+        // Use a generous timeout so callers are not blocked indefinitely if a reconnect is in progress.
+        using CancellationTokenSource disposeCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try
+        {
+            await Disconnect(disposeCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("TwitchEventSubClient disposal timed out waiting to acquire the connection gate");
+        }
+
         _connectionGate.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -88,9 +98,9 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
-    private async Task ConnectCore(string webSocketUrl, TwitchChatConnectionProfile profile, bool subscribe, CancellationToken cancellationToken)
+    private async Task ConnectCore(string webSocketUrl, TwitchChatConnectionProfile profile, bool subscribe, CancellationToken cancellationToken, bool calledFromListenTask = false)
     {
-        await DisconnectCore(cancellationToken);
+        await DisconnectCore(cancellationToken, awaitListenTask: !calledFromListenTask);
 
         ClientWebSocket socket = new();
         await socket.ConnectAsync(new Uri(webSocketUrl, UriKind.Absolute), cancellationToken);
@@ -165,7 +175,12 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
                             await _connectionGate.WaitAsync(cancellationToken);
                             try
                             {
-                                await ConnectCore(reconnectUrl, profile, subscribe: false, cancellationToken);
+                                // CancellationToken.None would be cancelled by DisconnectCore (which cancels
+                                // _listenCancellation, the same source as `cancellationToken`). Use a fresh
+                                // timeout-bounded token so the reconnect attempt can be cancelled independently.
+                                using CancellationTokenSource reconnectCts = new CancellationTokenSource(
+                                    TimeSpan.FromSeconds(60));
+                                await ConnectCore(reconnectUrl, profile, subscribe: false, reconnectCts.Token, calledFromListenTask: true);
                             }
                             finally
                             {
@@ -202,7 +217,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         }
     }
 
-    private async Task DisconnectCore(CancellationToken cancellationToken)
+    private async Task DisconnectCore(CancellationToken cancellationToken, bool awaitListenTask = true)
     {
         CancellationTokenSource? listenCancellation = _listenCancellation;
         Task? listenTask = _listenTask;
@@ -229,7 +244,10 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
             socket.Dispose();
         }
 
-        if (listenTask != null && listenTask.Id != Task.CurrentId)
+        // Skip awaiting the listen task when DisconnectCore is called from within the listen task
+        // itself (e.g. during session_reconnect handling). Task.CurrentId is unreliable in async
+        // continuations, so callers must pass awaitListenTask=false to signal this.
+        if (awaitListenTask && listenTask != null)
         {
             try
             {

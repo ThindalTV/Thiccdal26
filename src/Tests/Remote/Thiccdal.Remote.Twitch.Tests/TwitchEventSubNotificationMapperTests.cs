@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Twitch;
 using Thiccdal.Remote.Twitch;
@@ -298,12 +297,6 @@ public class TwitchEventSubNotificationMapperTests
     private static TwitchEventSubNotificationMapper CreateMapper(bool animatedEmotes = false)
     {
         return new TwitchEventSubNotificationMapper(
-            Options.Create(new TwitchOptions
-            {
-                EventSub = new TwitchEventSubOptions
-                {
-                    UseAnimatedEmotes = animatedEmotes
-                }
-            }));
+            new EmoteRenderingOptions(animatedEmotes));
     }
 }

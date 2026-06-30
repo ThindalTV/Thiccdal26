@@ -13,6 +13,7 @@ public static class OverlayRegistrationExtension
         services.AddSingleton<IOverlayComponent>(new TestableOverlayComponentRegistration("Chat Feed", typeof(ChatFeedOverlayComponent)));
         services.AddSingleton<IOverlayComponent>(new TestableOverlayComponentRegistration("Event Ticker", typeof(EventTickerOverlayComponent)));
         services.AddSingleton<IOverlayComponent>(new TestableOverlayComponentRegistration("Lower Third", typeof(LowerThirdOverlayComponent)));
+        services.AddSingleton<IOverlayComponent>(new TestableOverlayComponentRegistration("Sponsor Badge", typeof(SponsorBadgeOverlayComponent)));
         services.AddSingleton<IOverlayService>(
             static serviceProvider => new OverlayService(serviceProvider.GetServices<IOverlayComponent>()));
         services.AddSingleton<IPlatformManualReminderProvider, PlatformManualReminderProvider>();
