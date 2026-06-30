@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Facebook;
@@ -36,7 +36,7 @@ public class FacebookService : IFacebookService, IAsyncDisposable, IDisposable
 
     public event EventHandler<FacebookConnectionState>? ConnectionStateChanged;
     public event EventHandler<bool>? StreamLiveStateChanged;
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageReceived;
     public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
     public FacebookService(
@@ -450,7 +450,7 @@ public class FacebookService : IFacebookService, IAsyncDisposable, IDisposable
 
         if (platformEvent is ChatEvent chatEvent)
         {
-            OnChatMessageRecieved?.Invoke(this, chatEvent);
+            OnChatMessageReceived?.Invoke(this, chatEvent);
         }
     }
 

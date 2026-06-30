@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Instagram;
@@ -40,7 +40,7 @@ public sealed class InstagramService : IPlatformConnection, IIntegrationConnecti
 
     public bool IsConnected => _options.IsEnabled;
 
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved
+    public event EventHandler<ChatEvent>? OnChatMessageReceived
     {
         add { }
         remove { }

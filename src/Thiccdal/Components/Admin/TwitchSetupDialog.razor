@@ -1,4 +1,4 @@
-@*
+﻿@*
     Twitch full setup dialog (modal).
     Handles target channel configuration, authorization, and IRC connection inline.
 *@
@@ -247,7 +247,7 @@
     protected override async Task OnInitializedAsync()
     {
         TwitchService.ConnectionStateChanged += HandleConnectionStateChanged;
-        TwitchService.OnChatMessageRecieved += HandleMessage;
+        TwitchService.OnChatMessageReceived += HandleMessage;
 
         await RefreshConnectionProfile();
         await TwitchService.RefreshConnectionState(_cts.Token);
@@ -526,7 +526,7 @@
     public async ValueTask DisposeAsync()
     {
         TwitchService.ConnectionStateChanged -= HandleConnectionStateChanged;
-        TwitchService.OnChatMessageRecieved -= HandleMessage;
+        TwitchService.OnChatMessageReceived -= HandleMessage;
         await _cts.CancelAsync();
         _cts.Dispose();
     }

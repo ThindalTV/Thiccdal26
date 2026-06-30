@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using Microsoft.Extensions.Logging;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Remotes;
@@ -57,7 +57,7 @@ public class XServiceTests
         FakeEventBus eventBus = new();
         XService service = XTestSupport.CreateService(apiClient: apiClient, eventBus: eventBus);
         ChatEvent? capturedEvent = null;
-        service.OnChatMessageRecieved += (_, chatEvent) => capturedEvent = chatEvent;
+        service.OnChatMessageReceived += (_, chatEvent) => capturedEvent = chatEvent;
 
         await service.Connect();
         await service.PollReplies();
@@ -98,7 +98,7 @@ public class XServiceTests
 
         XService service = XTestSupport.CreateService(apiClient: apiClient);
         ChatEvent? capturedEvent = null;
-        service.OnChatMessageRecieved += (_, chatEvent) => capturedEvent = chatEvent;
+        service.OnChatMessageReceived += (_, chatEvent) => capturedEvent = chatEvent;
 
         await service.Connect();
         await service.PollReplies();

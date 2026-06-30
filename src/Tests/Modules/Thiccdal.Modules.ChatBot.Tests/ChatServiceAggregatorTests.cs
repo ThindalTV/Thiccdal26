@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Thiccdal.Infrastructure.Bot;
@@ -39,7 +39,7 @@ public class ChatServiceAggregatorTests
         var source = new Mock<IPlatformConnection>();
         using var aggregator = BuildService(source.Object);
         ChatEvent? received = null;
-        aggregator.OnChatMessageRecieved += (_, e) => received = e;
+        aggregator.OnChatMessageReceived += (_, e) => received = e;
 
         source.Raise(s => s.OnPlatformEventReceived += null, this, MakeChatEvent());
 
@@ -54,7 +54,7 @@ public class ChatServiceAggregatorTests
         var source2 = new Mock<IPlatformConnection>();
         using var aggregator = BuildService(source1.Object, source2.Object);
         var received = new List<ChatEvent>();
-        aggregator.OnChatMessageRecieved += (_, e) => received.Add(e);
+        aggregator.OnChatMessageReceived += (_, e) => received.Add(e);
 
         source1.Raise(s => s.OnPlatformEventReceived += null, this, MakeChatEvent());
         source2.Raise(s => s.OnPlatformEventReceived += null, this, MakeChatEvent());
@@ -158,7 +158,7 @@ public class ChatServiceAggregatorTests
         var source = new Mock<IPlatformConnection>();
         var aggregator = BuildService(source.Object);
         int eventCount = 0;
-        aggregator.OnChatMessageRecieved += (_, _) => eventCount++;
+        aggregator.OnChatMessageReceived += (_, _) => eventCount++;
 
         aggregator.Dispose();
         source.Raise(s => s.OnPlatformEventReceived += null, this, MakeChatEvent());

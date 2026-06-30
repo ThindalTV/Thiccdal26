@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Bot.Models;
@@ -272,7 +272,7 @@ public sealed class ActivityFeedServiceTests
 
     private sealed class TestChatService : IChatService
     {
-        public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+        public event EventHandler<ChatEvent>? OnChatMessageReceived;
 
         public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
@@ -287,7 +287,7 @@ public sealed class ActivityFeedServiceTests
             OnPlatformEventReceived?.Invoke(this, platformEvent);
             if (platformEvent is ChatEvent chatEvent)
             {
-                OnChatMessageRecieved?.Invoke(this, chatEvent);
+                OnChatMessageReceived?.Invoke(this, chatEvent);
             }
         }
     }

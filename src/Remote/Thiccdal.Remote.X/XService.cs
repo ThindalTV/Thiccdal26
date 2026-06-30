@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Remotes;
@@ -45,7 +45,7 @@ public class XService : IXService, IAsyncDisposable, IDisposable
 
     public event EventHandler<bool>? StreamLiveStateChanged;
 
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageReceived;
 
     public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
@@ -359,7 +359,7 @@ public class XService : IXService, IAsyncDisposable, IDisposable
 
         if (platformEvent is ChatEvent chatEvent)
         {
-            OnChatMessageRecieved?.Invoke(this, chatEvent);
+            OnChatMessageReceived?.Invoke(this, chatEvent);
         }
     }
 

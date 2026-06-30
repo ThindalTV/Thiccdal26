@@ -1,4 +1,4 @@
-using System.Threading.Channels;
+﻿using System.Threading.Channels;
 using System.Runtime.CompilerServices;
 using Thiccdal.Infrastructure.Remotes;
 using RuntimeChatEvent = Thiccdal.Infrastructure.Bot.Models.ChatEvent;
@@ -77,7 +77,7 @@ public sealed class PlatformEventPumpTests
 
         public bool Connected { get; private set; }
 
-        public event EventHandler<RuntimeChatEvent>? OnChatMessageRecieved;
+        public event EventHandler<RuntimeChatEvent>? OnChatMessageReceived;
         public event EventHandler<RuntimePlatformEvent>? OnPlatformEventReceived;
 
         public Task Connect(CancellationToken cancellationToken = default)
@@ -99,7 +99,7 @@ public sealed class PlatformEventPumpTests
             OnPlatformEventReceived?.Invoke(this, platformEvent);
             if (platformEvent is RuntimeChatEvent chatEvent)
             {
-                OnChatMessageRecieved?.Invoke(this, chatEvent);
+                OnChatMessageReceived?.Invoke(this, chatEvent);
             }
         }
 

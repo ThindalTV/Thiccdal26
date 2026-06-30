@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,7 @@ namespace Thiccdal.Modules.ChatBot.Services;
 /// </summary>
 public sealed class CommandDispatcher : ICommandDispatcher
 {
+    private static readonly ConcurrentDictionary<string, Type?> _handlerTypeCache = new(StringComparer.Ordinal);
     private readonly ICommandRegistry _commandRegistry;
     private readonly ICommandResponseSink _commandResponseSink;
     private readonly ICommandUsageTracker _commandUsageTracker;
@@ -227,16 +229,19 @@ public sealed class CommandDispatcher : ICommandDispatcher
 
     private static Type? FindHandlerType(string handlerTypeName)
     {
-        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        return _handlerTypeCache.GetOrAdd(handlerTypeName, static name =>
         {
-            Type? handlerType = assembly.GetType(handlerTypeName, throwOnError: false, ignoreCase: false);
-            if (handlerType is not null)
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                return handlerType;
+                Type? handlerType = assembly.GetType(name, throwOnError: false, ignoreCase: false);
+                if (handlerType is not null)
+                {
+                    return handlerType;
+                }
             }
-        }
 
-        return null;
+            return null;
+        });
     }
 
     private sealed record HandlerExecutionResult(string? Response, bool SuppressStaticTemplate)

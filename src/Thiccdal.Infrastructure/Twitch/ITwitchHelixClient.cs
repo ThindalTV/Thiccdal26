@@ -23,5 +23,7 @@ public interface ITwitchHelixClient
         TwitchEventSubSubscriptionRequest request,
         CancellationToken cancellationToken = default);
 
+    Task DeleteEventSubscription(string subscriptionId, CancellationToken cancellationToken = default);
+
     Task<TwitchUser?> GetAuthenticatedUser(CancellationToken cancellationToken = default);
 }

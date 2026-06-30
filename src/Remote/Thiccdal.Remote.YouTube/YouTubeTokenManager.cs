@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,8 +12,9 @@ public sealed class YouTubeTokenManager : IYouTubeTokenManager
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IYouTubeTokenStore _tokenStore;
     private readonly ILogger<YouTubeTokenManager> _logger;
-    private readonly HashSet<string> _pendingStates = new();
-    private readonly SemaphoreSlim _stateLock = new(1, 1);
+
+    // Value is the expiry time; states that are never consumed expire and are pruned lazily.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _pendingStates = new(StringComparer.Ordinal);
 
     public YouTubeTokenManager(
         IOptions<YouTubeOptions> options,
@@ -30,16 +30,19 @@ public sealed class YouTubeTokenManager : IYouTubeTokenManager
 
     public string GetAuthorizationUrl()
     {
+        DateTime now = DateTime.UtcNow;
+
+        // Prune expired states to prevent unbounded growth.
+        foreach ((string key, DateTime expiry) in _pendingStates)
+        {
+            if (expiry < now)
+            {
+                _pendingStates.TryRemove(key, out _);
+            }
+        }
+
         string state = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-        _stateLock.Wait();
-        try
-        {
-            _pendingStates.Add(state);
-        }
-        finally
-        {
-            _stateLock.Release();
-        }
+        _pendingStates[state] = now.AddMinutes(10);
 
         string scopes = string.Join(" ", _options.Scopes);
         string authUrl = $"{_options.OAuthBaseAddress}auth?" +
@@ -56,15 +59,12 @@ public sealed class YouTubeTokenManager : IYouTubeTokenManager
 
     public bool ValidateAndConsumeState(string state)
     {
-        _stateLock.Wait();
-        try
+        if (_pendingStates.TryRemove(state, out DateTime expiry))
         {
-            return _pendingStates.Remove(state);
+            return expiry >= DateTime.UtcNow;
         }
-        finally
-        {
-            _stateLock.Release();
-        }
+
+        return false;
     }
 
     public async Task StoreToken(string authorizationCode, CancellationToken cancellationToken = default)

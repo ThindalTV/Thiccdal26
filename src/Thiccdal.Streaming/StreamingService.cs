@@ -132,7 +132,12 @@ public sealed class StreamingService : IStreamingService
     private void OnIngestStateChanged(object? sender, RtmpIngestStateChanged stateChanged)
     {
         _ = sender;
-        _ = ApplyIngestState(stateChanged);
+        Task apply = ApplyIngestState(stateChanged);
+        apply.ContinueWith(
+            t => _logger.LogError(t.Exception, "Unhandled error applying ingest state {State}.", stateChanged.State),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
     }
 
     private void SetState(StreamingState state)

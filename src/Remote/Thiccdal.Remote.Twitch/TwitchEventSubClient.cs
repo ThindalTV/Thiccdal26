@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -16,7 +15,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
     private readonly TwitchEventSubNotificationMapper _mapper;
     private readonly ILogger<TwitchEventSubClient> _logger;
     private readonly SemaphoreSlim _connectionGate;
-    private readonly ConcurrentQueue<string> _recentMessageIds;
+    private readonly Queue<string> _recentMessageIds;
     private readonly HashSet<string> _recentMessageIdSet;
 
     private ClientWebSocket? _socket;
@@ -35,7 +34,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         _mapper = mapper;
         _logger = logger;
         _connectionGate = new SemaphoreSlim(1, 1);
-        _recentMessageIds = new ConcurrentQueue<string>();
+        _recentMessageIds = new Queue<string>();
         _recentMessageIdSet = [];
     }
 
@@ -267,8 +266,32 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         IReadOnlyList<TwitchEventSubSubscription> existingSubscriptions = await _helixClient.GetEventSubscriptions(cancellationToken);
         foreach (TwitchEventSubSubscriptionRequest request in BuildSubscriptionRequests(profile, sessionId))
         {
-            bool exists = existingSubscriptions.Any(subscription => SubscriptionMatches(subscription, request));
-            if (exists)
+            TwitchEventSubSubscription? stale = existingSubscriptions.FirstOrDefault(
+                subscription => SubscriptionMatchesRequest(subscription, request) &&
+                                !string.Equals(subscription.SessionId, sessionId, StringComparison.Ordinal));
+
+            if (stale is not null)
+            {
+                _logger.LogInformation(
+                    "Deleting stale EventSub subscription {SubscriptionId} ({Type}) bound to previous session.",
+                    stale.Id,
+                    stale.Type);
+
+                try
+                {
+                    await _helixClient.DeleteEventSubscription(stale.Id, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Failed to delete stale Twitch EventSub subscription {SubscriptionId}.", stale.Id);
+                }
+            }
+
+            bool alreadyCurrent = existingSubscriptions.Any(
+                subscription => SubscriptionMatchesRequest(subscription, request) &&
+                                string.Equals(subscription.SessionId, sessionId, StringComparison.Ordinal));
+
+            if (alreadyCurrent)
             {
                 continue;
             }
@@ -368,7 +391,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         };
     }
 
-    private static bool SubscriptionMatches(
+    private static bool SubscriptionMatchesRequest(
         TwitchEventSubSubscription existing,
         TwitchEventSubSubscriptionRequest request)
     {
@@ -408,8 +431,9 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
 
             _recentMessageIdSet.Add(messageId);
             _recentMessageIds.Enqueue(messageId);
-            while (_recentMessageIds.Count > 256 && _recentMessageIds.TryDequeue(out string? removedMessageId))
+            while (_recentMessageIds.Count > 256)
             {
+                string removedMessageId = _recentMessageIds.Dequeue();
                 _recentMessageIdSet.Remove(removedMessageId);
             }
         }

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Remotes;
@@ -32,7 +32,7 @@ public sealed class YouTubeService : IYouTubeService, IStreamInfoProvider, IChat
 
     public event EventHandler<YouTubeConnectionState>? ConnectionStateChanged;
     public event EventHandler<bool>? StreamLiveStateChanged;
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageReceived;
     public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
     public bool Connected => _connectionState == YouTubeConnectionState.Connected;
@@ -344,7 +344,7 @@ public sealed class YouTubeService : IYouTubeService, IStreamInfoProvider, IChat
         OnPlatformEventReceived?.Invoke(this, platformEvent);
         if (platformEvent is ChatEvent chatEvent)
         {
-            OnChatMessageRecieved?.Invoke(this, chatEvent);
+            OnChatMessageReceived?.Invoke(this, chatEvent);
         }
     }
 

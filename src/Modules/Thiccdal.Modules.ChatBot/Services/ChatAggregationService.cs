@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,7 +46,7 @@ public sealed class ChatAggregationService : IChatService, IChatAggregationServi
         }
     }
 
-    public event EventHandler<ChatEvent>? OnChatMessageRecieved;
+    public event EventHandler<ChatEvent>? OnChatMessageReceived;
 
     public event EventHandler<PlatformEvent>? OnPlatformEventReceived;
 
@@ -71,7 +71,10 @@ public sealed class ChatAggregationService : IChatService, IChatAggregationServi
                 return;
             }
 
-            CancellationTokenSource lifetimeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            // The lifetime CTS must NOT be linked to the caller token: the caller's token only governs the
+            // connection attempt itself and may be short-lived (e.g., a request token). Linking it would
+            // disconnect all platforms when the caller cancels.
+            CancellationTokenSource lifetimeCancellationTokenSource = new CancellationTokenSource();
             List<Task> lifetimeTasks = [];
 
             foreach (IPlatformConnection platformConnection in _platformConnections)
@@ -246,7 +249,7 @@ public sealed class ChatAggregationService : IChatService, IChatAggregationServi
                 }
 
                 OnPlatformEventReceived?.Invoke(this, chatEvent);
-                OnChatMessageRecieved?.Invoke(this, chatEvent);
+                OnChatMessageReceived?.Invoke(this, chatEvent);
                 DispatchChatEvent(chatEvent);
                 await _commandDispatcher.Dispatch(chatEvent);
                 return;
