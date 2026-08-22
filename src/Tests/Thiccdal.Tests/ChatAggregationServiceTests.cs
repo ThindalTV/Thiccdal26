@@ -202,21 +202,27 @@ public sealed class ChatAggregationServiceTests
         using CancellationTokenSource subscriberCancellation = new(TimeSpan.FromSeconds(5));
         await using IAsyncEnumerator<ChatEvent> subscriber = service.Subscribe(subscriberCancellation.Token)
             .GetAsyncEnumerator(subscriberCancellation.Token);
-        Task<bool> firstMoveNextTask = subscriber.MoveNextAsync().AsTask();
 
-        for (int index = 1; index <= 514; index++)
+        // Drain a priming event first. Subscribe only registers its channel once the iterator body
+        // runs, and a MoveNextAsync left in flight resumes on the thread pool, so flooding while a
+        // read is pending makes it non-deterministic whether the first event is handed straight to
+        // the reader or buffered — which shifts every dropped id.
+        Task<bool> primingMoveNextTask = subscriber.MoveNextAsync().AsTask();
+        connection.Emit(CreateChatEvent(PlatformEventSource.Twitch, "chat-0", "viewer", "message-0"));
+        Assert.True(await primingMoveNextTask);
+        Assert.Equal("chat-0", subscriber.Current.ExternalId);
+
+        // No read is in flight now, so all 513 land in the 512-slot buffer and exactly one is dropped.
+        for (int index = 1; index <= 513; index++)
         {
             connection.Emit(CreateChatEvent(PlatformEventSource.Twitch, $"chat-{index}", "viewer", $"message-{index}"));
         }
 
-        Assert.True(await firstMoveNextTask);
-        ChatEvent firstDeliveredEvent = subscriber.Current;
         List<ChatEvent> bufferedEvents = await ReadNextChats(subscriber, 512);
 
-        Assert.Equal("chat-1", firstDeliveredEvent.ExternalId);
         Assert.Equal(512, bufferedEvents.Count);
-        Assert.Equal("chat-3", bufferedEvents[0].ExternalId);
-        Assert.Equal("chat-514", bufferedEvents[^1].ExternalId);
+        Assert.Equal("chat-2", bufferedEvents[0].ExternalId);
+        Assert.Equal("chat-513", bufferedEvents[^1].ExternalId);
         Assert.Contains(
             logger.Entries,
             entry => entry.LogLevel == LogLevel.Warning && entry.Message.Contains("Dropping oldest aggregated chat event", StringComparison.Ordinal));
