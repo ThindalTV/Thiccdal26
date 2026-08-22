@@ -279,6 +279,27 @@ public sealed class CommandDispatcherTests
         Assert.Equal("Available commands: !commands, !hello, !socials", responseSink.Messages[0]);
     }
 
+    [Fact]
+    public async Task WhenOperatorRunsSavedCommand_ThenResponseIsBroadcastToConnectedPlatforms()
+    {
+        RecordingPlatformConnection twitchConnection = new("Twitch");
+        RecordingPlatformConnection youtubeConnection = new("YouTube");
+        RecordingCommandUsageTracker usageTracker = new();
+        StubBotCommandManagementService managementService = new([CreateCommand("!clip", "Clip {count}")]);
+        CommandDispatcher dispatcher = CreateDispatcher(
+            [CreateCommand("!clip", "Clip {count}")],
+            usageTracker: usageTracker,
+            managementService: managementService,
+            platformConnections: [twitchConnection, youtubeConnection]);
+
+        await dispatcher.DispatchFromOperator("clip");
+
+        Assert.Equal(["Clip 1"], twitchConnection.SentMessages);
+        Assert.Equal(["Clip 1"], youtubeConnection.SentMessages);
+        Assert.Equal(["!clip"], usageTracker.RecordedTriggers);
+        Assert.Equal(["!clip"], managementService.IncrementedTriggers);
+    }
+
     private static CommandDispatcher CreateDispatcher(
         IReadOnlyList<BotCommandDefinition> commands,
         IReadOnlyList<ICommandHandler>? handlers = null,
@@ -286,7 +307,8 @@ public sealed class CommandDispatcherTests
         RecordingCommandResponseSink? responseSink = null,
         RecordingLogger<CommandDispatcher>? logger = null,
         StubBotCommandManagementService? managementService = null,
-        IChatBotAiResponder? aiResponder = null)
+        IChatBotAiResponder? aiResponder = null,
+        IReadOnlyList<IPlatformConnection>? platformConnections = null)
     {
         ServiceCollection services = new();
         services.AddSingleton<IOperatorStateService>(new StubOperatorStateService(
@@ -317,6 +339,7 @@ public sealed class CommandDispatcherTests
             provider.GetRequiredService<IOperatorStateService>(),
             aiResponder ?? new StubChatBotAiResponder(null),
             provider,
+            platformConnections ?? Array.Empty<IPlatformConnection>(),
             logger ?? new RecordingLogger<CommandDispatcher>());
     }
 
@@ -681,6 +704,67 @@ public sealed class CommandDispatcherTests
         {
             _ = reminders;
             return false;
+        }
+    }
+
+    private sealed class RecordingPlatformConnection : IPlatformConnection
+    {
+        public RecordingPlatformConnection(string platformName)
+        {
+            PlatformName = platformName;
+        }
+
+        public string PlatformName { get; }
+
+        public PlatformConnectionState State => Connected
+            ? PlatformConnectionState.Connected
+            : PlatformConnectionState.Disconnected;
+
+        public string? LastError => null;
+
+        public bool Connected { get; set; } = true;
+
+        public List<string> SentMessages { get; } = [];
+
+        public event EventHandler<ChatEvent>? OnChatMessageReceived
+#pragma warning disable CS0067
+        {
+            add { }
+            remove { }
+        }
+
+        public event EventHandler<PlatformEvent>? OnPlatformEventReceived
+        {
+            add { }
+            remove { }
+        }
+#pragma warning restore CS0067
+
+        public Task Connect(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Connected = true;
+            return Task.CompletedTask;
+        }
+
+        public Task Disconnect(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Connected = false;
+            return Task.CompletedTask;
+        }
+
+        public Task SendMessage(string message, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            SentMessages.Add(message);
+            return Task.CompletedTask;
+        }
+
+        public Task RefreshConnectionState(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
         }
     }
 

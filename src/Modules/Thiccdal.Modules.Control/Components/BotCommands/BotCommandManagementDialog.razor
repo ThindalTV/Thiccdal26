@@ -11,7 +11,7 @@
             <header class="bot-command-dialog__header">
                 <div>
                     <h2 class="bot-command-dialog__title">Manage Commands</h2>
-                    <p class="bot-command-dialog__subtitle">Keep chatbot edits in a deliberate modal so live operators do not change commands by accident.</p>
+                    <p class="bot-command-dialog__subtitle">Saved commands live in the database, and the live dashboard can run the currently selected enabled command without leaving this dialog.</p>
                 </div>
                 <button type="button" class="bot-command-dialog__close" @onclick="Close" aria-label="Close">✕</button>
             </header>
@@ -102,6 +102,11 @@
                         </span>
                     </label>
 
+                    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+                    {
+                        <div class="bot-command-dialog__success" role="status">@StatusMessage</div>
+                    }
+
                     @if (!string.IsNullOrWhiteSpace(ErrorMessage))
                     {
                         <div class="bot-command-dialog__error" role="alert">@ErrorMessage</div>
@@ -111,9 +116,15 @@
 
             <footer class="bot-command-dialog__footer">
                 <div class="bot-command-dialog__footer-hint">
-                    Tokens like <code>{user}</code>, <code>{platform}</code>, <code>{count}</code>, and <code>{uptime}</code> stay available in responses.
+                    Tokens like <code>{user}</code>, <code>{platform}</code>, <code>{count}</code>, and <code>{uptime}</code> stay available in responses. Running from here uses the last saved version of the selected command.
                 </div>
                 <div class="bot-command-dialog__footer-actions">
+                    <button type="button"
+                            class="bot-command-dialog__action bot-command-dialog__action--ghost"
+                            disabled="@(!CanRunSelectedCommand || IsBusy)"
+                            @onclick="Run">
+                        Run Saved Command
+                    </button>
                     <button type="button"
                             class="bot-command-dialog__action bot-command-dialog__action--danger"
                             disabled="@(!SelectedCommandId.HasValue || IsBusy)"
@@ -124,7 +135,7 @@
                             class="bot-command-dialog__action bot-command-dialog__action--primary"
                             disabled="@IsBusy"
                             @onclick="Save">
-                        @(IsBusy ? "Saving..." : "Save Command")
+                        @(IsBusy ? "Working..." : "Save Command")
                     </button>
                 </div>
             </footer>
@@ -138,11 +149,14 @@
     [Parameter] public BotCommandDefinitionInput Draft { get; set; } = new(string.Empty, string.Empty, null, true);
     [Parameter] public long? SelectedCommandId { get; set; }
     [Parameter] public bool IsBusy { get; set; }
+    [Parameter] public bool CanRunSelectedCommand { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public string? StatusMessage { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnCreateNew { get; set; }
     [Parameter] public EventCallback<long> OnSelectCommand { get; set; }
     [Parameter] public EventCallback<BotCommandDefinitionInput> OnDraftChanged { get; set; }
+    [Parameter] public EventCallback OnRun { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
 
@@ -159,6 +173,11 @@
     private Task SelectCommand(long commandId)
     {
         return OnSelectCommand.InvokeAsync(commandId);
+    }
+
+    private Task Run()
+    {
+        return OnRun.InvokeAsync();
     }
 
     private Task Save()

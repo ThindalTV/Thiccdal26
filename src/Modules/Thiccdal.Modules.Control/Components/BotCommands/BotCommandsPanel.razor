@@ -1,12 +1,29 @@
 @using Thiccdal.Infrastructure.Bot
 @using Thiccdal.Infrastructure.Bot.Models
 @inject IBotCommandManagementService CommandManagementService
+@inject ICommandDispatcher CommandDispatcher
 @implements IAsyncDisposable
 
 <div class="ctrl-panel bot-cmds-stretch">
-    <div class="ctrl-panel__header">
-        <span class="ctrl-panel__title">Bot Commands</span>
-        <span class="bot-cmds__summary">@GetSummaryText()</span>
+    <div class="ctrl-panel__header bot-cmds__header">
+        <div class="bot-cmds__header-copy">
+            <span class="ctrl-panel__title">Bot Commands</span>
+            <span class="bot-cmds__summary">@GetSummaryText()</span>
+        </div>
+        <div class="bot-cmds__header-actions">
+            <button type="button"
+                    class="bot-cmds__header-button bot-cmds__header-button--ghost"
+                    disabled="@(_commands.Count == 0 || _isBusy)"
+                    @onclick="OpenSelectedCommandDialog">
+                Manage
+            </button>
+            <button type="button"
+                    class="bot-cmds__header-button"
+                    disabled="@_isBusy"
+                    @onclick="OpenNewCommandDialog">
+                New Command
+            </button>
+        </div>
     </div>
     <div class="ctrl-panel__body bot-cmds__body">
         <div class="bot-cmds__stats">
@@ -24,6 +41,11 @@
             </div>
         </div>
 
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <div class="bot-cmds__success" role="status">@_statusMessage</div>
+        }
+
         @if (!string.IsNullOrWhiteSpace(_errorMessage))
         {
             <div class="bot-cmds__error" role="alert">@_errorMessage</div>
@@ -32,23 +54,69 @@
         @if (_commands.Count == 0)
         {
             <div class="bot-cmds__empty">
-                No commands are configured yet. Use <strong>Manage Commands</strong> to add operator-approved responses before you go live.
+                <p>No commands are configured yet. Add one here and it will be saved to the application database for future streams.</p>
+                <button type="button" class="bot-cmds__action bot-cmds__action--primary" @onclick="OpenNewCommandDialog">Create First Command</button>
             </div>
         }
         else
         {
+            <div class="bot-cmds__quick-actions">
+                <button type="button"
+                        class="bot-cmds__action bot-cmds__action--primary"
+                        disabled="@(!CanRunSelectedCommand() || _isBusy)"
+                        @onclick="RunSelectedCommand">
+                    @(_isBusy ? "Working..." : "Run Selected")
+                </button>
+                <button type="button"
+                        class="bot-cmds__action"
+                        disabled="@(_selectedCommandId is null || _isBusy)"
+                        @onclick="OpenSelectedCommandDialog">
+                    Edit Selected
+                </button>
+                <button type="button"
+                        class="bot-cmds__action"
+                        disabled="@_isBusy"
+                        @onclick="OpenNewCommandDialog">
+                    Add Command
+                </button>
+            </div>
+
             <div class="bot-cmds__grid">
                 @foreach (BotCommandDefinition command in _commands.Take(8))
                 {
                     <BotCommandButton Command="@command.Trigger"
                                       Description="@BuildButtonDescription(command)"
                                       IsEnabled="@command.IsEnabled"
-                                      IsInteractive="false" />
+                                      IsSelected="@(command.Id == _selectedCommandId)"
+                                      OnClick="@(() => SelectCommand(command.Id))" />
                 }
             </div>
+
+            @if (GetSelectedCommand() is BotCommandDefinition selectedCommand)
+            {
+                <div class="bot-cmds__detail">
+                    <div class="bot-cmds__detail-header">
+                        <div>
+                            <div class="bot-cmds__detail-trigger">@selectedCommand.Trigger</div>
+                            <div class="bot-cmds__detail-meta">@BuildButtonDescription(selectedCommand)</div>
+                        </div>
+                        <span class="bot-cmds__detail-state @(selectedCommand.IsEnabled ? "bot-cmds__detail-state--enabled" : "bot-cmds__detail-state--disabled")">
+                            @(selectedCommand.IsEnabled ? "Ready to run" : "Paused")
+                        </span>
+                    </div>
+                    <p class="bot-cmds__detail-response">@selectedCommand.ResponseTemplate</p>
+                    <div class="bot-cmds__detail-footer">
+                        <span>@(string.IsNullOrWhiteSpace(selectedCommand.HandlerType) ? "Template only" : "Handler + fallback")</span>
+                        @if (!string.IsNullOrWhiteSpace(selectedCommand.HandlerType))
+                        {
+                            <code>@selectedCommand.HandlerType</code>
+                        }
+                    </div>
+                </div>
+            }
         }
 
-        <p class="bot-cmds__hint">Use the live controls bar to open command management when you need a deliberate mid-stream edit.</p>
+        <p class="bot-cmds__hint">Commands are loaded from the application database and can be run live or managed without leaving the dashboard.</p>
     </div>
 </div>
 
@@ -58,10 +126,13 @@
                             SelectedCommandId="_selectedCommandId"
                             IsBusy="_isBusy"
                             ErrorMessage="_errorMessage"
+                            StatusMessage="_statusMessage"
+                            CanRunSelectedCommand="@CanRunSelectedCommand()"
                             OnClose="CloseManagementDialog"
                             OnCreateNew="CreateNewCommand"
                             OnSelectCommand="SelectCommand"
                             OnDraftChanged="UpdateDraft"
+                            OnRun="RunSelectedCommand"
                             OnSave="SaveCommand"
                             OnDelete="DeleteCommand" />
 
@@ -73,6 +144,7 @@
     private bool _isDialogOpen;
     private bool _isBusy;
     private string? _errorMessage;
+    private string? _statusMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -89,8 +161,9 @@
     public async Task OpenManagementDialog()
     {
         _errorMessage = null;
+        _statusMessage = null;
         _isDialogOpen = true;
-        await RefreshCommands();
+        await RefreshCommands(_selectedCommandId);
     }
 
     private Task CloseManagementDialog()
@@ -100,11 +173,31 @@
         return Task.CompletedTask;
     }
 
+    private async Task OpenSelectedCommandDialog()
+    {
+        if (_commands.Count == 0)
+        {
+            return;
+        }
+
+        await OpenManagementDialog();
+    }
+
+    private async Task OpenNewCommandDialog()
+    {
+        _errorMessage = null;
+        _statusMessage = null;
+        _isDialogOpen = true;
+        await RefreshCommands(_selectedCommandId);
+        await CreateNewCommand();
+    }
+
     private Task CreateNewCommand()
     {
         _selectedCommandId = null;
         _draft = CreateEmptyDraft();
         _errorMessage = null;
+        _statusMessage = null;
         return Task.CompletedTask;
     }
 
@@ -119,6 +212,7 @@
         _selectedCommandId = selectedCommand.Id;
         _draft = CreateDraft(selectedCommand);
         _errorMessage = null;
+        _statusMessage = null;
         return Task.CompletedTask;
     }
 
@@ -128,10 +222,46 @@
         return Task.CompletedTask;
     }
 
+    private async Task RunSelectedCommand()
+    {
+        BotCommandDefinition? selectedCommand = GetSelectedCommand();
+        if (selectedCommand is null)
+        {
+            _errorMessage = "Choose a saved command first.";
+            return;
+        }
+
+        if (!selectedCommand.IsEnabled)
+        {
+            _errorMessage = $"{selectedCommand.Trigger} is paused. Enable it before running it live.";
+            return;
+        }
+
+        _isBusy = true;
+        _errorMessage = null;
+        _statusMessage = null;
+
+        try
+        {
+            await CommandDispatcher.DispatchFromOperator(selectedCommand.Trigger, _cancellationTokenSource.Token);
+            await RefreshCommands(selectedCommand.Id);
+            _statusMessage = $"Sent {selectedCommand.Trigger} to connected chat.";
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
     private async Task SaveCommand()
     {
         _isBusy = true;
         _errorMessage = null;
+        _statusMessage = null;
 
         try
         {
@@ -142,7 +272,13 @@
                     _draft,
                     _cancellationTokenSource.Token);
 
-                await RefreshCommands(updatedCommand?.Id);
+                if (updatedCommand is null)
+                {
+                    throw new InvalidOperationException("The selected command no longer exists.");
+                }
+
+                await RefreshCommands(updatedCommand.Id);
+                _statusMessage = $"Saved {updatedCommand.Trigger}.";
             }
             else
             {
@@ -151,6 +287,7 @@
                     _cancellationTokenSource.Token);
 
                 await RefreshCommands(createdCommand.Id);
+                _statusMessage = $"Created {createdCommand.Trigger}.";
             }
         }
         catch (Exception exception)
@@ -165,20 +302,29 @@
 
     private async Task DeleteCommand()
     {
-        if (!_selectedCommandId.HasValue)
+        BotCommandDefinition? selectedCommand = GetSelectedCommand();
+        if (selectedCommand is null)
         {
+            _errorMessage = "Choose a saved command first.";
             return;
         }
 
         _isBusy = true;
         _errorMessage = null;
+        _statusMessage = null;
 
         try
         {
-            await CommandManagementService.Delete(_selectedCommandId.Value, _cancellationTokenSource.Token);
+            bool deleted = await CommandManagementService.Delete(selectedCommand.Id, _cancellationTokenSource.Token);
+            if (!deleted)
+            {
+                throw new InvalidOperationException("The selected command no longer exists.");
+            }
+
             _selectedCommandId = null;
             _draft = CreateEmptyDraft();
             await RefreshCommands();
+            _statusMessage = $"Deleted {selectedCommand.Trigger}.";
         }
         catch (Exception exception)
         {
@@ -230,6 +376,21 @@
             _draft = CreateEmptyDraft();
             _errorMessage = exception.Message;
         }
+    }
+
+    private BotCommandDefinition? GetSelectedCommand()
+    {
+        if (_selectedCommandId.HasValue)
+        {
+            return _commands.FirstOrDefault(command => command.Id == _selectedCommandId.Value);
+        }
+
+        return _commands.Count > 0 ? _commands[0] : null;
+    }
+
+    private bool CanRunSelectedCommand()
+    {
+        return GetSelectedCommand()?.IsEnabled == true;
     }
 
     private string GetSummaryText()

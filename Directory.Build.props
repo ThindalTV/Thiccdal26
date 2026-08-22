@@ -8,6 +8,8 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <!-- Suppress known vulnerabilities until fixed upstream -->
     <NoWarn>$(NoWarn);NU1902;NU1903</NoWarn>
+    <!-- Keep stray local artifacts/ build output out of the compile item globs -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);**\artifacts\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

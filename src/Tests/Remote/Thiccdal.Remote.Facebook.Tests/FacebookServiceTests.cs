@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -235,7 +236,7 @@ public sealed class FacebookServiceTests
             graphClient ?? new FakeFacebookGraphClient(),
             eventBus ?? new FakeEventBus(),
             logger ?? new ListLogger<FacebookService>(),
-            platformUserService);
+            platformUserService is null ? null : new FakeServiceScopeFactory(platformUserService));
     }
 
     private sealed class FakeFacebookGraphClient : IFacebookGraphClient
@@ -410,6 +411,52 @@ public sealed class FacebookServiceTests
             cancellationToken.ThrowIfCancellationRequested();
             Upserts.Add((source, platformUserId, displayName, lastSeen));
             return Task.FromResult<long>(Upserts.Count);
+        }
+    }
+
+    private sealed class FakeServiceScopeFactory : IServiceScopeFactory
+    {
+        private readonly IPlatformUserService _platformUserService;
+
+        public FakeServiceScopeFactory(IPlatformUserService platformUserService)
+        {
+            _platformUserService = platformUserService;
+        }
+
+        public IServiceScope CreateScope()
+        {
+            return new FakeServiceScope(_platformUserService);
+        }
+    }
+
+    private sealed class FakeServiceScope : IServiceScope
+    {
+        public FakeServiceScope(IPlatformUserService platformUserService)
+        {
+            ServiceProvider = new FakeScopeServiceProvider(platformUserService);
+        }
+
+        public IServiceProvider ServiceProvider { get; }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class FakeScopeServiceProvider : IServiceProvider
+    {
+        private readonly IPlatformUserService _platformUserService;
+
+        public FakeScopeServiceProvider(IPlatformUserService platformUserService)
+        {
+            _platformUserService = platformUserService;
+        }
+
+        public object? GetService(Type serviceType)
+        {
+            return serviceType == typeof(IPlatformUserService)
+                ? _platformUserService
+                : null;
         }
     }
 }

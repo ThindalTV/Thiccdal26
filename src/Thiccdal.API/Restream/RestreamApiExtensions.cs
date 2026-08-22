@@ -36,6 +36,13 @@ public static class RestreamApiExtensions
             .WithName("UpdateRestreamConfiguration")
             .Produces<RestreamControlState>(StatusCodes.Status200OK, "application/json");
 
+        group.MapPost(
+                "/push",
+                static (IRestreamRuntimeService restreamRuntimeService, CancellationToken cancellationToken) =>
+                    restreamRuntimeService.PushConfiguration(cancellationToken))
+            .WithName("PushRestreamConfiguration")
+            .Produces<RestreamControlState>(StatusCodes.Status200OK, "application/json");
+
         group.MapPut(
                 "/destinations/{platformName}",
                 static (

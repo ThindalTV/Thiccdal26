@@ -1,0 +1,18 @@
+@page "/youtube/connect"
+@inject NavigationManager Navigation
+
+<PageTitle>Redirecting to Integrations</PageTitle>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? CallbackError { get; set; }
+
+    protected override void OnInitialized()
+    {
+        string targetUrl = string.IsNullOrWhiteSpace(CallbackError)
+            ? "/integrations"
+            : $"/integrations?youtube_error={Uri.EscapeDataString(CallbackError)}";
+
+        Navigation.NavigateTo(targetUrl, replace: true);
+    }
+}

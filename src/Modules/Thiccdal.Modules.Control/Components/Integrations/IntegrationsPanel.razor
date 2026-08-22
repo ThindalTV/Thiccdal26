@@ -1,0 +1,751 @@
+@using Microsoft.Extensions.DependencyInjection
+@using Thiccdal.Infrastructure.Integrations
+@using Thiccdal.Infrastructure.Remotes
+@using Thiccdal.Infrastructure.Twitch
+@using Thiccdal.Infrastructure.YouTube
+@inject IEnumerable<IPlatformConnection> PlatformConnections
+@inject IEnumerable<IIntegrationConnectionMonitor> IntegrationConnectionMonitors
+@inject IServiceProvider Services
+@implements IDisposable
+
+<div class="ctrl-panel integrations-panel">
+    <div class="ctrl-panel__header integrations-panel__header">
+        <div>
+            <span class="ctrl-panel__title">Integrations</span>
+            <p class="integrations-panel__summary">Manage OAuth-backed platform connections here and review the prerequisites for the rest of the relay targets.</p>
+        </div>
+
+        <button type="button"
+                class="integrations-panel__refresh"
+                disabled="@_isWorking"
+                @onclick="RefreshState">
+            Refresh
+        </button>
+    </div>
+
+    <div class="ctrl-panel__body integrations-panel__body">
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <div class="integrations-panel__message integrations-panel__message--error" role="alert">@_errorMessage</div>
+        }
+        else if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <div class="integrations-panel__message" role="status">@_statusMessage</div>
+        }
+
+        @if (_isLoading)
+        {
+            <div class="integrations-panel__empty">Loading integration status…</div>
+        }
+        else if (_platforms.Count == 0)
+        {
+            <div class="integrations-panel__empty">No platform integrations are registered for this host.</div>
+        }
+        else
+        {
+            <div class="integrations-panel__grid">
+                <div class="integrations-panel__picker" role="list" aria-label="Available platform integrations">
+                    @foreach (PlatformViewModel platform in _platforms)
+                    {
+                        <div class="integrations-panel__picker-item @(string.Equals(_selectedPlatformName, platform.PlatformName, StringComparison.OrdinalIgnoreCase) ? "integrations-panel__picker-item--selected" : string.Empty)"
+                             role="listitem">
+                            <IntegrationConnector PlatformName="@platform.PlatformName"
+                                                  ShortName="@platform.ShortName"
+                                                  Color="@platform.Color"
+                                                  ConnectionState="@MapConnectionState(platform.State)"
+                                                  IsLive="@platform.IsLive"
+                                                  IsAvailable="true"
+                                                  OnConnectClicked="@(() => SelectPlatform(platform.PlatformName))" />
+                        </div>
+                    }
+                </div>
+
+                @if (SelectedPlatform is PlatformViewModel selectedPlatform)
+                {
+                    <section class="integrations-panel__details" aria-label="@selectedPlatform.PlatformName integration details">
+                        <header class="integrations-panel__details-header">
+                            <div>
+                                <h3 class="integrations-panel__details-title">@selectedPlatform.PlatformName</h3>
+                                <p class="integrations-panel__details-subtitle">@GetSelectedPlatformSubtitle(selectedPlatform)</p>
+                            </div>
+                            <span class="integrations-panel__state integrations-panel__state--@GetStateCssClass(selectedPlatform.State)">@GetStateLabel(selectedPlatform.State)</span>
+                        </header>
+
+                        <p class="integrations-panel__detail-copy">@GetSelectedPlatformDescription(selectedPlatform)</p>
+
+                        @if (IsTwitchSelected)
+                        {
+                            <div class="integrations-panel__section">
+                                <h4 class="integrations-panel__section-title">Target channel</h4>
+                                <div class="integrations-panel__form-grid">
+                                    <label class="integrations-panel__field">
+                                        <span class="integrations-panel__field-label">Channel name</span>
+                                        <input class="form-control"
+                                               autocomplete="off"
+                                               autocapitalize="none"
+                                               spellcheck="false"
+                                               @bind="_twitchTargetChannel" />
+                                    </label>
+
+                                    <label class="integrations-panel__field">
+                                        <span class="integrations-panel__field-label">Broadcaster user ID</span>
+                                        <input class="form-control"
+                                               autocomplete="off"
+                                               @bind="_twitchBroadcasterId" />
+                                    </label>
+                                </div>
+
+                                <div class="integrations-panel__actions-row">
+                                    <button type="button"
+                                            class="integrations-panel__primary-action"
+                                            disabled="@(_isWorking || !IsTwitchTargetDirty)"
+                                            @onclick="SaveTwitchTargetChannel">
+                                        Save target channel
+                                    </button>
+                                    <span class="integrations-panel__hint">Bot account: @GetTwitchBotDisplay()</span>
+                                </div>
+                            </div>
+
+                            <div class="integrations-panel__section">
+                                <h4 class="integrations-panel__section-title">Authorization and chat session</h4>
+                                <div class="integrations-panel__actions-row">
+                                    <button type="button"
+                                            class="integrations-panel__primary-action"
+                                            disabled="@(_isWorking || string.IsNullOrWhiteSpace(selectedPlatform.AuthorizationUrl))"
+                                            @onclick="OpenSelectedAuthorizationDialog">
+                                        @(IsTwitchAuthorized ? "Re-authorize Twitch" : "Authorize Twitch")
+                                    </button>
+                                    <button type="button"
+                                            class="integrations-panel__secondary-action"
+                                            disabled="@(!CanConnectTwitch)"
+                                            @onclick="ConnectTwitchChat">
+                                        Connect chat
+                                    </button>
+                                    <button type="button"
+                                            class="integrations-panel__secondary-action"
+                                            disabled="@(_isWorking || _twitchService?.Connected != true)"
+                                            @onclick="DisconnectTwitchChat">
+                                        Disconnect chat
+                                    </button>
+                                    <button type="button"
+                                            class="integrations-panel__danger-action"
+                                            disabled="@(_isWorking || !IsTwitchAuthorized)"
+                                            @onclick="DisconnectSelectedAuthorization">
+                                        Disconnect authorization
+                                    </button>
+                                </div>
+                                <p class="integrations-panel__hint">Saved channel: @GetTwitchChannelDisplay()</p>
+                            </div>
+                        }
+                        else if (IsYouTubeSelected)
+                        {
+                            <div class="integrations-panel__section">
+                                <h4 class="integrations-panel__section-title">Authorization and live chat</h4>
+                                <div class="integrations-panel__actions-row">
+                                    <button type="button"
+                                            class="integrations-panel__primary-action"
+                                            disabled="@(_isWorking || string.IsNullOrWhiteSpace(selectedPlatform.AuthorizationUrl))"
+                                            @onclick="OpenSelectedAuthorizationDialog">
+                                        @(IsYouTubeAuthorized ? "Re-authorize YouTube" : "Authorize YouTube")
+                                    </button>
+                                    <button type="button"
+                                            class="integrations-panel__secondary-action"
+                                            disabled="@(_isWorking || !IsYouTubeAuthorized || _youTubeService?.Connected == true)"
+                                            @onclick="ConnectYouTubeChat">
+                                        Connect live chat
+                                    </button>
+                                    <button type="button"
+                                            class="integrations-panel__secondary-action"
+                                            disabled="@(_isWorking || _youTubeService?.Connected != true)"
+                                            @onclick="DisconnectYouTubeChat">
+                                        Disconnect live chat
+                                    </button>
+                                    <button type="button"
+                                            class="integrations-panel__danger-action"
+                                            disabled="@(_isWorking || !IsYouTubeAuthorized)"
+                                            @onclick="DisconnectSelectedAuthorization">
+                                        Disconnect authorization
+                                    </button>
+                                </div>
+
+                                <p class="integrations-panel__hint">@GetYouTubeBroadcastSummary()</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="integrations-panel__section">
+                                <h4 class="integrations-panel__section-title">Current workflow</h4>
+                                <p class="integrations-panel__detail-copy integrations-panel__detail-copy--compact">@GetManualPlatformGuidance(selectedPlatform)</p>
+
+                                @if (!string.IsNullOrWhiteSpace(selectedPlatform.AuthorizationUrl))
+                                {
+                                    <a class="integrations-panel__link-action"
+                                       href="@selectedPlatform.AuthorizationUrl"
+                                       target="_blank"
+                                       rel="noopener noreferrer">
+                                        Open setup portal
+                                    </a>
+                                }
+                            </div>
+                        }
+                    </section>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@if (SelectedPlatform is PlatformViewModel authPlatform)
+{
+    <IntegrationAuthDialog PlatformName="@authPlatform.PlatformName"
+                           Color="@authPlatform.Color"
+                           AuthorizationUrl="@authPlatform.AuthorizationUrl"
+                           IsOpen="@_showAuthorizationDialog"
+                           IsConnected="@IsAuthorizationConnected(authPlatform.PlatformName)"
+                           ErrorMessage="@_authorizationErrorMessage"
+                           OnClose="CloseAuthorizationDialog"
+                           OnConnected="ConfirmSelectedAuthorization"
+                           OnDisconnect="DisconnectSelectedAuthorization" />
+}
+
+@code {
+    private static readonly IReadOnlyDictionary<string, string> PlatformColors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Discord"] = "#5865F2",
+        ["Facebook"] = "#1877F2",
+        ["LinkedIn"] = "#0A66C2",
+        ["Null"] = "#94A3B8",
+        ["TikTok"] = "#25F4EE",
+        ["Twitch"] = "#9146FF",
+        ["X"] = "#D1D5DB",
+        ["YouTube"] = "#FF4444"
+    };
+
+    private static readonly IReadOnlyDictionary<string, int> PlatformOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Twitch"] = 0,
+        ["YouTube"] = 1,
+        ["Discord"] = 2,
+        ["Facebook"] = 3,
+        ["X"] = 4,
+        ["LinkedIn"] = 5,
+        ["TikTok"] = 6
+    };
+
+    private IReadOnlyList<IIntegrationConnectionMonitor> _monitors = Array.Empty<IIntegrationConnectionMonitor>();
+    private IReadOnlyList<PlatformViewModel> _platforms = Array.Empty<PlatformViewModel>();
+    private IReadOnlyDictionary<string, IIntegrationConnectionMonitor> _monitorLookup = new Dictionary<string, IIntegrationConnectionMonitor>(StringComparer.OrdinalIgnoreCase);
+    private ITwitchService? _twitchService;
+    private ITwitchTargetChannelService? _twitchTargetChannelService;
+    private ITwitchTokenManager? _twitchTokenManager;
+    private IYouTubeService? _youTubeService;
+    private IYouTubeTokenManager? _youTubeTokenManager;
+    private TwitchChatConnectionProfile _twitchProfile = new TwitchChatConnectionProfile
+    {
+        BotUsername = string.Empty,
+        TargetChannel = string.Empty
+    };
+    private string _twitchTargetChannel = string.Empty;
+    private string _twitchBroadcasterId = string.Empty;
+    private string _selectedPlatformName = "Twitch";
+    private string _statusMessage = string.Empty;
+    private string _errorMessage = string.Empty;
+    private string _authorizationErrorMessage = string.Empty;
+    private bool _isLoading = true;
+    private bool _isWorking;
+    private bool _showAuthorizationDialog;
+
+    private PlatformViewModel? SelectedPlatform => _platforms.FirstOrDefault(
+        platform => string.Equals(platform.PlatformName, _selectedPlatformName, StringComparison.OrdinalIgnoreCase));
+
+    private bool IsTwitchSelected => string.Equals(_selectedPlatformName, "Twitch", StringComparison.OrdinalIgnoreCase);
+    private bool IsYouTubeSelected => string.Equals(_selectedPlatformName, "YouTube", StringComparison.OrdinalIgnoreCase);
+    private bool IsTwitchAuthorized => _twitchService?.ConnectionState != TwitchConnectionState.NotAuthorized;
+    private bool IsYouTubeAuthorized => _youTubeService?.ConnectionState != YouTubeConnectionState.NotAuthorized;
+    private bool IsTwitchTargetDirty => !string.Equals(Normalize(_twitchTargetChannel), Normalize(_twitchProfile.TargetChannel), StringComparison.Ordinal) ||
+                                        !string.Equals(Normalize(_twitchBroadcasterId), Normalize(_twitchProfile.BroadcasterId), StringComparison.Ordinal);
+    private bool CanConnectTwitch => !_isWorking &&
+                                     _twitchService is not null &&
+                                     !IsTwitchTargetDirty &&
+                                     !string.IsNullOrWhiteSpace(_twitchProfile.TargetChannel) &&
+                                     _twitchService.ConnectionState is TwitchConnectionState.Authorized or TwitchConnectionState.Disconnected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _monitors = IntegrationConnectionMonitors
+            .OrderBy(GetPlatformOrder)
+            .ThenBy(static monitor => monitor.PlatformName, StringComparer.Ordinal)
+            .ToArray();
+        _monitorLookup = _monitors.ToDictionary(static monitor => monitor.PlatformName, StringComparer.OrdinalIgnoreCase);
+
+        foreach (IIntegrationConnectionMonitor monitor in _monitors)
+        {
+            monitor.ConnectionChanged += HandleMonitorConnectionChanged;
+        }
+
+        _twitchService = Services.GetService<ITwitchService>();
+        _twitchTargetChannelService = Services.GetService<ITwitchTargetChannelService>();
+        _twitchTokenManager = Services.GetService<ITwitchTokenManager>();
+        _youTubeService = Services.GetService<IYouTubeService>();
+        _youTubeTokenManager = Services.GetService<IYouTubeTokenManager>();
+
+        if (_twitchService is not null)
+        {
+            _twitchService.ConnectionStateChanged += HandleTwitchConnectionStateChanged;
+        }
+
+        if (_youTubeService is not null)
+        {
+            _youTubeService.ConnectionStateChanged += HandleYouTubeConnectionStateChanged;
+        }
+
+        await LoadState();
+    }
+
+    public void Dispose()
+    {
+        foreach (IIntegrationConnectionMonitor monitor in _monitors)
+        {
+            monitor.ConnectionChanged -= HandleMonitorConnectionChanged;
+        }
+
+        if (_twitchService is not null)
+        {
+            _twitchService.ConnectionStateChanged -= HandleTwitchConnectionStateChanged;
+        }
+
+        if (_youTubeService is not null)
+        {
+            _youTubeService.ConnectionStateChanged -= HandleYouTubeConnectionStateChanged;
+        }
+    }
+
+    private Task RefreshState()
+    {
+        _statusMessage = string.Empty;
+        _errorMessage = string.Empty;
+        return LoadState();
+    }
+
+    private async Task LoadState()
+    {
+        _isLoading = true;
+
+        try
+        {
+            foreach (IIntegrationConnectionMonitor monitor in _monitors)
+            {
+                await monitor.RefreshConnectionState();
+            }
+
+            if (_twitchService is not null)
+            {
+                await _twitchService.RefreshConnectionState();
+            }
+
+            if (_youTubeService is not null)
+            {
+                await _youTubeService.RefreshConnectionState();
+                await _youTubeService.RefreshStreamState();
+            }
+
+            if (_twitchTargetChannelService is not null)
+            {
+                _twitchProfile = await _twitchTargetChannelService.GetConnectionProfile();
+                _twitchTargetChannel = _twitchProfile.TargetChannel;
+                _twitchBroadcasterId = _twitchProfile.BroadcasterId;
+            }
+
+            _platforms = PlatformConnections
+                .OrderBy(GetPlatformOrder)
+                .ThenBy(static platform => platform.PlatformName, StringComparer.Ordinal)
+                .Select(BuildPlatformViewModel)
+                .ToArray();
+
+            EnsureSelectedPlatform();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private PlatformViewModel BuildPlatformViewModel(IPlatformConnection platform)
+    {
+        _monitorLookup.TryGetValue(platform.PlatformName, out IIntegrationConnectionMonitor? monitor);
+        string authorizationUrl = monitor?.GetAuthorizationUrl() ?? string.Empty;
+
+        return new PlatformViewModel(
+            platform.PlatformName,
+            GetShortName(platform.PlatformName),
+            ResolvePlatformColor(platform.PlatformName),
+            platform.State,
+            platform.LastError,
+            authorizationUrl,
+            GetIsLive(platform));
+    }
+
+    private void EnsureSelectedPlatform()
+    {
+        if (_platforms.Count == 0)
+        {
+            _selectedPlatformName = string.Empty;
+            return;
+        }
+
+        if (_platforms.Any(platform => string.Equals(platform.PlatformName, _selectedPlatformName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        _selectedPlatformName = _platforms[0].PlatformName;
+    }
+
+    private void SelectPlatform(string platformName)
+    {
+        _selectedPlatformName = platformName;
+        _statusMessage = string.Empty;
+        _errorMessage = string.Empty;
+        _authorizationErrorMessage = string.Empty;
+        _showAuthorizationDialog = false;
+    }
+
+    private Task OpenSelectedAuthorizationDialog()
+    {
+        _authorizationErrorMessage = string.Empty;
+        _showAuthorizationDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseAuthorizationDialog()
+    {
+        _showAuthorizationDialog = false;
+        _authorizationErrorMessage = string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task ConfirmSelectedAuthorization()
+    {
+        string platformName = _selectedPlatformName;
+        await RunAction(
+            LoadState,
+            $"{platformName} authorization refreshed.",
+            useAuthorizationErrorSurface: true);
+        _showAuthorizationDialog = false;
+    }
+
+    private Task SaveTwitchTargetChannel()
+    {
+        if (_twitchTargetChannelService is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return RunAction(
+            async () =>
+            {
+                _twitchProfile = await _twitchTargetChannelService.UpdateTargetChannel(
+                    new TwitchTargetChannelSettings(_twitchTargetChannel, _twitchBroadcasterId));
+                _twitchTargetChannel = _twitchProfile.TargetChannel;
+                _twitchBroadcasterId = _twitchProfile.BroadcasterId;
+            },
+            $"Saved Twitch target channel {GetTwitchChannelDisplay()}.");
+    }
+
+    private Task ConnectTwitchChat()
+    {
+        if (_twitchService is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return RunAction(
+            () => _twitchService.Connect(),
+            $"Connected Twitch chat to {GetTwitchChannelDisplay()}.");
+    }
+
+    private Task DisconnectTwitchChat()
+    {
+        if (_twitchService is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return RunAction(
+            () => _twitchService.Disconnect(),
+            "Disconnected Twitch chat.");
+    }
+
+    private Task ConnectYouTubeChat()
+    {
+        if (_youTubeService is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return RunAction(
+            () => _youTubeService.Connect(),
+            "Connected YouTube live chat.");
+    }
+
+    private Task DisconnectYouTubeChat()
+    {
+        if (_youTubeService is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return RunAction(
+            () => _youTubeService.Disconnect(),
+            "Disconnected YouTube live chat.");
+    }
+
+    private Task DisconnectSelectedAuthorization()
+    {
+        return _selectedPlatformName switch
+        {
+            "Twitch" when _twitchTokenManager is not null => RunAction(
+                async () =>
+                {
+                    if (_twitchService?.Connected == true)
+                    {
+                        await _twitchService.Disconnect();
+                    }
+
+                    await _twitchTokenManager.Revoke();
+                },
+                "Disconnected Twitch authorization.",
+                useAuthorizationErrorSurface: true),
+            "YouTube" when _youTubeTokenManager is not null => RunAction(
+                async () =>
+                {
+                    if (_youTubeService?.Connected == true)
+                    {
+                        await _youTubeService.Disconnect();
+                    }
+
+                    await _youTubeTokenManager.RevokeToken();
+                },
+                "Disconnected YouTube authorization.",
+                useAuthorizationErrorSurface: true),
+            _ => Task.CompletedTask
+        };
+    }
+
+    private async Task RunAction(Func<Task> action, string successMessage, bool useAuthorizationErrorSurface = false)
+    {
+        _isWorking = true;
+        _errorMessage = string.Empty;
+        _authorizationErrorMessage = string.Empty;
+        _statusMessage = string.Empty;
+
+        try
+        {
+            await action();
+            await LoadState();
+            _statusMessage = successMessage;
+        }
+        catch (ArgumentException ex)
+        {
+            ApplyError(ex.Message, useAuthorizationErrorSurface);
+        }
+        catch (Exception ex)
+        {
+            ApplyError(string.IsNullOrWhiteSpace(ex.Message) ? "Platform integration update failed." : ex.Message, useAuthorizationErrorSurface);
+        }
+        finally
+        {
+            _isWorking = false;
+        }
+    }
+
+    private void ApplyError(string message, bool useAuthorizationErrorSurface)
+    {
+        if (useAuthorizationErrorSurface)
+        {
+            _authorizationErrorMessage = message;
+        }
+        else
+        {
+            _errorMessage = message;
+        }
+    }
+
+    private bool IsAuthorizationConnected(string platformName)
+    {
+        return platformName switch
+        {
+            "Twitch" => IsTwitchAuthorized,
+            "YouTube" => IsYouTubeAuthorized,
+            _ => false
+        };
+    }
+
+    private string GetSelectedPlatformSubtitle(PlatformViewModel platform)
+    {
+        return platform.PlatformName switch
+        {
+            "Twitch" => string.IsNullOrWhiteSpace(_twitchProfile.TargetChannel)
+                ? "Authorize the bot account, save a target channel, then join chat."
+                : $"Bot {GetTwitchBotDisplay()} is set to operate in {GetTwitchChannelDisplay()}.",
+            "YouTube" => _youTubeService?.ActiveBroadcast is null
+                ? "Authorize a channel and connect once a live broadcast with chat is active."
+                : $"Active broadcast: {_youTubeService.ActiveBroadcast.Title}",
+            _ => platform.State == PlatformConnectionState.PendingApproval
+                ? "This adapter is waiting on external API approval before live operation is possible."
+                : "Review the current status and any remaining manual prerequisites."
+        };
+    }
+
+    private string GetSelectedPlatformDescription(PlatformViewModel platform)
+    {
+        return platform.PlatformName switch
+        {
+            "Twitch" => "Twitch is fully controllable from Thiccdal: save the broadcaster channel, authorize the bot account, and connect chat without leaving the operator surface.",
+            "YouTube" => "YouTube uses OAuth for read/write broadcast access. After authorizing, Thiccdal can connect to the current live chat when YouTube exposes an active broadcast with chat enabled.",
+            "Discord" => "Discord currently reads its bot token and channel identifiers from deployment configuration. Use the status here to verify whether that configuration is complete before you go live.",
+            "Facebook" => "Facebook still depends on a manually provisioned Page access token and Page ID. Use the status here to verify whether the current host has what it needs.",
+            "X" => "X currently uses developer-portal credentials and an operator-supplied broadcast tweet reference. Thiccdal can reflect readiness here and open the setup portal when you need to refresh credentials.",
+            "LinkedIn" => "LinkedIn Live remains blocked until LinkedIn grants API approval for this application.",
+            "TikTok" => "TikTok Live remains blocked until TikTok grants API approval for this application.",
+            _ => "Review the current connection state for this platform."
+        };
+    }
+
+    private string GetManualPlatformGuidance(PlatformViewModel platform)
+    {
+        return platform.PlatformName switch
+        {
+            "Discord" => "Configure BotToken, GuildId, and StreamChannelId in deployment settings. Relay into Discord voice remains intentionally blocked until that runtime path is finished.",
+            "Facebook" => "Configure PageAccessToken and PageId in deployment settings. Facebook authorization still relies on a manually created Page token rather than an in-app OAuth loop.",
+            "X" => "Configure the X API credentials and BroadcastTweetId in deployment settings, then use the X developer portal if you need to create or rotate keys.",
+            "LinkedIn" => "LinkedIn Live is intentionally gated until API approval lands. Once approved, configure the organization ID, access token, and relay endpoint details before enabling the destination.",
+            "TikTok" => "TikTok Live is intentionally gated until API approval lands. Once approved, configure the creator ID, access token, and relay endpoint details before enabling the destination.",
+            _ => "This integration does not expose additional in-app connection controls yet."
+        };
+    }
+
+    private string GetYouTubeBroadcastSummary()
+    {
+        if (_youTubeService?.ActiveBroadcast is null)
+        {
+            return "No active YouTube broadcast with live chat is currently cached.";
+        }
+
+        return $"Current broadcast: {_youTubeService.ActiveBroadcast.Title}";
+    }
+
+    private string GetTwitchBotDisplay()
+    {
+        return string.IsNullOrWhiteSpace(_twitchProfile.BotUsername)
+            ? "not authorized yet"
+            : $"@{_twitchProfile.BotUsername}";
+    }
+
+    private string GetTwitchChannelDisplay()
+    {
+        return string.IsNullOrWhiteSpace(_twitchProfile.TargetChannel)
+            ? "no saved channel"
+            : $"#{_twitchProfile.TargetChannel}";
+    }
+
+    private static string Normalize(string? value) => value?.Trim() ?? string.Empty;
+
+    private static string ResolvePlatformColor(string platformName)
+    {
+        return PlatformColors.TryGetValue(platformName, out string? color)
+            ? color
+            : "rgba(255,255,255,0.32)";
+    }
+
+    private static string GetShortName(string platformName)
+    {
+        return platformName switch
+        {
+            "YouTube" => "YT",
+            _ => platformName
+        };
+    }
+
+    private static bool GetIsLive(IPlatformConnection platform)
+    {
+        return platform switch
+        {
+            ITwitchService twitchService => twitchService.IsStreamLive,
+            IYouTubeService youTubeService => youTubeService.IsStreamLive,
+            _ => false
+        };
+    }
+
+    private static IntegrationConnectionState MapConnectionState(PlatformConnectionState state)
+    {
+        return state switch
+        {
+            PlatformConnectionState.Connected => IntegrationConnectionState.Connected,
+            PlatformConnectionState.Connecting => IntegrationConnectionState.Connecting,
+            PlatformConnectionState.Error => IntegrationConnectionState.Error,
+            _ => IntegrationConnectionState.NotConnected
+        };
+    }
+
+    private static string GetStateCssClass(PlatformConnectionState state)
+    {
+        return state switch
+        {
+            PlatformConnectionState.Connected => "connected",
+            PlatformConnectionState.Connecting => "connecting",
+            PlatformConnectionState.Error => "error",
+            PlatformConnectionState.PendingApproval => "pending",
+            _ => "disconnected"
+        };
+    }
+
+    private static string GetStateLabel(PlatformConnectionState state)
+    {
+        return state switch
+        {
+            PlatformConnectionState.Connected => "Connected",
+            PlatformConnectionState.Connecting => "Connecting",
+            PlatformConnectionState.Error => "Error",
+            PlatformConnectionState.PendingApproval => "Pending approval",
+            PlatformConnectionState.Disabled => "Disabled",
+            _ => "Not connected"
+        };
+    }
+
+    private static int GetPlatformOrder(IIntegrationConnectionMonitor monitor)
+    {
+        return PlatformOrder.TryGetValue(monitor.PlatformName, out int order) ? order : int.MaxValue;
+    }
+
+    private static int GetPlatformOrder(IPlatformConnection platform)
+    {
+        return PlatformOrder.TryGetValue(platform.PlatformName, out int order) ? order : int.MaxValue;
+    }
+
+    private void HandleMonitorConnectionChanged(object? sender, EventArgs args)
+    {
+        _ = InvokeAsync(LoadState);
+    }
+
+    private void HandleTwitchConnectionStateChanged(object? sender, TwitchConnectionState state)
+    {
+        _ = state;
+        _ = InvokeAsync(LoadState);
+    }
+
+    private void HandleYouTubeConnectionStateChanged(object? sender, YouTubeConnectionState state)
+    {
+        _ = state;
+        _ = InvokeAsync(LoadState);
+    }
+
+    private sealed record PlatformViewModel(
+        string PlatformName,
+        string ShortName,
+        string Color,
+        PlatformConnectionState State,
+        string? LastError,
+        string AuthorizationUrl,
+        bool IsLive);
+}

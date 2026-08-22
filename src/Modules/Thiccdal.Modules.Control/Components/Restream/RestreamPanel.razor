@@ -117,12 +117,20 @@
                     <span>Start restream runtime automatically when Thiccdal is launched by Aspire.</span>
                 </label>
 
-                <button type="button"
-                        class="restream-panel__save"
-                        disabled="@_isWorking"
-                        @onclick="SaveConfiguration">
-                    Save configuration
-                </button>
+                <div class="restream-panel__configuration-actions">
+                    <button type="button"
+                            class="restream-panel__save"
+                            disabled="@_isWorking"
+                            @onclick="SaveConfiguration">
+                        Save configuration
+                    </button>
+                    <button type="button"
+                            class="restream-panel__push"
+                            disabled="@(!_hasState || _isWorking)"
+                            @onclick="PushConfiguration">
+                        Push to restreamer
+                    </button>
+                </div>
             </div>
 
             <div class="restream-panel__metrics" aria-label="Restream summary">
@@ -217,6 +225,11 @@
                     RtmpServerApiKey = _rtmpServerApiKey
                 }));
         _rtmpServerApiKey = string.Empty;
+    }
+
+    private async Task PushConfiguration()
+    {
+        await Execute(() => RestreamControlClient.PushConfiguration());
     }
 
     private async Task ToggleRuntime()

@@ -135,6 +135,28 @@ public sealed class RestreamRuntimeService : IRestreamRuntimeService, IRestreamS
         return await BuildState(cancellationToken, "Restream configuration saved.");
     }
 
+    public async Task<RestreamControlState> PushConfiguration(CancellationToken cancellationToken = default)
+    {
+        RestreamConfigurationSnapshot snapshot = GetCurrent();
+        IReadOnlyList<RtmpRelayDestination> destinations = await GetActiveDestinations(cancellationToken);
+
+        RtmpServerConfigurationPush push = new RtmpServerConfigurationPush(
+            IngestUrl: snapshot.IngestUrl,
+            RecordingOutputPath: snapshot.RecordingOutputPath,
+            BrbSlatePath: snapshot.BrbSlatePath,
+            Destinations: destinations
+                .Select(static d => new RtmpRelayDestinationPush(d.PlatformName, d.DestinationUrl))
+                .ToArray());
+
+        await _rtmpServerClient.PushConfiguration(push, cancellationToken);
+
+        _logger.LogInformation(
+            "Pushed restream configuration to the RTMP server with {ActiveDestinationCount} active destination(s).",
+            destinations.Count);
+
+        return await BuildState(cancellationToken, "Restream configuration pushed to the RTMP server.");
+    }
+
     public async Task<RestreamControlState> UpdateDestination(RestreamDestinationUpdateRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);

@@ -18,6 +18,11 @@ public interface IRestreamRuntimeService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Pushes the currently persisted control-plane configuration to the restream runtime host.
+    /// </summary>
+    Task<RestreamControlState> PushConfiguration(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Updates whether a platform should participate in RTMP fanout.
     /// </summary>
     Task<RestreamControlState> UpdateDestination(RestreamDestinationUpdateRequest request, CancellationToken cancellationToken = default);

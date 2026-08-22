@@ -1,3 +1,4 @@
+@using Thiccdal.Modules.Control.Components.Integrations
 @using Thiccdal.Modules.Control.Components.Restream
 @using Thiccdal.Infrastructure.Twitch
 @inject IEmoteRenderingOptions EmoteRenderingOptions
@@ -21,6 +22,15 @@
                 aria-controls="operator-settings-panel-viewer-identities"
                 @onclick="() => SelectTab(OperatorSettingsTab.ViewerIdentities)">
             Viewer Identities
+        </button>
+        <button type="button"
+                id="operator-settings-tab-integrations"
+                class="operator-settings-dialog__tab @GetTabCssClass(OperatorSettingsTab.Integrations)"
+                role="tab"
+                aria-selected="@(_selectedTab == OperatorSettingsTab.Integrations)"
+                aria-controls="operator-settings-panel-integrations"
+                @onclick="() => SelectTab(OperatorSettingsTab.Integrations)">
+            Integrations
         </button>
         <button type="button"
                 id="operator-settings-tab-restream"
@@ -56,6 +66,14 @@
          aria-labelledby="operator-settings-tab-viewer-identities"
          hidden="@(_selectedTab != OperatorSettingsTab.ViewerIdentities)">
         <ViewerIdentitiesPanel />
+    </div>
+
+    <div id="operator-settings-panel-integrations"
+         class="operator-settings-dialog__panel"
+         role="tabpanel"
+         aria-labelledby="operator-settings-tab-integrations"
+         hidden="@(_selectedTab != OperatorSettingsTab.Integrations)">
+        <IntegrationsPanel />
     </div>
 
     <div id="operator-settings-panel-restream"
@@ -110,7 +128,8 @@
     {
         StreamChecks = 0,
         ViewerIdentities = 1,
-        Restream = 2,
-        Emotes = 3
+        Integrations = 2,
+        Restream = 3,
+        Emotes = 4
     }
 }

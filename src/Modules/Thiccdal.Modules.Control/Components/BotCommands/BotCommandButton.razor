@@ -1,13 +1,16 @@
 @if (IsInteractive)
 {
-    <button type="button" class="bot-cmd-btn @(IsEnabled ? string.Empty : "bot-cmd-btn--disabled")" @onclick="OnClick">
+    <button type="button"
+            class="bot-cmd-btn @(IsEnabled ? string.Empty : "bot-cmd-btn--disabled") @(IsSelected ? "bot-cmd-btn--selected" : string.Empty)"
+            @onclick="OnClick"
+            aria-pressed="@IsSelected">
         <span class="bot-cmd-btn__cmd">@Command</span>
         <span class="bot-cmd-btn__desc">@Description</span>
     </button>
 }
 else
 {
-    <div class="bot-cmd-btn bot-cmd-btn--readonly @(IsEnabled ? string.Empty : "bot-cmd-btn--disabled")">
+    <div class="bot-cmd-btn bot-cmd-btn--readonly @(IsEnabled ? string.Empty : "bot-cmd-btn--disabled") @(IsSelected ? "bot-cmd-btn--selected" : string.Empty)">
         <span class="bot-cmd-btn__cmd">@Command</span>
         <span class="bot-cmd-btn__desc">@Description</span>
     </div>
@@ -18,5 +21,6 @@ else
     [Parameter] public string Description { get; set; } = string.Empty;
     [Parameter] public bool IsEnabled { get; set; } = true;
     [Parameter] public bool IsInteractive { get; set; } = true;
+    [Parameter] public bool IsSelected { get; set; }
     [Parameter] public EventCallback OnClick { get; set; }
 }

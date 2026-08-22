@@ -92,21 +92,37 @@
     color: var(--color-text);
 }
 
-.restream-panel__save {
+.restream-panel__configuration-actions {
     grid-column: 1 / -1;
-    justify-self: start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.restream-panel__save,
+.restream-panel__push {
     min-height: 44px;
     padding: 10px 16px;
     border-radius: 14px;
-    border: 1px solid rgba(96, 165, 250, 0.3);
-    background: rgba(59, 130, 246, 0.14);
-    color: #dbeafe;
     font: inherit;
     font-weight: 700;
     cursor: pointer;
 }
 
-.restream-panel__save[disabled] {
+.restream-panel__save {
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    background: rgba(59, 130, 246, 0.14);
+    color: #dbeafe;
+}
+
+.restream-panel__push {
+    border: 1px solid rgba(52, 211, 153, 0.3);
+    background: rgba(16, 185, 129, 0.14);
+    color: #d1fae5;
+}
+
+.restream-panel__save[disabled],
+.restream-panel__push[disabled] {
     opacity: 0.65;
     cursor: not-allowed;
 }

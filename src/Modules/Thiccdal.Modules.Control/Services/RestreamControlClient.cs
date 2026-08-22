@@ -32,6 +32,11 @@ public sealed class RestreamControlClient : IRestreamControlClient
         return SendPut("/api/restream/configuration", request, cancellationToken);
     }
 
+    public Task<RestreamControlState> PushConfiguration(CancellationToken cancellationToken = default)
+    {
+        return SendPost("/api/restream/push", cancellationToken);
+    }
+
     public Task<RestreamControlState> UpdateDestination(RestreamDestinationUpdateRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);

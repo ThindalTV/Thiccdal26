@@ -1,0 +1,277 @@
+.integrations-panel {
+    gap: 18px;
+}
+
+.integrations-panel__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.integrations-panel__summary {
+    margin: 6px 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.integrations-panel__refresh {
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 14px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.integrations-panel__refresh[disabled] {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.integrations-panel__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.integrations-panel__message {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(59, 130, 246, 0.14);
+    border: 1px solid rgba(96, 165, 250, 0.25);
+    color: #dbeafe;
+}
+
+.integrations-panel__message--error {
+    background: rgba(220, 38, 38, 0.16);
+    border-color: rgba(248, 113, 113, 0.3);
+    color: #fee2e2;
+}
+
+.integrations-panel__empty {
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-text-muted);
+}
+
+.integrations-panel__grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 16px;
+}
+
+.integrations-panel__picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 10px;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.integrations-panel__picker-item {
+    border-radius: 16px;
+}
+
+.integrations-panel__picker-item--selected {
+    box-shadow: 0 0 0 2px rgba(145, 70, 255, 0.35);
+}
+
+.integrations-panel__details {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.integrations-panel__details-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.integrations-panel__details-title {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--color-text);
+}
+
+.integrations-panel__details-subtitle {
+    margin: 6px 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.integrations-panel__state {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.integrations-panel__state--connected {
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+    color: #d1fae5;
+}
+
+.integrations-panel__state--connecting {
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(251, 191, 36, 0.28);
+    color: #fef3c7;
+}
+
+.integrations-panel__state--error {
+    background: rgba(220, 38, 38, 0.16);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    color: #fee2e2;
+}
+
+.integrations-panel__state--pending {
+    background: rgba(96, 165, 250, 0.14);
+    border: 1px solid rgba(147, 197, 253, 0.3);
+    color: #dbeafe;
+}
+
+.integrations-panel__state--disconnected {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--color-text-muted);
+}
+
+.integrations-panel__detail-copy {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+}
+
+.integrations-panel__detail-copy--compact {
+    margin-bottom: 12px;
+}
+
+.integrations-panel__section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 4px;
+}
+
+.integrations-panel__section-title {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+}
+
+.integrations-panel__form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.integrations-panel__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.integrations-panel__field-label {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.integrations-panel__actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.integrations-panel__primary-action,
+.integrations-panel__secondary-action,
+.integrations-panel__danger-action,
+.integrations-panel__link-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 14px;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.integrations-panel__primary-action {
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    background: rgba(59, 130, 246, 0.14);
+    color: #dbeafe;
+    cursor: pointer;
+}
+
+.integrations-panel__secondary-action {
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text);
+    cursor: pointer;
+}
+
+.integrations-panel__danger-action {
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    background: rgba(220, 38, 38, 0.16);
+    color: #fee2e2;
+    cursor: pointer;
+}
+
+.integrations-panel__link-action {
+    width: fit-content;
+    border: 1px solid rgba(96, 165, 250, 0.25);
+    background: rgba(59, 130, 246, 0.1);
+    color: #dbeafe;
+}
+
+.integrations-panel__primary-action[disabled],
+.integrations-panel__secondary-action[disabled],
+.integrations-panel__danger-action[disabled] {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.integrations-panel__hint {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 900px) {
+    .integrations-panel__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 767px) {
+    .integrations-panel__header,
+    .integrations-panel__details-header {
+        flex-direction: column;
+    }
+
+    .integrations-panel__form-grid {
+        grid-template-columns: 1fr;
+    }
+}

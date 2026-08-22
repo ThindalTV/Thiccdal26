@@ -54,6 +54,24 @@ public class FacebookRegistrationExtensionsTests
     }
 
     [Fact]
+    public void WhenPlatformUserServiceIsScoped_ThenFacebookServiceStillResolves()
+    {
+        ServiceCollection services = new();
+        services.AddLogging();
+        services.AddSingleton<IEventBus, FakeEventBus>();
+        services.AddScoped<IPlatformUserService, FakePlatformUserService>();
+        services.AddFacebookIntegration(BuildConfiguration());
+
+        using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+
+        Assert.NotNull(provider.GetRequiredService<IFacebookService>());
+    }
+
+    [Fact]
     public async Task WhenGraphApiClientSeesTransientFailures_ThenResilienceRetriesRequests()
     {
         ServiceCollection services = new();
@@ -126,6 +144,20 @@ public class FacebookRegistrationExtensionsTests
                 Content = new StringContent("{}", Encoding.UTF8, "application/json"),
                 RequestMessage = request
             });
+        }
+    }
+
+    private sealed class FakePlatformUserService : IPlatformUserService
+    {
+        public Task<long> Upsert(
+            PlatformEventSource source,
+            string platformUserId,
+            string displayName,
+            DateTime lastSeen,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(1L);
         }
     }
 }

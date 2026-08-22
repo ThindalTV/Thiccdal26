@@ -113,6 +113,13 @@
     color: var(--color-text);
     text-align: left;
     cursor: pointer;
+    transition: background var(--duration-fast) ease,
+                border-color var(--duration-fast) ease;
+}
+
+.bot-command-dialog__list-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.22);
 }
 
 .bot-command-dialog__list-item--selected {
@@ -207,6 +214,7 @@
 }
 
 .bot-command-dialog__empty,
+.bot-command-dialog__success,
 .bot-command-dialog__error,
 .bot-command-dialog__footer-hint {
     border: 1px solid var(--glass-border);
@@ -215,6 +223,12 @@
     color: var(--color-text-muted);
     padding: 14px 16px;
     line-height: 1.5;
+}
+
+.bot-command-dialog__success {
+    border-color: rgba(79, 195, 120, 0.34);
+    background: rgba(24, 120, 58, 0.18);
+    color: rgba(185, 255, 202, 0.96);
 }
 
 .bot-command-dialog__error {
@@ -230,6 +244,8 @@
 
 .bot-command-dialog__footer-actions {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 12px;
 }
 

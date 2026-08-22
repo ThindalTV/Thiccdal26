@@ -1,72 +1,12 @@
 @page "/integrations"
 
-@inject ITwitchService TwitchService
-@inject ILogger<Integrations> Logger
-
-@using Thiccdal.Infrastructure.Twitch
-@using Thiccdal.Components.Admin
-
-@implements IAsyncDisposable
+@using Thiccdal.Modules.Control.Components.Integrations
 
 <PageTitle>Integrations</PageTitle>
 
 <div class="container-fluid mt-4">
     <h1 class="mb-4">Integrations</h1>
-    <p class="text-muted mb-4">Manage platform connections. Click any tile to authorize or disconnect.</p>
+    <p class="text-muted mb-4">Configure Twitch and YouTube from the UI, inspect the other platform prerequisites, and keep the dashboard restream controls aligned with your current host.</p>
 
-    <div class="integrations-grid">
-
-        <div class="integration-card">
-            <PlatformStatusButton PlatformName="Twitch"
-                                  IconClass="bi bi-twitch"
-                                  IsAuthenticated="@IsTwitchAuthenticated"
-                                  IsActive="@(TwitchService.ConnectionState == TwitchConnectionState.Connected)"
-                                  OnConnectClicked="OpenTwitchDialog" />
-        </div>
-
-        @* Future platforms follow the same PlatformStatusButton + dialog pattern *@
-
-    </div>
+    <IntegrationsPanel />
 </div>
-
-<TwitchSetupDialog IsVisible="_twitchDialogOpen"
-                   OnClose="CloseTwitchDialog"
-                   OnRevoked="OnTwitchRevoked" />
-
-@code {
-    private bool _twitchDialogOpen;
-
-    private bool IsTwitchAuthenticated =>
-        TwitchService.ConnectionState != TwitchConnectionState.NotAuthorized;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await TwitchService.RefreshConnectionState();
-        TwitchService.ConnectionStateChanged += OnTwitchStateChanged;
-    }
-
-    private void OpenTwitchDialog() => _twitchDialogOpen = true;
-
-    private void CloseTwitchDialog()
-    {
-        _twitchDialogOpen = false;
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnTwitchRevoked()
-    {
-        _twitchDialogOpen = false;
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnTwitchStateChanged(object? sender, TwitchConnectionState state)
-    {
-        InvokeAsync(StateHasChanged);
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        TwitchService.ConnectionStateChanged -= OnTwitchStateChanged;
-        return ValueTask.CompletedTask;
-    }
-}

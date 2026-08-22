@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Facebook;
@@ -12,7 +13,7 @@ public class FacebookService : IFacebookService, IAsyncDisposable, IDisposable
     private readonly IFacebookGraphClient _graphClient;
     private readonly IEventBus _eventBus;
     private readonly ILogger<FacebookService> _logger;
-    private readonly IPlatformUserService? _platformUserService;
+    private readonly IServiceScopeFactory? _serviceScopeFactory;
 
     private readonly object _stateLock = new();
     private readonly HashSet<string> _seenCommentIds = new(StringComparer.Ordinal);
@@ -44,13 +45,13 @@ public class FacebookService : IFacebookService, IAsyncDisposable, IDisposable
         IFacebookGraphClient graphClient,
         IEventBus eventBus,
         ILogger<FacebookService> logger,
-        IPlatformUserService? platformUserService = null)
+        IServiceScopeFactory? serviceScopeFactory = null)
     {
         _options = options.Value;
         _graphClient = graphClient;
         _eventBus = eventBus;
         _logger = logger;
-        _platformUserService = platformUserService;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     public Task RefreshConnectionState(CancellationToken cancellationToken = default)
@@ -413,7 +414,7 @@ public class FacebookService : IFacebookService, IAsyncDisposable, IDisposable
         DateTime lastSeen,
         CancellationToken cancellationToken)
     {
-        if (_platformUserService is null ||
+        if (_serviceScopeFactory is null ||
             string.IsNullOrWhiteSpace(comment.From.Id) ||
             string.IsNullOrWhiteSpace(comment.From.Name))
         {
@@ -422,7 +423,10 @@ public class FacebookService : IFacebookService, IAsyncDisposable, IDisposable
 
         try
         {
-            await _platformUserService.Upsert(
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            IPlatformUserService platformUserService = scope.ServiceProvider.GetRequiredService<IPlatformUserService>();
+
+            await platformUserService.Upsert(
                 PlatformEventSource.Facebook,
                 comment.From.Id,
                 comment.From.Name,

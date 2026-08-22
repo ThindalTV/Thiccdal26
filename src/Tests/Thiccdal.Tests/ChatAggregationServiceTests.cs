@@ -350,6 +350,13 @@ public sealed class ChatAggregationServiceTests
             cancellationToken.ThrowIfCancellationRequested();
             return Task.CompletedTask;
         }
+
+        public Task DispatchFromOperator(string trigger, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _ = trigger;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RecordingCommandDispatcher : ICommandDispatcher
@@ -360,6 +367,13 @@ public sealed class ChatAggregationServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             DispatchCalls.Add(chatEvent);
+            return Task.CompletedTask;
+        }
+
+        public Task DispatchFromOperator(string trigger, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _ = trigger;
             return Task.CompletedTask;
         }
     }
