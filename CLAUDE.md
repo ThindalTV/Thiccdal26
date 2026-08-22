@@ -133,11 +133,12 @@ Never commit credentials, tokens, or `.env` contents. Platform credentials come 
 increasingly from the database-backed settings store. Never paste live secret values into
 committed files, logs, commit messages, or documentation; refer to the config key instead.
 
+A test project that is not listed in `Thiccdal.slnx` is never built or run. Eight orphaned ones
+were removed for this reason — if you add a test project, add it to the solution in the same
+commit.
+
 ## Known rough edges
 
-- Eight test projects under `src/Tests/Remote/` (Discord, Facebook, LinkedIn, LMStudio, Null,
-  TikTok, X, YouTube) exist on disk but are **not in `Thiccdal.slnx`**, so they are never built
-  or run by CI.
 - `docs/architecture/overview.md` still describes `Thiccdal.Streaming` as the RTMP ingest/fanout
   host; that moved to `Thiccdal.RtmpServer`.
 - Stray local `artifacts/` folders are gitignored but were being globbed into compilation;
