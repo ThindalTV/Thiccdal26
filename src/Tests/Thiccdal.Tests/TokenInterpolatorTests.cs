@@ -21,7 +21,7 @@ public sealed class TokenInterpolatorTests
 
     [Theory]
     [InlineData("{platform}", "Twitch", "Twitch")]
-    [InlineData("{PLATFORM}", "YouTube", "YouTube")]
+    [InlineData("{PLATFORM}", "Null", "Null")]
     public void WhenPlatformToken_ThenReplacedWithPlatformName(string template, string platform, string expected)
     {
         TokenInterpolator interpolator = CreateInterpolator();

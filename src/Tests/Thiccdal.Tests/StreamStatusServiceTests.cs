@@ -4,7 +4,6 @@ using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Twitch;
-using Thiccdal.Infrastructure.YouTube;
 
 namespace Thiccdal.Tests;
 
@@ -24,8 +23,7 @@ public sealed class StreamStatusServiceTests
             });
 
         FakeTwitchService twitchService = new();
-        FakeYouTubeService youTubeService = new();
-        StreamStatusService service = CreateService(operatorStateService, twitchService, youTubeService);
+        StreamStatusService service = CreateService(operatorStateService, twitchService);
 
         StreamStatusResponse response = await service.GetStatus();
 
@@ -56,7 +54,7 @@ public sealed class StreamStatusServiceTests
             }
         };
 
-        StreamStatusService service = CreateService(operatorStateService, twitchService, new FakeYouTubeService());
+        StreamStatusService service = CreateService(operatorStateService, twitchService);
 
         StreamStatusResponse response = await service.GetStatus();
 
@@ -78,7 +76,7 @@ public sealed class StreamStatusServiceTests
             LastErrorValue = "Auth token expired"
         };
 
-        StreamStatusService service = CreateService(operatorStateService, twitchService, new FakeYouTubeService());
+        StreamStatusService service = CreateService(operatorStateService, twitchService);
 
         StreamStatusResponse response = await service.GetStatus();
 
@@ -92,7 +90,7 @@ public sealed class StreamStatusServiceTests
     {
         using OperatorStateService operatorStateService = new();
         operatorStateService.SetMode(OperatorMode.Live);
-        StreamStatusService service = CreateService(operatorStateService, new FakeTwitchService(), new FakeYouTubeService());
+        StreamStatusService service = CreateService(operatorStateService, new FakeTwitchService());
 
         StreamStatusResponse response = await service.GetStatus();
 
@@ -103,14 +101,12 @@ public sealed class StreamStatusServiceTests
 
     private static StreamStatusService CreateService(
         OperatorStateService operatorStateService,
-        FakeTwitchService twitchService,
-        FakeYouTubeService youTubeService)
+        FakeTwitchService twitchService)
     {
         return new StreamStatusService(
             operatorStateService,
             twitchService,
-            youTubeService,
-            [twitchService, youTubeService],
+            [twitchService],
             NullLogger<StreamStatusService>.Instance);
     }
 
@@ -173,68 +169,4 @@ public sealed class StreamStatusServiceTests
         public Task SendMessage(string message, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class FakeYouTubeService : IYouTubeService
-    {
-        public string PlatformName => "YouTube";
-
-        public YouTubeConnectionState ConnectionStateValue { get; set; } = YouTubeConnectionState.NotAuthorized;
-
-        public PlatformConnectionState StateValue { get; set; } = PlatformConnectionState.Disconnected;
-
-        public string? LastErrorValue { get; set; }
-
-        public YouTubeBroadcastInfo? BroadcastValue { get; set; }
-
-        public YouTubeConnectionState ConnectionState => ConnectionStateValue;
-
-        public PlatformConnectionState State => StateValue;
-
-        public string? LastError => LastErrorValue;
-
-        public bool IsStreamLive => BroadcastValue?.IsLive == true;
-
-        public YouTubeBroadcastInfo? ActiveBroadcast => BroadcastValue;
-
-        public bool Connected => ConnectionStateValue == YouTubeConnectionState.Connected;
-
-        public event EventHandler<YouTubeConnectionState>? ConnectionStateChanged
-        {
-            add { }
-            remove { }
-        }
-
-        public event EventHandler<bool>? StreamLiveStateChanged
-        {
-            add { }
-            remove { }
-        }
-
-        public event EventHandler<ChatEvent>? OnChatMessageReceived
-        {
-            add { }
-            remove { }
-        }
-
-        public event EventHandler<PlatformEvent>? OnPlatformEventReceived
-        {
-            add { }
-            remove { }
-        }
-
-        public Task RefreshConnectionState(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task RefreshStreamState(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task Connect(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task Disconnect(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task SendMessage(string message, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task SetTitle(string title, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task SetDescription(string description, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task SetCategory(string category, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
 }

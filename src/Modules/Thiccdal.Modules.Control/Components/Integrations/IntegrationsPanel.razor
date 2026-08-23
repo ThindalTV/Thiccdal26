@@ -2,7 +2,6 @@
 @using Thiccdal.Infrastructure.Integrations
 @using Thiccdal.Infrastructure.Remotes
 @using Thiccdal.Infrastructure.Twitch
-@using Thiccdal.Infrastructure.YouTube
 @inject IEnumerable<IPlatformConnection> PlatformConnections
 @inject IEnumerable<IIntegrationConnectionMonitor> IntegrationConnectionMonitors
 @inject IServiceProvider Services
@@ -12,7 +11,7 @@
     <div class="ctrl-panel__header integrations-panel__header">
         <div>
             <span class="ctrl-panel__title">Integrations</span>
-            <p class="integrations-panel__summary">Manage OAuth-backed platform connections here and review the prerequisites for the rest of the relay targets.</p>
+            <p class="integrations-panel__summary">Manage the Twitch connection and review its prerequisites.</p>
         </div>
 
         <button type="button"
@@ -137,40 +136,6 @@
                                 <p class="integrations-panel__hint">Saved channel: @GetTwitchChannelDisplay()</p>
                             </div>
                         }
-                        else if (IsYouTubeSelected)
-                        {
-                            <div class="integrations-panel__section">
-                                <h4 class="integrations-panel__section-title">Authorization and live chat</h4>
-                                <div class="integrations-panel__actions-row">
-                                    <button type="button"
-                                            class="integrations-panel__primary-action"
-                                            disabled="@(_isWorking || string.IsNullOrWhiteSpace(selectedPlatform.AuthorizationUrl))"
-                                            @onclick="OpenSelectedAuthorizationDialog">
-                                        @(IsYouTubeAuthorized ? "Re-authorize YouTube" : "Authorize YouTube")
-                                    </button>
-                                    <button type="button"
-                                            class="integrations-panel__secondary-action"
-                                            disabled="@(_isWorking || !IsYouTubeAuthorized || _youTubeService?.Connected == true)"
-                                            @onclick="ConnectYouTubeChat">
-                                        Connect live chat
-                                    </button>
-                                    <button type="button"
-                                            class="integrations-panel__secondary-action"
-                                            disabled="@(_isWorking || _youTubeService?.Connected != true)"
-                                            @onclick="DisconnectYouTubeChat">
-                                        Disconnect live chat
-                                    </button>
-                                    <button type="button"
-                                            class="integrations-panel__danger-action"
-                                            disabled="@(_isWorking || !IsYouTubeAuthorized)"
-                                            @onclick="DisconnectSelectedAuthorization">
-                                        Disconnect authorization
-                                    </button>
-                                </div>
-
-                                <p class="integrations-panel__hint">@GetYouTubeBroadcastSummary()</p>
-                            </div>
-                        }
                         else
                         {
                             <div class="integrations-panel__section">
@@ -211,25 +176,13 @@
 @code {
     private static readonly IReadOnlyDictionary<string, string> PlatformColors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["Discord"] = "#5865F2",
-        ["Facebook"] = "#1877F2",
-        ["LinkedIn"] = "#0A66C2",
         ["Null"] = "#94A3B8",
-        ["TikTok"] = "#25F4EE",
-        ["Twitch"] = "#9146FF",
-        ["X"] = "#D1D5DB",
-        ["YouTube"] = "#FF4444"
+        ["Twitch"] = "#9146FF"
     };
 
     private static readonly IReadOnlyDictionary<string, int> PlatformOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
-        ["Twitch"] = 0,
-        ["YouTube"] = 1,
-        ["Discord"] = 2,
-        ["Facebook"] = 3,
-        ["X"] = 4,
-        ["LinkedIn"] = 5,
-        ["TikTok"] = 6
+        ["Twitch"] = 0
     };
 
     private IReadOnlyList<IIntegrationConnectionMonitor> _monitors = Array.Empty<IIntegrationConnectionMonitor>();
@@ -238,8 +191,6 @@
     private ITwitchService? _twitchService;
     private ITwitchTargetChannelService? _twitchTargetChannelService;
     private ITwitchTokenManager? _twitchTokenManager;
-    private IYouTubeService? _youTubeService;
-    private IYouTubeTokenManager? _youTubeTokenManager;
     private TwitchChatConnectionProfile _twitchProfile = new TwitchChatConnectionProfile
     {
         BotUsername = string.Empty,
@@ -259,9 +210,7 @@
         platform => string.Equals(platform.PlatformName, _selectedPlatformName, StringComparison.OrdinalIgnoreCase));
 
     private bool IsTwitchSelected => string.Equals(_selectedPlatformName, "Twitch", StringComparison.OrdinalIgnoreCase);
-    private bool IsYouTubeSelected => string.Equals(_selectedPlatformName, "YouTube", StringComparison.OrdinalIgnoreCase);
     private bool IsTwitchAuthorized => _twitchService?.ConnectionState != TwitchConnectionState.NotAuthorized;
-    private bool IsYouTubeAuthorized => _youTubeService?.ConnectionState != YouTubeConnectionState.NotAuthorized;
     private bool IsTwitchTargetDirty => !string.Equals(Normalize(_twitchTargetChannel), Normalize(_twitchProfile.TargetChannel), StringComparison.Ordinal) ||
                                         !string.Equals(Normalize(_twitchBroadcasterId), Normalize(_twitchProfile.BroadcasterId), StringComparison.Ordinal);
     private bool CanConnectTwitch => !_isWorking &&
@@ -286,17 +235,10 @@
         _twitchService = Services.GetService<ITwitchService>();
         _twitchTargetChannelService = Services.GetService<ITwitchTargetChannelService>();
         _twitchTokenManager = Services.GetService<ITwitchTokenManager>();
-        _youTubeService = Services.GetService<IYouTubeService>();
-        _youTubeTokenManager = Services.GetService<IYouTubeTokenManager>();
 
         if (_twitchService is not null)
         {
             _twitchService.ConnectionStateChanged += HandleTwitchConnectionStateChanged;
-        }
-
-        if (_youTubeService is not null)
-        {
-            _youTubeService.ConnectionStateChanged += HandleYouTubeConnectionStateChanged;
         }
 
         await LoadState();
@@ -312,11 +254,6 @@
         if (_twitchService is not null)
         {
             _twitchService.ConnectionStateChanged -= HandleTwitchConnectionStateChanged;
-        }
-
-        if (_youTubeService is not null)
-        {
-            _youTubeService.ConnectionStateChanged -= HandleYouTubeConnectionStateChanged;
         }
     }
 
@@ -341,12 +278,6 @@
             if (_twitchService is not null)
             {
                 await _twitchService.RefreshConnectionState();
-            }
-
-            if (_youTubeService is not null)
-            {
-                await _youTubeService.RefreshConnectionState();
-                await _youTubeService.RefreshStreamState();
             }
 
             if (_twitchTargetChannelService is not null)
@@ -377,7 +308,7 @@
 
         return new PlatformViewModel(
             platform.PlatformName,
-            GetShortName(platform.PlatformName),
+            platform.PlatformName,
             ResolvePlatformColor(platform.PlatformName),
             platform.State,
             platform.LastError,
@@ -476,30 +407,6 @@
             "Disconnected Twitch chat.");
     }
 
-    private Task ConnectYouTubeChat()
-    {
-        if (_youTubeService is null)
-        {
-            return Task.CompletedTask;
-        }
-
-        return RunAction(
-            () => _youTubeService.Connect(),
-            "Connected YouTube live chat.");
-    }
-
-    private Task DisconnectYouTubeChat()
-    {
-        if (_youTubeService is null)
-        {
-            return Task.CompletedTask;
-        }
-
-        return RunAction(
-            () => _youTubeService.Disconnect(),
-            "Disconnected YouTube live chat.");
-    }
-
     private Task DisconnectSelectedAuthorization()
     {
         return _selectedPlatformName switch
@@ -515,18 +422,6 @@
                     await _twitchTokenManager.Revoke();
                 },
                 "Disconnected Twitch authorization.",
-                useAuthorizationErrorSurface: true),
-            "YouTube" when _youTubeTokenManager is not null => RunAction(
-                async () =>
-                {
-                    if (_youTubeService?.Connected == true)
-                    {
-                        await _youTubeService.Disconnect();
-                    }
-
-                    await _youTubeTokenManager.RevokeToken();
-                },
-                "Disconnected YouTube authorization.",
                 useAuthorizationErrorSurface: true),
             _ => Task.CompletedTask
         };
@@ -576,7 +471,6 @@
         return platformName switch
         {
             "Twitch" => IsTwitchAuthorized,
-            "YouTube" => IsYouTubeAuthorized,
             _ => false
         };
     }
@@ -588,9 +482,6 @@
             "Twitch" => string.IsNullOrWhiteSpace(_twitchProfile.TargetChannel)
                 ? "Authorize the bot account, save a target channel, then join chat."
                 : $"Bot {GetTwitchBotDisplay()} is set to operate in {GetTwitchChannelDisplay()}.",
-            "YouTube" => _youTubeService?.ActiveBroadcast is null
-                ? "Authorize a channel and connect once a live broadcast with chat is active."
-                : $"Active broadcast: {_youTubeService.ActiveBroadcast.Title}",
             _ => platform.State == PlatformConnectionState.PendingApproval
                 ? "This adapter is waiting on external API approval before live operation is possible."
                 : "Review the current status and any remaining manual prerequisites."
@@ -602,12 +493,6 @@
         return platform.PlatformName switch
         {
             "Twitch" => "Twitch is fully controllable from Thiccdal: save the broadcaster channel, authorize the bot account, and connect chat without leaving the operator surface.",
-            "YouTube" => "YouTube uses OAuth for read/write broadcast access. After authorizing, Thiccdal can connect to the current live chat when YouTube exposes an active broadcast with chat enabled.",
-            "Discord" => "Discord currently reads its bot token and channel identifiers from deployment configuration. Use the status here to verify whether that configuration is complete before you go live.",
-            "Facebook" => "Facebook still depends on a manually provisioned Page access token and Page ID. Use the status here to verify whether the current host has what it needs.",
-            "X" => "X currently uses developer-portal credentials and an operator-supplied broadcast tweet reference. Thiccdal can reflect readiness here and open the setup portal when you need to refresh credentials.",
-            "LinkedIn" => "LinkedIn Live remains blocked until LinkedIn grants API approval for this application.",
-            "TikTok" => "TikTok Live remains blocked until TikTok grants API approval for this application.",
             _ => "Review the current connection state for this platform."
         };
     }
@@ -616,23 +501,8 @@
     {
         return platform.PlatformName switch
         {
-            "Discord" => "Configure BotToken, GuildId, and StreamChannelId in deployment settings. Relay into Discord voice remains intentionally blocked until that runtime path is finished.",
-            "Facebook" => "Configure PageAccessToken and PageId in deployment settings. Facebook authorization still relies on a manually created Page token rather than an in-app OAuth loop.",
-            "X" => "Configure the X API credentials and BroadcastTweetId in deployment settings, then use the X developer portal if you need to create or rotate keys.",
-            "LinkedIn" => "LinkedIn Live is intentionally gated until API approval lands. Once approved, configure the organization ID, access token, and relay endpoint details before enabling the destination.",
-            "TikTok" => "TikTok Live is intentionally gated until API approval lands. Once approved, configure the creator ID, access token, and relay endpoint details before enabling the destination.",
             _ => "This integration does not expose additional in-app connection controls yet."
         };
-    }
-
-    private string GetYouTubeBroadcastSummary()
-    {
-        if (_youTubeService?.ActiveBroadcast is null)
-        {
-            return "No active YouTube broadcast with live chat is currently cached.";
-        }
-
-        return $"Current broadcast: {_youTubeService.ActiveBroadcast.Title}";
     }
 
     private string GetTwitchBotDisplay()
@@ -658,21 +528,11 @@
             : "rgba(255,255,255,0.32)";
     }
 
-    private static string GetShortName(string platformName)
-    {
-        return platformName switch
-        {
-            "YouTube" => "YT",
-            _ => platformName
-        };
-    }
-
     private static bool GetIsLive(IPlatformConnection platform)
     {
         return platform switch
         {
             ITwitchService twitchService => twitchService.IsStreamLive,
-            IYouTubeService youTubeService => youTubeService.IsStreamLive,
             _ => false
         };
     }
@@ -729,12 +589,6 @@
     }
 
     private void HandleTwitchConnectionStateChanged(object? sender, TwitchConnectionState state)
-    {
-        _ = state;
-        _ = InvokeAsync(LoadState);
-    }
-
-    private void HandleYouTubeConnectionStateChanged(object? sender, YouTubeConnectionState state)
     {
         _ = state;
         _ = InvokeAsync(LoadState);

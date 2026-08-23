@@ -2,7 +2,6 @@ using Microsoft.Extensions.Logging;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Twitch;
-using Thiccdal.Infrastructure.YouTube;
 
 namespace Thiccdal.API.Status;
 
@@ -13,7 +12,6 @@ public sealed class StreamStatusService : IStreamStatusService
 {
     private readonly IOperatorStateService _operatorStateService;
     private readonly ITwitchService _twitchService;
-    private readonly IYouTubeService _youTubeService;
     private readonly IReadOnlyList<IPlatformConnection> _platformConnections;
     private readonly ILogger<StreamStatusService> _logger;
 
@@ -22,19 +20,16 @@ public sealed class StreamStatusService : IStreamStatusService
     /// </summary>
     /// <param name="operatorStateService">The shared operator state service.</param>
     /// <param name="twitchService">The Twitch integration service.</param>
-    /// <param name="youTubeService">The YouTube integration service.</param>
     /// <param name="platformConnections">All registered platform connections.</param>
     /// <param name="logger">The logger.</param>
     public StreamStatusService(
         IOperatorStateService operatorStateService,
         ITwitchService twitchService,
-        IYouTubeService youTubeService,
         IEnumerable<IPlatformConnection> platformConnections,
         ILogger<StreamStatusService> logger)
     {
         _operatorStateService = operatorStateService;
         _twitchService = twitchService;
-        _youTubeService = youTubeService;
         _platformConnections = platformConnections.ToArray();
         _logger = logger;
     }
@@ -72,11 +67,7 @@ public sealed class StreamStatusService : IStreamStatusService
                 RefreshSafely(
                     () => platformConnection.RefreshConnectionState(cancellationToken),
                     $"{platformConnection.PlatformName} connection state"))
-            .Concat(
-            [
-                RefreshSafely(() => _twitchService.RefreshStreamState(cancellationToken), "Twitch stream state"),
-                RefreshSafely(() => _youTubeService.RefreshStreamState(cancellationToken), "YouTube stream state")
-            ]);
+            .Append(RefreshSafely(() => _twitchService.RefreshStreamState(cancellationToken), "Twitch stream state"));
 
         await Task.WhenAll(refreshOperations);
     }
@@ -114,25 +105,6 @@ public sealed class StreamStatusService : IStreamStatusService
                 Category = _twitchService.StreamState.Category,
                 Tags = _twitchService.StreamState.Tags,
                 StartedAt = _twitchService.StreamState.StartedAt
-            };
-            _operatorStateService.SetActiveStreamState(streamState);
-
-            if (_operatorStateService.Mode != OperatorMode.Live)
-            {
-                _operatorStateService.SetMode(OperatorMode.Live);
-            }
-
-            return CreateStreamDto(streamState);
-        }
-
-        if (_youTubeService.ActiveBroadcast?.IsLive == true)
-        {
-            OperatorStreamState streamState = new()
-            {
-                Title = _youTubeService.ActiveBroadcast.Title,
-                Category = _youTubeService.ActiveBroadcast.Category,
-                Tags = _youTubeService.ActiveBroadcast.Tags,
-                StartedAt = _youTubeService.ActiveBroadcast.StartedAt
             };
             _operatorStateService.SetActiveStreamState(streamState);
 

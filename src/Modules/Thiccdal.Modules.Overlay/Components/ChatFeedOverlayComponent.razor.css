@@ -29,30 +29,6 @@
     --platform-color: #9146ff;
 }
 
-.chat-feed-overlay__message--youtube {
-    --platform-color: #ff4444;
-}
-
-.chat-feed-overlay__message--discord {
-    --platform-color: #5865f2;
-}
-
-.chat-feed-overlay__message--facebook {
-    --platform-color: #1877f2;
-}
-
-.chat-feed-overlay__message--x {
-    --platform-color: #d1d5db;
-}
-
-.chat-feed-overlay__message--linkedin {
-    --platform-color: #0a66c2;
-}
-
-.chat-feed-overlay__message--tiktok {
-    --platform-color: #25f4ee;
-}
-
 .chat-feed-overlay__message--default {
     --platform-color: rgba(255, 255, 255, 0.38);
 }

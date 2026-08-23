@@ -11,7 +11,5 @@ public enum PlatformEventType
     Cheer = 4,
     Raid = 5,
     Redeem = 6,
-    SuperChat = 7,
-    Membership = 8,
     Raw = 99
 }

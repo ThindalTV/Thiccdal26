@@ -1,11 +1,9 @@
 using Thiccdal.Data.Models;
 using RuntimeChatEvent = Thiccdal.Infrastructure.Bot.Models.ChatEvent;
-using RuntimeMembershipEvent = Thiccdal.Infrastructure.Bot.Models.MembershipEvent;
 using RuntimeFollowEvent = Thiccdal.Infrastructure.Bot.Models.TwitchFollowEvent;
 using RuntimePlatformEvent = Thiccdal.Infrastructure.Bot.Models.PlatformEvent;
 using RuntimeRaidEvent = Thiccdal.Infrastructure.Bot.Models.TwitchRaidEvent;
 using RuntimeRedeemEvent = Thiccdal.Infrastructure.Bot.Models.TwitchRedeemEvent;
-using RuntimeSuperChatEvent = Thiccdal.Infrastructure.Bot.Models.SuperChatEvent;
 using RuntimeSubscribeEvent = Thiccdal.Infrastructure.Bot.Models.TwitchSubscribeEvent;
 
 namespace Thiccdal.Data;
@@ -72,36 +70,6 @@ internal static class PlatformEventRecordFactory
                 OccurredAt = raidEvent.OccurredAt,
                 RaidingChannel = raidEvent.RaidingChannel,
                 ViewerCount = raidEvent.ViewerCount
-            },
-            RuntimeSuperChatEvent superChatEvent => new SuperChatEvent
-            {
-                Source = superChatEvent.Source,
-                Type = superChatEvent.Type,
-                SourceEventType = superChatEvent.SourceEventType,
-                ExternalId = superChatEvent.ExternalId,
-                Author = superChatEvent.Author,
-                Channel = superChatEvent.Channel,
-                Summary = superChatEvent.Summary,
-                RawData = superChatEvent.RawData,
-                OccurredAt = superChatEvent.OccurredAt,
-                AmountMicros = superChatEvent.AmountMicros,
-                Currency = superChatEvent.Currency,
-                DisplayString = superChatEvent.DisplayString,
-                UserComment = superChatEvent.UserComment
-            },
-            RuntimeMembershipEvent membershipEvent => new MembershipEvent
-            {
-                Source = membershipEvent.Source,
-                Type = membershipEvent.Type,
-                SourceEventType = membershipEvent.SourceEventType,
-                ExternalId = membershipEvent.ExternalId,
-                Author = membershipEvent.Author,
-                Channel = membershipEvent.Channel,
-                Summary = membershipEvent.Summary,
-                RawData = membershipEvent.RawData,
-                OccurredAt = membershipEvent.OccurredAt,
-                LevelName = membershipEvent.LevelName,
-                MonthCount = membershipEvent.MonthCount
             },
             RuntimeChatEvent chatEvent => new PlatformEvent
             {

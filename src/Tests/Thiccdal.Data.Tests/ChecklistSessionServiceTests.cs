@@ -23,9 +23,9 @@ public sealed class ChecklistSessionServiceTests : ApplicationDbContextTestFixtu
                 [
                     CreateItem("platform-connection.twitch", "Platform Connections", "Twitch connected", ChecklistItemType.Auto, true, isChecked: true),
                     CreateItem("personal.water-ready", "Personal Prep", "Water ready", ChecklistItemType.Manual, false, isChecked: false),
-                    CreateItem("recording-disk-space", "Recording", "Sufficient disk space (≥ 10 GB free)", ChecklistItemType.AutoWithWarn, false, isChecked: false, isWarning: true, warningMessage: "Only 4.5 GB free on recording drive"),
-                    CreateItem("ingest-url-copied", "OBS & Technical", "RTMP ingest URL configured in OBS", ChecklistItemType.Manual, true, isChecked: false),
-                    CreateItem("platform-connection.youtube", "Platform Connections", "YouTube connected", ChecklistItemType.Auto, true, isChecked: false, isBlocked: true)
+                    CreateItem("audio-levels-set", "OBS & Technical", "Audio levels checked", ChecklistItemType.AutoWithWarn, false, isChecked: false, isWarning: true, warningMessage: "Mic input is peaking"),
+                    CreateItem("obs-scene-ready", "OBS & Technical", "OBS scene configured and active", ChecklistItemType.Manual, true, isChecked: false),
+                    CreateItem("platform-connection.null", "Platform Connections", "Null connected", ChecklistItemType.Auto, true, isChecked: false, isBlocked: true)
                 ]
             });
 
@@ -41,9 +41,9 @@ public sealed class ChecklistSessionServiceTests : ApplicationDbContextTestFixtu
         Assert.Equal(5, persistedSession.Items.Count);
         Assert.Contains(persistedSession.Items, item => item.ItemId == "platform-connection.twitch" && item.Status == "Checked" && item.WarningMessage is null);
         Assert.Contains(persistedSession.Items, item => item.ItemId == "personal.water-ready" && item.Status == "Warned" && item.WarningMessage is not null);
-        Assert.Contains(persistedSession.Items, item => item.ItemId == "recording-disk-space" && item.Status == "Warned" && item.WarningMessage == "Only 4.5 GB free on recording drive");
-        Assert.Contains(persistedSession.Items, item => item.ItemId == "ingest-url-copied" && item.Status == "Unchecked" && item.WarningMessage is null);
-        Assert.Contains(persistedSession.Items, item => item.ItemId == "platform-connection.youtube" && item.Status == "Blocked" && item.WarningMessage is not null);
+        Assert.Contains(persistedSession.Items, item => item.ItemId == "audio-levels-set" && item.Status == "Warned" && item.WarningMessage == "Mic input is peaking");
+        Assert.Contains(persistedSession.Items, item => item.ItemId == "obs-scene-ready" && item.Status == "Unchecked" && item.WarningMessage is null);
+        Assert.Contains(persistedSession.Items, item => item.ItemId == "platform-connection.null" && item.Status == "Blocked" && item.WarningMessage is not null);
     }
 
     private static ChecklistItemState CreateItem(

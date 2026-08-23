@@ -1,6 +1,5 @@
 using Thiccdal;
 using Thiccdal.API.Status;
-using Thiccdal.API.Restream;
 using Thiccdal.API.StreamDeck;
 using Thiccdal.Infrastructure.Sponsors;
 using Thiccdal.AI;
@@ -9,19 +8,11 @@ using Thiccdal.Data;
 using Thiccdal.HealthChecks;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Questions;
-using Thiccdal.Infrastructure.Streaming;
 using Thiccdal.Infrastructure.Teleprompter;
 using Thiccdal.Modules.ChatBot;
 using Thiccdal.Modules.Overlay;
 using Thiccdal.Modules.Teleprompter;
-using Thiccdal.Modules.Control.Services;
-using Thiccdal.Remote.Discord;
-using Thiccdal.Remote.Instagram;
-using Thiccdal.Remote.LinkedIn;
-using Thiccdal.Remote.TikTok;
 using Thiccdal.Remote.Twitch;
-using Thiccdal.Remote.YouTube;
-using Thiccdal.Streaming;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,19 +28,9 @@ builder.Services.AddHttpClient();
 // Add services to the container.
 builder.Services.AddChatBotServices(builder.Configuration);
 builder.Services.AddTwitchIntegration(builder.Configuration);
-builder.Services.AddYouTubeIntegration(builder.Configuration);
-builder.Services.AddDiscordIntegration(builder.Configuration);
-builder.Services.AddLinkedInIntegration(builder.Configuration);
-builder.Services.AddInstagramIntegration(builder.Configuration);
-builder.Services.AddTikTokIntegration(builder.Configuration);
 builder.Services.Configure<PrompterOptions>(builder.Configuration.GetSection(PrompterOptions.SectionName));
 builder.Services.AddTeleprompterServices();
 builder.Services.AddOverlay();
-builder.Services.Configure<StreamingOptions>(builder.Configuration.GetSection(StreamingOptions.SectionName));
-builder.Services.Configure<RtmpServerOptions>(builder.Configuration.GetSection(RtmpServerOptions.SectionName));
-builder.Services.AddStreamingServices();
-builder.Services.AddSingleton<IRecordingStorageProbe, RecordingStorageProbe>();
-builder.Services.AddScoped<IRestreamControlClient, RestreamControlClient>();
 builder.Services.AddSingleton<IOperatorStateService, OperatorStateService>();
 builder.Services.AddSingleton<QuestionOverlayService>();
 builder.Services.AddSingleton<IQuestionOverlayService>(static serviceProvider => serviceProvider.GetRequiredService<QuestionOverlayService>());
@@ -67,10 +48,8 @@ var app = builder.Build();
 await app.Services.InitializeDatabase(app.Lifetime.ApplicationStopping);
 app.MapDefaultEndpoints();
 app.MapStatusEndpoints();
-app.MapRestreamEndpoints();
 app.MapStreamDeckEndpoints();
 app.MapTwitchEndpoints();
-app.MapYouTubeEndpoints();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

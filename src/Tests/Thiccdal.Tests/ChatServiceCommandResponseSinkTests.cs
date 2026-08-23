@@ -12,9 +12,9 @@ public sealed class ChatServiceCommandResponseSinkTests
     public async Task WhenOriginPlatformIsConnected_ThenResponseIsSentOnlyToThatPlatformAndChannel()
     {
         RecordingPlatformConnection twitch = new("Twitch", connected: true);
-        RecordingPlatformConnection youTube = new("YouTube", connected: true);
+        RecordingPlatformConnection secondary = new("Null", connected: true);
         ChatServiceCommandResponseSink sink = new(
-            [twitch, youTube],
+            [twitch, secondary],
             NullLogger<ChatServiceCommandResponseSink>.Instance);
 
         await sink.SendResponse(
@@ -30,7 +30,7 @@ public sealed class ChatServiceCommandResponseSinkTests
 
         Assert.Single(twitch.Messages);
         Assert.Equal(("Hello there", "target-channel"), twitch.Messages[0]);
-        Assert.Empty(youTube.Messages);
+        Assert.Empty(secondary.Messages);
     }
 
     [Fact]

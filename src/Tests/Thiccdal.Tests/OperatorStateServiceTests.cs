@@ -34,11 +34,11 @@ public sealed class OperatorStateServiceTests
         PlatformManualReminder[] reminders =
         [
             new PlatformManualReminder { Platform = "Twitch", Setting = "Stream delay", ReminderText = "Check it" },
-            new PlatformManualReminder { Platform = "YouTube", Setting = "Visibility", ReminderText = "Check it too" }
+            new PlatformManualReminder { Platform = "Null", Setting = "Visibility", ReminderText = "Check it too" }
         ];
 
         operatorStateService.SetManualReminderReviewed("Twitch", "Stream delay", true);
-        operatorStateService.SetManualReminderReviewed("YouTube", "Visibility", true);
+        operatorStateService.SetManualReminderReviewed("Null", "Visibility", true);
 
         Assert.True(operatorStateService.IsManualReminderReviewed("Twitch", "Stream delay"));
         Assert.True(operatorStateService.AreAllManualRemindersReviewed(reminders));

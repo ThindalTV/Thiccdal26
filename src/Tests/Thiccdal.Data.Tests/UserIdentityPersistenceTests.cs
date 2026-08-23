@@ -22,7 +22,7 @@ public sealed class UserIdentityPersistenceTests : ApplicationDbContextTestFixtu
         });
         identity.PlatformUsers.Add(new PlatformUser
         {
-            Source = PlatformEventSource.YouTube,
+            Source = PlatformEventSource.Null,
             PlatformUserId = "alice-youtube",
             DisplayName = "Alice_YT"
         });

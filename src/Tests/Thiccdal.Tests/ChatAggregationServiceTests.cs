@@ -144,14 +144,14 @@ public sealed class ChatAggregationServiceTests
         ChatEvent firstMessage = subscriber.Current;
         Task<bool> secondMoveNextTask = subscriber.MoveNextAsync().AsTask();
 
-        youtubeConnection.Emit(CreateChatEvent(PlatformEventSource.YouTube, "youtube-1", "viewer-2", "hello from youtube"));
+        youtubeConnection.Emit(CreateChatEvent(PlatformEventSource.Null, "youtube-1", "viewer-2", "hello from youtube"));
 
         Assert.True(await secondMoveNextTask);
         ChatEvent secondMessage = subscriber.Current;
 
         Assert.Equal(PlatformEventSource.Twitch, firstMessage.Source);
         Assert.Equal("twitch-1", firstMessage.ExternalId);
-        Assert.Equal(PlatformEventSource.YouTube, secondMessage.Source);
+        Assert.Equal(PlatformEventSource.Null, secondMessage.Source);
         Assert.Equal("youtube-1", secondMessage.ExternalId);
 
         await service.StopAsync(CancellationToken.None);
@@ -175,12 +175,12 @@ public sealed class ChatAggregationServiceTests
         Task<bool> moveNextTask = subscriber.MoveNextAsync().AsTask();
 
         await disconnectedConnection.Disconnect(CancellationToken.None);
-        healthyConnection.Emit(CreateChatEvent(PlatformEventSource.YouTube, "youtube-2", "viewer-3", "still here"));
+        healthyConnection.Emit(CreateChatEvent(PlatformEventSource.Null, "youtube-2", "viewer-3", "still here"));
 
         Assert.True(await moveNextTask);
         ChatEvent receivedEvent = subscriber.Current;
 
-        Assert.Equal(PlatformEventSource.YouTube, receivedEvent.Source);
+        Assert.Equal(PlatformEventSource.Null, receivedEvent.Source);
         Assert.Equal("youtube-2", receivedEvent.ExternalId);
 
         await service.StopAsync(CancellationToken.None);

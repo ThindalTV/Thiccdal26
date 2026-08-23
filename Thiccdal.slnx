@@ -7,8 +7,6 @@
     <Project Path="src/Thiccdal.API/Thiccdal.API.csproj" Id="49984546-143b-4e53-9164-172f20b1e224" />
     <Project Path="src/Thiccdal.Data/Thiccdal.Data.csproj" Id="50ba3a3e-0279-4a7f-8077-be723255c8e0" />
     <Project Path="src/Thiccdal.Infrastructure/Thiccdal.Infrastructure.csproj" Id="4f756cb2-ac68-4950-b39b-d3c73457c969" />
-    <Project Path="src/Thiccdal.RtmpServer/Thiccdal.RtmpServer.csproj" />
-    <Project Path="src/Thiccdal.Streaming/Thiccdal.Streaming.csproj" Id="1e138a55-2e2e-4fba-995d-0a0d78a85b07" />
     <Project Path="src/Thiccdal/Thiccdal.csproj" />
   </Folder>
   <Folder Name="/src/Aspire/">
@@ -22,16 +20,9 @@
     <Project Path="src/Modules/Thiccdal.Modules.Teleprompter/Thiccdal.Modules.Teleprompter.csproj" Id="e84a2cd1-fa98-424e-8924-db324509d3a9" />
   </Folder>
   <Folder Name="/src/Remote/">
-    <Project Path="src/Remote/Thiccdal.Remote.Discord/Thiccdal.Remote.Discord.csproj" Id="f9ecf747-5d8a-4ea7-8651-0ad14282523d" />
-    <Project Path="src/Remote/Thiccdal.Remote.Facebook/Thiccdal.Remote.Facebook.csproj" Id="b6bbc186-ed62-47c4-b59c-31452d1770af" />
-    <Project Path="src/Remote/Thiccdal.Remote.Instagram/Thiccdal.Remote.Instagram.csproj" />
-    <Project Path="src/Remote/Thiccdal.Remote.LinkedIn/Thiccdal.Remote.LinkedIn.csproj" />
     <Project Path="src/Remote/Thiccdal.Remote.LMStudio/Thiccdal.Remote.LMStudio.csproj" />
     <Project Path="src/Remote/Thiccdal.Remote.Null/Thiccdal.Remote.Null.csproj" Id="6122ec03-595d-4ab3-bdc0-95e88cdf540b" />
-    <Project Path="src/Remote/Thiccdal.Remote.TikTok/Thiccdal.Remote.TikTok.csproj" Id="a0c04afe-5e6f-45a2-9cbb-7c9ad613629c" />
     <Project Path="src/Remote/Thiccdal.Remote.Twitch/Thiccdal.Remote.Twitch.csproj" Id="b784e543-ced0-4e0e-9ee8-fd351fb09c38" />
-    <Project Path="src/Remote/Thiccdal.Remote.X/Thiccdal.Remote.X.csproj" Id="89896653-993f-4e95-bd72-dfe2865dc75f" />
-    <Project Path="src/Remote/Thiccdal.Remote.YouTube/Thiccdal.Remote.YouTube.csproj" Id="82137a88-a846-4b3a-9761-782884ad4fad" />
   </Folder>
   <Folder Name="/src/Shared/">
     <Project Path="src/Shared/Thiccdal.Shared.Components/Thiccdal.Shared.Components.csproj" />
@@ -46,7 +37,6 @@
     <Project Path="src/Tests/Modules/Thiccdal.Modules.Teleprompter.Tests/Thiccdal.Modules.Teleprompter.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Tests/Remote/">
-    <Project Path="src/Tests/Remote/Thiccdal.Remote.Instagram.Tests/Thiccdal.Remote.Instagram.Tests.csproj" />
     <Project Path="src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/Thiccdal.Remote.Twitch.Tests.csproj" Id="34ac27cc-0c68-40db-937e-66539374ef8e" />
   </Folder>
   <!-- Teleprompter Display is excluded from main solution (Windows-only, built separately) -->

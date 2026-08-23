@@ -1,13 +1,8 @@
-@using Microsoft.Extensions.Options
-@using Thiccdal.Infrastructure.LinkedIn
 @using Thiccdal.Infrastructure.Operators
 @using Thiccdal.Infrastructure.Remotes
-@using Thiccdal.Infrastructure.TikTok
 @using Thiccdal.Shared.Components.Components.Primitives
 @inject IPlatformManualReminderProvider ReminderProvider
 @inject IOperatorStateService OperatorStateService
-@inject IOptions<LinkedInOptions> LinkedInOptions
-@inject IOptions<TikTokOptions> TikTokOptions
 
 @implements IDisposable
 
@@ -78,8 +73,7 @@
 
     private IEnumerable<PlatformManualReminder> GetVisibleReminders()
     {
-        var reminders = ReminderProvider.GetReminders();
-        return reminders.Where(r => IsPlatformVisible(r.Platform));
+        return ReminderProvider.GetReminders();
     }
 
     private Dictionary<string, List<PlatformManualReminder>> GetGroupedReminders()
@@ -109,13 +103,4 @@
         });
     }
 
-    private bool IsPlatformVisible(string platform)
-    {
-        return platform switch
-        {
-            "LinkedIn" => LinkedInOptions.Value.IsEnabled,
-            "TikTok" => TikTokOptions.Value.IsEnabled,
-            _ => true
-        };
-    }
 }

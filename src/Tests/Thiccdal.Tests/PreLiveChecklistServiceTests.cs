@@ -4,7 +4,6 @@ using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Remotes;
-using Thiccdal.Infrastructure.Streaming;
 using Thiccdal.Infrastructure.Twitch;
 
 namespace Thiccdal.Tests;
@@ -24,7 +23,7 @@ public sealed class PreLiveChecklistServiceTests
 
         PreLiveChecklistState updatedState = checklistService.GetState();
 
-        Assert.Equal(7, initialState.OptionalUncheckedCount);
+        Assert.Equal(5, initialState.OptionalUncheckedCount);
         Assert.Equal(initialState.RequiredUncheckedCount - 2, updatedState.RequiredUncheckedCount);
         Assert.True(GetItem(updatedState, "stream-info.title").IsChecked);
         Assert.True(GetItem(updatedState, "stream-info.category").IsChecked);
@@ -106,13 +105,12 @@ public sealed class PreLiveChecklistServiceTests
     {
         using OperatorStateService operatorStateService = new();
         FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
-        using PreLiveChecklistService checklistService = CreateServiceWithoutOverlays(operatorStateService, new FakeRecordingStorageProbe(), twitchService);
+        using PreLiveChecklistService checklistService = CreateServiceWithoutOverlays(operatorStateService, twitchService);
 
         operatorStateService.SetStreamInfo("Ship it", "Science & Technology", ["services"]);
         operatorStateService.SetManualReminderReviewed("Twitch", "Visibility", true);
 
         checklistService.SetItemChecked("obs-scene-ready", true);
-        checklistService.SetItemChecked("ingest-url-copied", true);
         checklistService.SetItemChecked("audio-levels-set", true);
         Assert.True(checklistService.AllRequiredChecked);
 
@@ -155,68 +153,6 @@ public sealed class PreLiveChecklistServiceTests
     }
 
     [Fact]
-    public void WhenRecordingStorageNeedsAttention_ThenRecordingItemsWarnWithoutBlockingGoLive()
-    {
-        using OperatorStateService operatorStateService = new();
-        FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
-        FakeRecordingStorageProbe recordingStorageProbe = new(
-            new RecordingStorageStatus(
-                false,
-                "Recording output folder is unavailable: Access denied",
-                false,
-                "Only 4.5 GB free on recording drive"));
-        using PreLiveChecklistService checklistService = CreateService(operatorStateService, recordingStorageProbe, twitchService);
-
-        PreLiveChecklistState state = checklistService.GetState();
-        ChecklistItemState recordingPathItem = GetItem(state, "recording-path-configured");
-        ChecklistItemState diskSpaceItem = GetItem(state, "recording-disk-space");
-
-        Assert.False(recordingPathItem.Definition.IsRequired);
-        Assert.False(recordingPathItem.IsChecked);
-        Assert.True(recordingPathItem.IsWarning);
-        Assert.Equal("Recording output folder is unavailable: Access denied", recordingPathItem.WarningMessage);
-        Assert.False(diskSpaceItem.Definition.IsRequired);
-        Assert.False(diskSpaceItem.IsChecked);
-        Assert.True(diskSpaceItem.IsWarning);
-        Assert.Equal("Only 4.5 GB free on recording drive", diskSpaceItem.WarningMessage);
-        Assert.False(state.AllRequiredChecked);
-    }
-
-    [Fact]
-    public void WhenRecordingDiskSpaceIsHealthy_ThenRecordingDiskItemIsChecked()
-    {
-        using OperatorStateService operatorStateService = new();
-        FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
-        using PreLiveChecklistService checklistService = CreateService(
-            operatorStateService,
-            new FakeRecordingStorageProbe(new RecordingStorageStatus(true, null, true, null)),
-            twitchService);
-
-        ChecklistItemState item = GetItem(checklistService.GetState(), "recording-disk-space");
-
-        Assert.True(item.IsChecked);
-        Assert.True(item.IsAutoChecked);
-        Assert.False(item.IsWarning);
-    }
-
-    [Fact]
-    public void WhenRecordingPathExists_ThenPathChecklistItemIsChecked()
-    {
-        using OperatorStateService operatorStateService = new();
-        FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
-        using PreLiveChecklistService checklistService = CreateService(
-            operatorStateService,
-            new FakeRecordingStorageProbe(new RecordingStorageStatus(true, null, false, "Only 4.5 GB free on recording drive")),
-            twitchService);
-
-        ChecklistItemState item = GetItem(checklistService.GetState(), "recording-path-configured");
-
-        Assert.True(item.IsChecked);
-        Assert.True(item.IsAutoChecked);
-        Assert.False(item.IsWarning);
-    }
-
-    [Fact]
     public void WhenChecklistIsReset_ThenManualItemsAndReminderReviewsAreCleared()
     {
         using OperatorStateService operatorStateService = new();
@@ -224,13 +160,12 @@ public sealed class PreLiveChecklistServiceTests
         using PreLiveChecklistService checklistService = CreateService(operatorStateService, twitchService);
 
         operatorStateService.SetManualReminderReviewed("Twitch", "Visibility", true);
-        checklistService.SetItemChecked("ingest-url-copied", true);
         checklistService.Reset();
 
         PreLiveChecklistState resetState = checklistService.GetState();
 
         Assert.False(operatorStateService.IsManualReminderReviewed("Twitch", "Visibility"));
-        Assert.False(GetItem(resetState, "ingest-url-copied").IsChecked);
+        Assert.False(GetItem(resetState, "obs-scene-ready").IsChecked);
         Assert.False(GetItem(resetState, "stream-info.manual-reminders").IsChecked);
     }
 
@@ -239,13 +174,7 @@ public sealed class PreLiveChecklistServiceTests
     {
         using OperatorStateService operatorStateService = new();
         FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
-        using PreLiveChecklistService checklistService = CreateService(
-            operatorStateService,
-            new FakeRecordingStorageProbe(),
-            TimeSpan.FromSeconds(30),
-            new StreamingOptions(),
-            TimeSpan.FromMilliseconds(10),
-            twitchService);
+        using PreLiveChecklistService checklistService = CreateService(operatorStateService, TimeSpan.FromMilliseconds(10), twitchService);
         string? triggeredComponentName = null;
 
         operatorStateService.OverlayTestTriggered += (_, componentName) => triggeredComponentName = componentName;
@@ -278,107 +207,13 @@ public sealed class PreLiveChecklistServiceTests
             [twitchService],
             new FakeOverlayService(new FakeOverlayComponent("Static Card")),
             new FakePlatformManualReminderProvider(),
-            new FakeRecordingStorageProbe(),
-            Options.Create(new StreamingOptions()),
+            new FakeCustomChecklistItemCatalog([]),
             TimeProvider.System,
-            TimeSpan.FromSeconds(30),
             TimeSpan.FromMilliseconds(10));
 
         PreLiveChecklistState state = checklistService.GetState();
 
         Assert.DoesNotContain(state.Items, item => item.Definition.Category == "Overlay Verification");
-    }
-
-    [Fact]
-    public void WhenBuildingTechnicalCategory_ThenObsItemsMatchIssueDefinitionAndExposeIngestUrl()
-    {
-        using OperatorStateService operatorStateService = new();
-        FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
-        StreamingOptions streamingOptions = new()
-        {
-            IngestUrl = "rtmp://localhost:1935/live"
-        };
-        using PreLiveChecklistService checklistService = CreateService(operatorStateService, new FakeRecordingStorageProbe(), TimeSpan.FromSeconds(30), streamingOptions, twitchService);
-
-        PreLiveChecklistState state = checklistService.GetState();
-
-        ChecklistItemState obsSceneReady = GetItem(state, "obs-scene-ready");
-        ChecklistItemState ingestUrlCopied = GetItem(state, "ingest-url-copied");
-        ChecklistItemState audioLevelsSet = GetItem(state, "audio-levels-set");
-        ChecklistItemState testStreamDone = GetItem(state, "test-stream-done");
-
-        Assert.Equal("OBS & Technical", obsSceneReady.Definition.Category);
-        Assert.True(obsSceneReady.Definition.IsRequired);
-        Assert.Equal("OBS scene configured and active", obsSceneReady.Definition.Label);
-        Assert.True(ingestUrlCopied.Definition.IsRequired);
-        Assert.Equal("RTMP ingest URL configured in OBS", ingestUrlCopied.Definition.Label);
-        Assert.Equal(streamingOptions.IngestUrl, ingestUrlCopied.Definition.InlineValue);
-        Assert.True(ingestUrlCopied.Definition.CanCopyInlineValue);
-        Assert.True(audioLevelsSet.Definition.IsRequired);
-        Assert.Equal("Audio levels checked", audioLevelsSet.Definition.Label);
-        Assert.False(testStreamDone.Definition.IsRequired);
-        Assert.Equal("Test stream completed", testStreamDone.Definition.Label);
-    }
-
-    [Fact]
-    public void WhenIngestUrlItemIsChecked_ThenChecklistRaisesStateChanged()
-    {
-        using OperatorStateService operatorStateService = new();
-        FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
-        using PreLiveChecklistService checklistService = CreateService(operatorStateService, twitchService);
-        int stateChangedCount = 0;
-
-        checklistService.StateChanged += (_, _) => stateChangedCount++;
-
-        checklistService.SetItemChecked("ingest-url-copied", true);
-
-        Assert.Equal(1, stateChangedCount);
-        Assert.True(GetItem(checklistService.GetState(), "ingest-url-copied").IsChecked);
-    }
-
-    [Fact]
-    public async Task WhenRecordingStorageChangesDuringPolling_ThenChecklistRaisesStateChangedAndStopsCleanly()
-    {
-        using OperatorStateService operatorStateService = new();
-        FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
-        FakeRecordingStorageProbe recordingStorageProbe = new(
-            new RecordingStorageStatus(
-                true,
-                null,
-                true,
-                null));
-        using PreLiveChecklistService checklistService = CreateService(
-            operatorStateService,
-            recordingStorageProbe,
-            TimeSpan.FromMilliseconds(25),
-            twitchService);
-        int stateChangedCount = 0;
-
-        checklistService.StateChanged += (_, _) => Interlocked.Increment(ref stateChangedCount);
-
-        await checklistService.StartAsync(CancellationToken.None);
-
-        recordingStorageProbe.Status = new RecordingStorageStatus(
-            true,
-            null,
-            false,
-            "Only 6.2 GB free on recording drive");
-
-        bool changed = await WaitForConditionAsync(() => Volatile.Read(ref stateChangedCount) > 0, TimeSpan.FromSeconds(2));
-        Assert.True(changed);
-
-        int countBeforeStop = Volatile.Read(ref stateChangedCount);
-        await checklistService.StopAsync(CancellationToken.None);
-
-        recordingStorageProbe.Status = new RecordingStorageStatus(
-            true,
-            null,
-            true,
-            null);
-
-        await Task.Delay(120);
-
-        Assert.Equal(countBeforeStop, Volatile.Read(ref stateChangedCount));
     }
 
     [Fact]
@@ -415,11 +250,8 @@ public sealed class PreLiveChecklistServiceTests
             [twitchService],
             new FakeOverlayService(),
             new FakePlatformManualReminderProvider(),
-            new FakeRecordingStorageProbe(),
             customChecklistItemCatalog,
-            Options.Create(new StreamingOptions()),
             TimeProvider.System,
-            TimeSpan.FromSeconds(30),
             TimeSpan.FromMilliseconds(10));
 
         await checklistService.StartAsync(CancellationToken.None);
@@ -458,9 +290,7 @@ public sealed class PreLiveChecklistServiceTests
             [twitchService],
             new FakeOverlayService(),
             new FakePlatformManualReminderProvider(),
-            new FakeRecordingStorageProbe(),
             customChecklistItemCatalog,
-            Options.Create(new StreamingOptions()),
             TimeProvider.System);
         int stateChangedCount = 0;
 
@@ -493,22 +323,16 @@ public sealed class PreLiveChecklistServiceTests
     {
         using OperatorStateService operatorStateService = new();
         FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
-        using PreLiveChecklistService checklistService = CreateServiceWithoutOverlays(
-            operatorStateService,
-            new FakeRecordingStorageProbe(new RecordingStorageStatus(false, "Set a recording output folder to enable local capture.", false, "Only 4.5 GB free on recording drive")),
-            twitchService);
+        using PreLiveChecklistService checklistService = CreateServiceWithoutOverlays(operatorStateService, twitchService);
 
         operatorStateService.SetStreamInfo("Ship it", "Science & Technology", ["services"]);
         operatorStateService.SetManualReminderReviewed("Twitch", "Visibility", true);
         checklistService.SetItemChecked("obs-scene-ready", true);
-        checklistService.SetItemChecked("ingest-url-copied", true);
         checklistService.SetItemChecked("audio-levels-set", true);
 
         PreLiveChecklistState state = checklistService.GetState();
 
         Assert.True(state.AllRequiredChecked);
-        Assert.False(GetItem(state, "recording-path-configured").IsChecked);
-        Assert.False(GetItem(state, "recording-disk-space").IsChecked);
     }
 
     [Fact]
@@ -516,12 +340,11 @@ public sealed class PreLiveChecklistServiceTests
     {
         using OperatorStateService operatorStateService = new();
         FakeTwitchService twitchService = new(PlatformConnectionState.Error);
-        using PreLiveChecklistService checklistService = CreateServiceWithoutOverlays(operatorStateService, new FakeRecordingStorageProbe(), twitchService);
+        using PreLiveChecklistService checklistService = CreateServiceWithoutOverlays(operatorStateService, twitchService);
 
         operatorStateService.SetStreamInfo("Ship it", "Science & Technology", ["services"]);
         operatorStateService.SetManualReminderReviewed("Twitch", "Visibility", true);
         checklistService.SetItemChecked("obs-scene-ready", true);
-        checklistService.SetItemChecked("ingest-url-copied", true);
         checklistService.SetItemChecked("audio-levels-set", true);
 
         Assert.False(checklistService.AllRequiredChecked);
@@ -541,45 +364,11 @@ public sealed class PreLiveChecklistServiceTests
         OperatorStateService operatorStateService,
         params IPlatformConnection[] platformConnections)
     {
-        return CreateService(operatorStateService, new FakeRecordingStorageProbe(), TimeSpan.FromSeconds(30), new StreamingOptions(), TimeSpan.FromMilliseconds(3200), platformConnections);
-    }
-
-    private static PreLiveChecklistService CreateService(
-        OperatorStateService operatorStateService,
-        FakeRecordingStorageProbe recordingStorageProbe,
-        TimeSpan recordingPollInterval,
-        params IPlatformConnection[] platformConnections)
-    {
-        return CreateService(operatorStateService, recordingStorageProbe, recordingPollInterval, new StreamingOptions(), TimeSpan.FromMilliseconds(3200), platformConnections);
-    }
-
-    private static PreLiveChecklistService CreateService(
-        OperatorStateService operatorStateService,
-        FakeRecordingStorageProbe recordingStorageProbe,
-        params IPlatformConnection[] platformConnections)
-    {
-        return CreateService(operatorStateService, recordingStorageProbe, TimeSpan.FromSeconds(30), new StreamingOptions(), TimeSpan.FromMilliseconds(3200), platformConnections);
-    }
-
-    private static PreLiveChecklistService CreateService(
-        OperatorStateService operatorStateService,
-        FakeRecordingStorageProbe recordingStorageProbe,
-        TimeSpan recordingPollInterval,
-        StreamingOptions streamingOptions,
-        params IPlatformConnection[] platformConnections)
-    {
-        return CreateService(
-            operatorStateService,
-            recordingStorageProbe,
-            recordingPollInterval,
-            streamingOptions,
-            TimeSpan.FromMilliseconds(3200),
-            platformConnections);
+        return CreateService(operatorStateService, TimeSpan.FromMilliseconds(3200), platformConnections);
     }
 
     private static PreLiveChecklistService CreateServiceWithoutOverlays(
         OperatorStateService operatorStateService,
-        FakeRecordingStorageProbe recordingStorageProbe,
         params IPlatformConnection[] platformConnections)
     {
         return new PreLiveChecklistService(
@@ -587,16 +376,12 @@ public sealed class PreLiveChecklistServiceTests
             platformConnections,
             new FakeOverlayService(),
             new FakePlatformManualReminderProvider(),
-            recordingStorageProbe,
-            Options.Create(new StreamingOptions()),
+            new FakeCustomChecklistItemCatalog([]),
             TimeProvider.System);
     }
 
     private static PreLiveChecklistService CreateService(
         OperatorStateService operatorStateService,
-        FakeRecordingStorageProbe recordingStorageProbe,
-        TimeSpan recordingPollInterval,
-        StreamingOptions streamingOptions,
         TimeSpan overlayActionCompletionDelay,
         params IPlatformConnection[] platformConnections)
     {
@@ -605,10 +390,8 @@ public sealed class PreLiveChecklistServiceTests
             platformConnections,
             new FakeOverlayService(new FakeTestableOverlayComponent("Chat Feed"), new FakeOverlayComponent("Static Card")),
             new FakePlatformManualReminderProvider(),
-            recordingStorageProbe,
-            Options.Create(streamingOptions),
+            new FakeCustomChecklistItemCatalog([]),
             TimeProvider.System,
-            recordingPollInterval,
             overlayActionCompletionDelay);
     }
 
@@ -718,26 +501,6 @@ public sealed class PreLiveChecklistServiceTests
                     ReminderText = "Check visibility before going live."
                 }
             ];
-        }
-    }
-
-    private sealed class FakeRecordingStorageProbe : IRecordingStorageProbe
-    {
-        public FakeRecordingStorageProbe()
-            : this(new RecordingStorageStatus(false, "Set a recording output folder to enable local capture.", false, "Recording drive monitoring starts after a recording folder is configured."))
-        {
-        }
-
-        public FakeRecordingStorageProbe(RecordingStorageStatus status)
-        {
-            Status = status;
-        }
-
-        public RecordingStorageStatus Status { get; set; }
-
-        public RecordingStorageStatus GetStatus()
-        {
-            return Status;
         }
     }
 

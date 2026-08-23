@@ -105,7 +105,7 @@ public sealed class PlatformUserServiceTests : ApplicationDbContextTestFixture
             "viewer",
             DateTime.UtcNow.AddMinutes(-1));
         await platformUserService.Upsert(
-            PlatformEventSource.YouTube,
+            PlatformEventSource.Null,
             "viewer-42",
             "viewer",
             DateTime.UtcNow);
@@ -128,7 +128,7 @@ public sealed class PlatformUserServiceTests : ApplicationDbContextTestFixture
             Options.Create(new UserIdentityOptions()));
 
         long existingUserId = await platformUserService.Upsert(
-            PlatformEventSource.YouTube,
+            PlatformEventSource.Null,
             "alice-yt",
             "Alice_YT",
             DateTime.UtcNow.AddMinutes(-1));
@@ -157,7 +157,7 @@ public sealed class PlatformUserServiceTests : ApplicationDbContextTestFixture
             Options.Create(new UserIdentityOptions()));
 
         await platformUserService.Upsert(
-            PlatformEventSource.YouTube,
+            PlatformEventSource.Null,
             "alice-yt",
             "Alice_YT",
             DateTime.UtcNow.AddMinutes(-2));
@@ -191,7 +191,7 @@ public sealed class PlatformUserServiceTests : ApplicationDbContextTestFixture
             }));
 
         await platformUserService.Upsert(
-            PlatformEventSource.YouTube,
+            PlatformEventSource.Null,
             "alice-yt",
             "Alice_YT",
             DateTime.UtcNow.AddMinutes(-1));

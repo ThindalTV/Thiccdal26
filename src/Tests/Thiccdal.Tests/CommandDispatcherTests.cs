@@ -125,10 +125,10 @@ public sealed class CommandDispatcherTests
             [CreateCommand("!socials", "Follow {platform} {user}")],
             responseSink: responseSink);
 
-        await dispatcher.Dispatch(CreateChatEvent("!socials", "River", PlatformEventSource.YouTube));
+        await dispatcher.Dispatch(CreateChatEvent("!socials", "River", PlatformEventSource.Null));
 
         Assert.Single(responseSink.Messages);
-        Assert.Equal("Follow YouTube River", responseSink.Messages[0]);
+        Assert.Equal("Follow Null River", responseSink.Messages[0]);
     }
 
     [Fact]
@@ -283,19 +283,19 @@ public sealed class CommandDispatcherTests
     public async Task WhenOperatorRunsSavedCommand_ThenResponseIsBroadcastToConnectedPlatforms()
     {
         RecordingPlatformConnection twitchConnection = new("Twitch");
-        RecordingPlatformConnection youtubeConnection = new("YouTube");
+        RecordingPlatformConnection secondaryConnection = new("Null");
         RecordingCommandUsageTracker usageTracker = new();
         StubBotCommandManagementService managementService = new([CreateCommand("!clip", "Clip {count}")]);
         CommandDispatcher dispatcher = CreateDispatcher(
             [CreateCommand("!clip", "Clip {count}")],
             usageTracker: usageTracker,
             managementService: managementService,
-            platformConnections: [twitchConnection, youtubeConnection]);
+            platformConnections: [twitchConnection, secondaryConnection]);
 
         await dispatcher.DispatchFromOperator("clip");
 
         Assert.Equal(["Clip 1"], twitchConnection.SentMessages);
-        Assert.Equal(["Clip 1"], youtubeConnection.SentMessages);
+        Assert.Equal(["Clip 1"], secondaryConnection.SentMessages);
         Assert.Equal(["!clip"], usageTracker.RecordedTriggers);
         Assert.Equal(["!clip"], managementService.IncrementedTriggers);
     }

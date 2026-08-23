@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Stream Deck API is a REST API designed specifically for Stream Deck integration, enabling seamless control of your streaming workflow from physical Stream Deck buttons. This API provides endpoints for managing streaming status, restream control, teleprompter navigation, overlays, questions, chat, and operator modes.
+The Stream Deck API is a REST API designed specifically for Stream Deck integration, enabling seamless control of your streaming workflow from physical Stream Deck buttons. This API provides endpoints for teleprompter navigation, overlays, questions, chat, and operator modes — including the go-live action.
 
 All endpoints are optimized for Stream Deck compatibility and accept empty bodies for POST requests when no parameters are required.
 
@@ -66,291 +66,6 @@ All Stream Deck API endpoints return a standardized JSON envelope with the follo
 ---
 
 ## Endpoint Groups
-
-### Streaming Control
-
-Manage your main streaming status and control go-live and stop workflows.
-
-#### Get Streaming Status
-
-Retrieve the current streaming status and state.
-
-**Endpoint:** `GET /api/streamdeck/streaming/status`
-
-**Method:** GET  
-**Authentication:** Not required  
-**Query Parameters:** None
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "isRunning": true,
-    "state": "Started"
-  },
-  "error": null
-}
-```
-
-**Response Fields (data):**
-| Field | Type | Description |
-|-------|------|-------------|
-| `isRunning` | boolean | Whether streaming is currently active |
-| `state` | string | Current streaming state (e.g., "Started", "Stopped") |
-
-**Example curl:**
-```bash
-curl -X GET "http://localhost:5000/api/streamdeck/streaming/status"
-```
-
----
-
-#### Go Live
-
-Execute the complete go-live workflow, preparing all systems for streaming.
-
-**Endpoint:** `POST /api/streamdeck/streaming/go-live`
-
-**Method:** POST  
-**Authentication:** Not required  
-**Body:** Empty (or can omit body entirely)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Go-live workflow executed",
-  "data": null,
-  "error": null
-}
-```
-
-**Example curl:**
-```bash
-curl -X POST "http://localhost:5000/api/streamdeck/streaming/go-live"
-```
-
-**Common Use Case:** Press a Stream Deck button to start your complete streaming workflow in one action.
-
----
-
-#### Stop Streaming
-
-Stop the active stream.
-
-**Endpoint:** `POST /api/streamdeck/streaming/stop`
-
-**Method:** POST  
-**Authentication:** Not required  
-**Body:** Empty (or can omit body entirely)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Streaming stopped",
-  "data": null,
-  "error": null
-}
-```
-
-**Example curl:**
-```bash
-curl -X POST "http://localhost:5000/api/streamdeck/streaming/stop"
-```
-
----
-
-### Restream Control
-
-Manage your restream status and control which platforms are currently active.
-
-#### Get Restream Status
-
-Retrieve the current restream status and enabled platforms.
-
-**Endpoint:** `GET /api/streamdeck/restream/status`
-
-**Method:** GET  
-**Authentication:** Not required  
-**Query Parameters:** None
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "isRunning": true,
-    "destinations": [
-      {
-        "platformName": "Twitch",
-        "isEnabled": true
-      },
-      {
-        "platformName": "YouTube",
-        "isEnabled": false
-      }
-    ]
-  },
-  "error": null
-}
-```
-
-**Example curl:**
-```bash
-curl -X GET "http://localhost:5000/api/streamdeck/restream/status"
-```
-
----
-
-#### Start Restream
-
-Start restreaming to all enabled destinations.
-
-**Endpoint:** `POST /api/streamdeck/restream/start`
-
-**Method:** POST  
-**Authentication:** Not required  
-**Body:** Empty (or can omit body entirely)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Restream started",
-  "data": null,
-  "error": null
-}
-```
-
-**Example curl:**
-```bash
-curl -X POST "http://localhost:5000/api/streamdeck/restream/start"
-```
-
----
-
-#### Stop Restream
-
-Stop restreaming to all destinations.
-
-**Endpoint:** `POST /api/streamdeck/restream/stop`
-
-**Method:** POST  
-**Authentication:** Not required  
-**Body:** Empty (or can omit body entirely)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Restream stopped",
-  "data": null,
-  "error": null
-}
-```
-
-**Example curl:**
-```bash
-curl -X POST "http://localhost:5000/api/streamdeck/restream/stop"
-```
-
----
-
-#### Enable Platform
-
-Enable restreaming to a specific platform.
-
-**Endpoint:** `POST /api/streamdeck/restream/destinations/{platform}/enable`
-
-**Method:** POST  
-**Authentication:** Not required  
-**Path Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `platform` | string | Platform name (e.g., "Twitch", "YouTube", "Facebook") |
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Twitch enabled",
-  "data": null,
-  "error": null
-}
-```
-
-**Example curl:**
-```bash
-curl -X POST "http://localhost:5000/api/streamdeck/restream/destinations/Twitch/enable"
-```
-
----
-
-#### Disable Platform
-
-Disable restreaming to a specific platform.
-
-**Endpoint:** `POST /api/streamdeck/restream/destinations/{platform}/disable`
-
-**Method:** POST  
-**Authentication:** Not required  
-**Path Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `platform` | string | Platform name (e.g., "Twitch", "YouTube", "Facebook") |
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "YouTube disabled",
-  "data": null,
-  "error": null
-}
-```
-
-**Example curl:**
-```bash
-curl -X POST "http://localhost:5000/api/streamdeck/restream/destinations/YouTube/disable"
-```
-
----
-
-#### Toggle Platform
-
-Toggle the restream status for a specific platform (enable if disabled, disable if enabled).
-
-**Endpoint:** `POST /api/streamdeck/restream/destinations/{platform}/toggle`
-
-**Method:** POST  
-**Authentication:** Not required  
-**Path Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `platform` | string | Platform name (e.g., "Twitch", "YouTube", "Facebook") |
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Twitch disabled",
-  "data": null,
-  "error": null
-}
-```
-
-**Example curl:**
-```bash
-curl -X POST "http://localhost:5000/api/streamdeck/restream/destinations/Twitch/toggle"
-```
-
-**Common Use Case:** Create a single Stream Deck button that toggles a platform on or off without needing to know the current state.
-
----
 
 ### Teleprompter Control
 
@@ -820,6 +535,35 @@ curl -X POST "http://localhost:5000/api/streamdeck/operator/mode/live"
 
 ---
 
+#### Go Live
+
+Run the go-live workflow: save a checklist snapshot, open a stream session, and switch to Live mode. It doesn't start your broadcast — do that in OBS.
+
+**Endpoint:** `POST /api/streamdeck/operator/go-live`
+
+**Method:** POST  
+**Authentication:** Not required  
+**Body:** Empty (or can omit body entirely)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Go-live workflow executed",
+  "data": null,
+  "error": null
+}
+```
+
+**Example curl:**
+```bash
+curl -X POST "http://localhost:5000/api/streamdeck/operator/go-live"
+```
+
+**Common Use Case:** Press a Stream Deck button to mark the session live in one action.
+
+---
+
 ## Stream Deck Setup Instructions
 
 ### Prerequisites
@@ -847,7 +591,7 @@ Launch the Stream Deck application on your computer.
 Click on the HTTP Request button to open the settings panel:
 
 **Basic Configuration:**
-- **Request URL:** Enter your API endpoint (e.g., `http://localhost:5000/api/streamdeck/streaming/go-live`)
+- **Request URL:** Enter your API endpoint (e.g., `http://localhost:5000/api/streamdeck/operator/go-live`)
 - **Request Method:** Select GET or POST based on the endpoint
 - **On Successful Request:** Choose "No Action" or "Show OK" notification
 - **On Failed Request:** Choose "Show Error" notification
@@ -856,19 +600,19 @@ Click on the HTTP Request button to open the settings panel:
 
 **Button 1 - Go Live:**
 ```
-URL: http://your-server:5000/api/streamdeck/streaming/go-live
+URL: http://your-server:5000/api/streamdeck/operator/go-live
 Method: POST
 ```
 
-**Button 2 - Stop Streaming:**
+**Button 2 - Back to PreLive:**
 ```
-URL: http://your-server:5000/api/streamdeck/streaming/stop
+URL: http://your-server:5000/api/streamdeck/operator/mode/prelive
 Method: POST
 ```
 
-**Button 3 - Check Streaming Status:**
+**Button 3 - Check Operator Mode:**
 ```
-URL: http://your-server:5000/api/streamdeck/streaming/status
+URL: http://your-server:5000/api/streamdeck/operator/mode
 Method: GET
 ```
 
@@ -878,9 +622,9 @@ URL: http://your-server:5000/api/streamdeck/questions/next
 Method: POST
 ```
 
-**Button 5 - Toggle Twitch:**
+**Button 5 - Test Overlay:**
 ```
-URL: http://your-server:5000/api/streamdeck/restream/destinations/Twitch/toggle
+URL: http://your-server:5000/api/streamdeck/overlay/Chat%20Feed/test
 Method: POST
 ```
 
@@ -936,16 +680,16 @@ https://[your-domain]/api/streamdeck/endpoint
 
 ### Example Workflow: Complete Stream Startup
 
-Create a multi-action sequence to go live with multiple platforms:
+Create a multi-action sequence to open the session and set up the dashboard:
 
 1. **Button 1 (Single Press):** Execute go-live workflow
    ```
-   POST /api/streamdeck/streaming/go-live
+   POST /api/streamdeck/operator/go-live
    ```
 
-2. **Button 2 (Long Press):** Start restreaming
+2. **Button 2:** Switch back to PreLive mode
    ```
-   POST /api/streamdeck/restream/start
+   POST /api/streamdeck/operator/mode/prelive
    ```
 
 ### Example Workflow: Question Management
@@ -956,25 +700,6 @@ Create a series of buttons for managing viewer questions:
 - **Button B:** Promote Next Question (POST)
 - **Button C:** Dismiss Question (POST)
 - **Button D:** Clear All Questions (POST)
-
-### Example Workflow: Platform Toggle
-
-Create individual buttons to manage which platforms are active:
-
-- **Button 1:** Toggle Twitch
-  ```
-  POST /api/streamdeck/restream/destinations/Twitch/toggle
-  ```
-
-- **Button 2:** Toggle YouTube
-  ```
-  POST /api/streamdeck/restream/destinations/YouTube/toggle
-  ```
-
-- **Button 3:** Toggle Facebook
-  ```
-  POST /api/streamdeck/restream/destinations/Facebook/toggle
-  ```
 
 ---
 
@@ -990,7 +715,7 @@ While there are no explicit rate limits on these endpoints, avoid excessive poll
 
 ### Best Practices
 
-1. **Use POST for actions** that change state (starting/stopping, enabling/disabling)
+1. **Use POST for actions** that change state (going live, promoting a question)
 2. **Use GET for queries** that retrieve information
 3. **Minimize polling** of status endpoints - only check when needed
 4. **Include error handling** in Stream Deck configurations
@@ -1010,16 +735,6 @@ While there are no explicit rate limits on these endpoints, avoid excessive poll
   "message": "Message cannot be empty",
   "data": null,
   "error": "Message cannot be empty"
-}
-```
-
-**Platform Not Found (Restream):**
-```json
-{
-  "success": false,
-  "message": "Platform not found",
-  "data": null,
-  "error": "Platform 'InvalidPlatform' not found"
 }
 ```
 

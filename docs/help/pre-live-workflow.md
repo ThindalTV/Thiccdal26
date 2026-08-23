@@ -8,10 +8,13 @@ This guide walks you through Thiccdal's **Pre-Live mode**, a structured preparat
 
 When you start Thiccdal, the dashboard opens in **Pre-Live mode** — a dedicated interface for stream preparation. Pre-Live mode focuses on verifying all technical, platform, and content requirements before streaming begins.
 
-Once all required checks pass, you confirm via the **Go Live** button, which simultaneously:
-- Starts the RTMP relay to all connected platforms
+Once all required checks pass, you confirm via the **Go Live** button, which:
+- Saves a snapshot of the checklist against a new stream session
 - Switches the dashboard to **Live mode** for operational monitoring
-- Begins recording (if configured)
+
+Thiccdal doesn't handle your video. Start and stop the broadcast in OBS, which publishes to each
+platform directly. **Go Live** marks the session in Thiccdal so chat, the bot, and the overlay are
+tracked against it.
 
 ---
 
@@ -83,10 +86,6 @@ All enabled platforms must be in **Connected** state before you can go live.
 | Item | Type |
 |---|---|
 | Twitch chat connected | Auto |
-| YouTube chat connected | Auto |
-| Facebook chat connected | Auto |
-| X chat connected | Auto |
-| Discord connected | Auto |
 
 **What if a platform shows "Not Connected"?**
 1. Check the **platform badge** in the top bar — it should show green "Connected"
@@ -103,33 +102,21 @@ All enabled platforms must be in **Connected** state before you can go live.
 | Platform manual settings reviewed | Action | Opens a summary of platform-specific reminders you should review before going live |
 
 **Platform Manual Settings Action:**
-When you tap **[Review Platform Settings]**, a dialog appears listing each platform's manual reminders:
-- **Twitch**: "Check your title and category in the Twitch dashboard"
-- **YouTube**: "Verify thumbnail and description in YouTube Studio"
-- **Facebook**: "Review post visibility and privacy settings"
-- *(and so on for each connected platform)*
+When you tap **[Review Platform Settings]**, a dialog appears listing Twitch's manual reminders — stream encoding, stream delay, extensions, and ad schedule.
 
-Review these reminders, then tap **Confirm** to check off this item. These are informational only — you'll typically handle these in each platform's native interface before or after going live.
+Review these reminders, then tap **Confirm** to check off this item. These are informational only — you'll handle them in the Twitch Creator Dashboard before or after going live.
 
 ### 🎬 OBS & Technical *(manual, required)*
 
 | Item | Notes |
 |---|---|
 | OBS scene configured and active | Confirm the correct OBS scene is live before starting the real stream |
-| RTMP ingest URL configured in OBS | The ingest URL is shown inline as a copyable field and auto-checks when you tap **Copy** |
 | Audio levels checked | |
 | Test stream completed | Optional dry-run confirmation |
 
-**What is the Ingest URL?**
-The **Ingest URL** is Thiccdal's RTMP endpoint where OBS pushes video. It's displayed in this section for reference.
-
 **How do I configure OBS?**
-In OBS:
-1. Go to **Settings → Stream**
-2. Set **Service** to **Custom...**
-3. Copy the **Ingest URL** from the checklist (e.g., `rtmp://localhost:1935/live`)
-4. Configure your **Stream Key** in OBS (this may be a placeholder like `stream` or `primary`)
-5. Start OBS's video source and verify video is flowing
+Point OBS at each platform you're broadcasting to, using that platform's own server URL and stream
+key. Thiccdal doesn't sit between OBS and the platforms, so there's no ingest URL to copy.
 
 ### 🖥 Overlay Verification *(action, required)*
 
@@ -154,18 +141,6 @@ Each registered overlay component appears here. You'll see items like:
    - A new window/tab opens to the Teleprompter view
    - Verify the teleprompter page displays correctly and is responsive
    - Close the window, then check off this item in the checklist
-
-### 💾 Recording *(auto-with-warn, required)*
-
-| Item | Notes |
-|---|---|
-| Recording output path configured | Auto-checked if recording path is non-empty |
-| Disk space available (≥ 10 GB free) | Auto-checked if your disk has enough space |
-
-**What if disk space is low?**
-- Free up space on your streaming PC (delete old recordings, logs, etc.)
-- Or reconfigure the recording path to a different drive with more space (see [Getting Started — Configuration](./getting-started.md#database-configuration))
-- The checklist will re-scan when you refresh the page or toggle the setting
 
 ### ✔ Personal Prep *(manual, optional)*
 
@@ -201,7 +176,7 @@ When you tap **Go Live** and all required items are checked, a dialog appears:
 ───────────────────────────────────────────
   Title: Building Thiccdal Live
   Category: Science & Technology
-  Platforms: Twitch, YouTube, Discord
+  Platforms: Twitch
   
   ⚠ Optional items not checked:
     • Notifications silenced
@@ -217,12 +192,13 @@ When you tap **Go Live** and all required items are checked, a dialog appears:
 - Two buttons: **Cancel** (stay in Pre-Live) or **Go Live Now** (confirm and switch to Live mode)
 
 **What happens when you tap "Go Live Now"?**
-1. RTMP relay starts to all connected platforms simultaneously
-2. Recording begins (if configured)
-3. Dashboard switches to **Live mode**
-4. **Go Live** button replaced by **Go Offline** button
-5. Left panel changes to show **Chat Feed** instead of Stream Info
-6. Right panel changes to show **Operational Status** instead of Checklist
+1. Thiccdal saves the checklist snapshot and opens a stream session
+2. Dashboard switches to **Live mode**
+3. **Go Live** button replaced by **Go Offline** button
+4. Left panel changes to show **Chat Feed** instead of Stream Info
+5. Right panel changes to show **Operational Status** instead of Checklist
+
+Start the broadcast in OBS separately — Thiccdal doesn't start or stop it for you.
 
 ---
 
@@ -259,13 +235,12 @@ For details on Live mode operation, see [Live Mode Operations](#) (coming soon).
    - **Stream Info**: Title and Category fields are non-empty
    - **OBS & Technical**: All items manually checked
    - **Overlay Verification**: All overlay tests passed and items checked
-   - **Recording**: Path configured and disk space adequate
 3. If still locked, check the browser console (F12) for errors and share with support
 
-### Q: I pressed Go Live, but one platform failed to connect mid-stream
+### Q: A platform disconnected mid-stream
 
-**A:** 
-1. The stream continues on connected platforms
+**A:**
+1. Your OBS broadcast is unaffected — only Thiccdal's chat and event feed for that platform stops
 2. In Live mode, tap the platform badge to re-connect
 3. If re-connection fails, check platform permissions and API credentials
 4. You can continue streaming and troubleshoot the platform during the stream
@@ -307,7 +282,6 @@ Just don't tap **Go Live**. When you're done testing, close or refresh the page.
 
 - **Ready to stream?** Follow the [Pre-Live Checklist](#pre-live-checklist-categories) above
 - **Need platform help?** See [Platform Setup Index](./platform-setup-index.md)
-- **Need to configure recording?** See [Getting Started — Configuration](./getting-started.md#configuration)
 - **Troubleshooting stream issues?** Check the [Quick Troubleshooting](#quick-troubleshooting) section above
 
 ---

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -21,8 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Thiccdal.Data\Thiccdal.Data.csproj" />
-    <ProjectReference Include="..\..\Thiccdal.RtmpServer\Thiccdal.RtmpServer.csproj" />
-    <ProjectReference Include="..\..\Thiccdal.Streaming\Thiccdal.Streaming.csproj" />
     <ProjectReference Include="..\..\Remote\Thiccdal.Remote.Null\Thiccdal.Remote.Null.csproj" />
   </ItemGroup>
 

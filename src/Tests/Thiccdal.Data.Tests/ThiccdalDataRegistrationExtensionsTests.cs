@@ -5,7 +5,6 @@ using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Remotes;
-using Thiccdal.Infrastructure.Streaming;
 
 namespace Thiccdal.Data.Tests;
 
@@ -36,7 +35,6 @@ public class ThiccdalDataRegistrationExtensionsTests
         IUserIdentityService userIdentityService = provider.GetRequiredService<IUserIdentityService>();
         IBotCommandManagementService commandManagementService = provider.GetRequiredService<IBotCommandManagementService>();
         IProactiveMessageCatalog proactiveMessageCatalog = provider.GetRequiredService<IProactiveMessageCatalog>();
-        IStreamRecordingService streamRecordingService = provider.GetRequiredService<IStreamRecordingService>();
         IEventBus eventBus = provider.GetRequiredService<IEventBus>();
         IPlatformEventPump eventPump = provider.GetRequiredService<IPlatformEventPump>();
         using ApplicationDbContext dbContext = dbContextFactory.CreateDbContext();
@@ -53,7 +51,6 @@ public class ThiccdalDataRegistrationExtensionsTests
         Assert.NotNull(userIdentityService);
         Assert.NotNull(commandManagementService);
         Assert.NotNull(proactiveMessageCatalog);
-        Assert.NotNull(streamRecordingService);
         Assert.NotNull(eventBus);
         Assert.NotNull(eventPump);
         using IServiceScope firstScope = provider.CreateScope();

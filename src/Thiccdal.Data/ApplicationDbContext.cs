@@ -22,7 +22,6 @@ public sealed class ApplicationDbContext : DbContext
 
     public DbSet<TwitchTargetChannelConfiguration> TwitchTargetChannels { get; set; }
 
-    public DbSet<YouTubeToken> YouTubeTokens { get; set; }
 
     public DbSet<PlatformEvent> PlatformEvents { get; set; }
 
@@ -37,12 +36,6 @@ public sealed class ApplicationDbContext : DbContext
     public DbSet<ChatterMemoryReset> ChatterMemoryResets { get; set; }
 
     public DbSet<ProactiveMessage> ProactiveMessages { get; set; }
-
-    public DbSet<RestreamConfiguration> RestreamConfigurations { get; set; }
-
-    public DbSet<RestreamDestinationConfiguration> RestreamDestinationConfigurations { get; set; }
-
-    public DbSet<StreamRecording> StreamRecordings { get; set; }
 
     public DbSet<AppConfiguration> AppConfigurations { get; set; }
 
@@ -121,56 +114,6 @@ public sealed class ApplicationDbContext : DbContext
                 .IsRequired();
         });
 
-        modelBuilder.Entity<RestreamConfiguration>(restreamConfiguration =>
-        {
-            restreamConfiguration.Property(configuration => configuration.IngestUrl)
-                .IsRequired();
-
-            restreamConfiguration.Property(configuration => configuration.RecordingOutputPath)
-                .IsRequired();
-
-            restreamConfiguration.Property(configuration => configuration.BrbSlatePath)
-                .IsRequired();
-
-            restreamConfiguration.Property(configuration => configuration.UpdatedAt)
-                .IsRequired();
-        });
-
-        modelBuilder.Entity<RestreamDestinationConfiguration>(restreamDestination =>
-        {
-            restreamDestination.Property(destination => destination.PlatformName)
-                .IsRequired();
-
-            restreamDestination.Property(destination => destination.UpdatedAt)
-                .IsRequired();
-
-            restreamDestination.HasIndex(destination => destination.PlatformName)
-                .IsUnique();
-        });
-
-        modelBuilder.Entity<StreamRecording>(streamRecording =>
-        {
-            streamRecording.Property(recording => recording.Platform)
-                .IsRequired();
-
-            streamRecording.Property(recording => recording.FilePath)
-                .IsRequired();
-
-            streamRecording.Property(recording => recording.StartedAt)
-                .IsRequired();
-
-            streamRecording.Property(recording => recording.Error)
-                .IsRequired();
-
-            streamRecording.HasIndex(recording => new
-            {
-                recording.Platform,
-                recording.StartedAt
-            });
-
-            streamRecording.HasIndex(recording => recording.SessionId);
-        });
-
         modelBuilder.Entity<TwitchTargetChannelConfiguration>()
             .Property(configuration => configuration.TargetChannel)
             .IsRequired();
@@ -211,9 +154,7 @@ public sealed class ApplicationDbContext : DbContext
                 .HasValue<SubscribeEvent>(nameof(SubscribeEvent))
                 .HasValue<FollowEvent>(nameof(FollowEvent))
                 .HasValue<RedeemEvent>(nameof(RedeemEvent))
-                .HasValue<RaidEvent>(nameof(RaidEvent))
-                .HasValue<SuperChatEvent>(nameof(SuperChatEvent))
-                .HasValue<MembershipEvent>(nameof(MembershipEvent));
+                .HasValue<RaidEvent>(nameof(RaidEvent));
         });
 
         modelBuilder.Entity<SubscribeEvent>()
@@ -236,18 +177,6 @@ public sealed class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<RaidEvent>()
             .Property(raidEvent => raidEvent.RaidingChannel)
-            .IsRequired();
-
-        modelBuilder.Entity<SuperChatEvent>()
-            .Property(superChatEvent => superChatEvent.Currency)
-            .IsRequired();
-
-        modelBuilder.Entity<SuperChatEvent>()
-            .Property(superChatEvent => superChatEvent.DisplayString)
-            .IsRequired();
-
-        modelBuilder.Entity<MembershipEvent>()
-            .Property(membershipEvent => membershipEvent.LevelName)
             .IsRequired();
 
         modelBuilder.Entity<UserIdentity>(userIdentity =>

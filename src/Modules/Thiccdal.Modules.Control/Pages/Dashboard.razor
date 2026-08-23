@@ -6,7 +6,6 @@
 @using Thiccdal.Modules.Control.Components.OverlayGallery
 @using Thiccdal.Modules.Control.Components.Prompter
 @using Thiccdal.Modules.Control.Components.Questions
-@using Thiccdal.Modules.Control.Components.Restream
 @using Thiccdal.Modules.Control.Components.Settings
 @using Thiccdal.Modules.Control.Components.TopBar
 @using Thiccdal.Infrastructure.Operators
@@ -59,7 +58,6 @@
             </div>
             <div class="dashboard__live-bottom-bar-actions">
                 <button type="button" class="dashboard__live-bottom-bar-button" @onclick="OpenManageCommandsDialog">Manage Commands</button>
-                <button type="button" class="dashboard__live-bottom-bar-button dashboard__live-bottom-bar-button--secondary" @onclick="OpenRestreamDialog">Restream</button>
                 <button type="button" class="dashboard__live-bottom-bar-button dashboard__live-bottom-bar-button--secondary" @onclick="OpenLiveStreamInfoDialog">Stream Info</button>
             </div>
         </section>
@@ -102,24 +100,6 @@
     </div>
 }
 
-@if (_showRestreamDialog && !IsPreLive)
-{
-    <div class="dashboard-dialog-backdrop" @onclick="CloseRestreamDialog" role="presentation">
-        <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Restream">
-            <div class="dashboard-dialog__header">
-                <div>
-                    <h2 class="dashboard-dialog__title">Restream</h2>
-                    <p class="dashboard-dialog__subtitle">Deliberately choose which integrations join fanout and start or stop the current restream seam without leaving live operations.</p>
-                </div>
-                <button type="button" class="dashboard-dialog__close" @onclick="CloseRestreamDialog" aria-label="Close">✕</button>
-            </div>
-            <div class="dashboard-dialog__body">
-                <RestreamPanel />
-            </div>
-        </div>
-    </div>
-}
-
 @if (_showChecklistDialog && IsPreLive)
 {
     <div class="dashboard-dialog-backdrop" @onclick="CloseChecklistDialog" role="presentation">
@@ -143,7 +123,6 @@
     private OperatorMode _mode;
     private bool _showStreamInfoDialog;
     private bool _showLiveStreamInfoDialog;
-    private bool _showRestreamDialog;
     private bool _showChecklistDialog;
     private BotCommandsPanel? _botCommandsPanel;
 
@@ -181,18 +160,6 @@
     private Task CloseLiveStreamInfoDialog()
     {
         _showLiveStreamInfoDialog = false;
-        return Task.CompletedTask;
-    }
-
-    private Task OpenRestreamDialog()
-    {
-        _showRestreamDialog = true;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseRestreamDialog()
-    {
-        _showRestreamDialog = false;
         return Task.CompletedTask;
     }
 

@@ -1,16 +1,13 @@
 using Microsoft.Extensions.Logging;
-using Thiccdal.Infrastructure.Streaming;
 
 namespace Thiccdal.Infrastructure.Operators;
 
 /// <summary>
-/// Coordinates the operator go-live workflow without coupling the UI to streaming details.
+/// Coordinates the operator go-live workflow: saves the checklist snapshot and opens a live session.
 /// </summary>
 public sealed class GoLiveActionService : IGoLiveActionService
 {
     private static readonly TimeSpan DefaultGoLiveTimeout = TimeSpan.FromSeconds(30);
-    private readonly IStreamingService _streamingService;
-    private readonly IRtmpFanoutService _rtmpFanoutService;
     private readonly IOperatorStateService _operatorStateService;
     private readonly IPreLiveChecklistService _preLiveChecklistService;
     private readonly IChecklistSessionService _checklistSessionService;
@@ -21,16 +18,12 @@ public sealed class GoLiveActionService : IGoLiveActionService
     private GoLiveActionState _state = new();
 
     public GoLiveActionService(
-        IStreamingService streamingService,
-        IRtmpFanoutService rtmpFanoutService,
         IOperatorStateService operatorStateService,
         IPreLiveChecklistService preLiveChecklistService,
         IChecklistSessionService checklistSessionService,
         TimeProvider timeProvider,
         ILogger<GoLiveActionService> logger)
         : this(
-            streamingService,
-            rtmpFanoutService,
             operatorStateService,
             preLiveChecklistService,
             checklistSessionService,
@@ -41,8 +34,6 @@ public sealed class GoLiveActionService : IGoLiveActionService
     }
 
     public GoLiveActionService(
-        IStreamingService streamingService,
-        IRtmpFanoutService rtmpFanoutService,
         IOperatorStateService operatorStateService,
         IPreLiveChecklistService preLiveChecklistService,
         IChecklistSessionService checklistSessionService,
@@ -50,8 +41,6 @@ public sealed class GoLiveActionService : IGoLiveActionService
         ILogger<GoLiveActionService> logger,
         TimeSpan goLiveTimeout)
     {
-        ArgumentNullException.ThrowIfNull(streamingService);
-        ArgumentNullException.ThrowIfNull(rtmpFanoutService);
         ArgumentNullException.ThrowIfNull(operatorStateService);
         ArgumentNullException.ThrowIfNull(preLiveChecklistService);
         ArgumentNullException.ThrowIfNull(checklistSessionService);
@@ -59,8 +48,6 @@ public sealed class GoLiveActionService : IGoLiveActionService
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(goLiveTimeout, TimeSpan.Zero);
 
-        _streamingService = streamingService;
-        _rtmpFanoutService = rtmpFanoutService;
         _operatorStateService = operatorStateService;
         _preLiveChecklistService = preLiveChecklistService;
         _checklistSessionService = checklistSessionService;
@@ -88,8 +75,6 @@ public sealed class GoLiveActionService : IGoLiveActionService
 
         DateTimeOffset startedAt = _timeProvider.GetUtcNow();
         Guid sessionId = Guid.NewGuid();
-        bool streamingStartAttempted = false;
-        bool fanoutStarted = false;
 
         using CancellationTokenSource timeoutSource = new(_goLiveTimeout);
         using CancellationTokenSource linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
@@ -97,22 +82,16 @@ public sealed class GoLiveActionService : IGoLiveActionService
         try
         {
             await _checklistSessionService.Save(sessionId, _preLiveChecklistService, linkedSource.Token);
-            streamingStartAttempted = true;
-            await _streamingService.Start(linkedSource.Token, sessionId);
-
-            await _rtmpFanoutService.StartFanout(linkedSource.Token);
-            fanoutStarted = true;
 
             _preLiveChecklistService.HandleGoLiveSucceeded(startedAt, sessionId);
             EnsureLiveSessionTransitioned(startedAt, sessionId);
             _preLiveChecklistService.Reset();
 
-            _logger.LogInformation("Stream went live at {StartedAt}", startedAt);
+            _logger.LogInformation("Stream session {SessionId} marked live at {StartedAt}", sessionId, startedAt);
             SetState(new GoLiveActionState());
         }
-        catch (Exception ex) when (HandleFailureFilter(ex, cancellationToken, timeoutSource))
+        catch (Exception ex) when (HandleFailure(ex, cancellationToken, timeoutSource))
         {
-            await Cleanup(streamingStartAttempted, fanoutStarted);
         }
     }
 
@@ -137,7 +116,7 @@ public sealed class GoLiveActionService : IGoLiveActionService
         return shouldStart;
     }
 
-    private bool HandleFailureFilter(Exception ex, CancellationToken cancellationToken, CancellationTokenSource timeoutSource)
+    private bool HandleFailure(Exception ex, CancellationToken cancellationToken, CancellationTokenSource timeoutSource)
     {
         if (ex is OperationCanceledException && cancellationToken.IsCancellationRequested && !timeoutSource.IsCancellationRequested)
         {
@@ -146,7 +125,7 @@ public sealed class GoLiveActionService : IGoLiveActionService
         }
 
         string errorMessage = timeoutSource.IsCancellationRequested && !cancellationToken.IsCancellationRequested
-            ? $"Go live timed out after {(int)_goLiveTimeout.TotalSeconds} seconds. Streaming startup was stopped and the checklist is still available."
+            ? $"Go live timed out after {(int)_goLiveTimeout.TotalSeconds} seconds. The checklist is still available."
             : $"Go live failed: {ex.Message}";
 
         _logger.LogError(ex, "Go live failed");
@@ -157,33 +136,6 @@ public sealed class GoLiveActionService : IGoLiveActionService
             });
 
         return true;
-    }
-
-    private async Task Cleanup(bool streamingStartAttempted, bool fanoutStarted)
-    {
-        if (fanoutStarted)
-        {
-            try
-            {
-                await _rtmpFanoutService.StopFanout();
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "Failed to stop RTMP fanout during go-live cleanup");
-            }
-        }
-
-        if (streamingStartAttempted)
-        {
-            try
-            {
-                await _streamingService.Stop();
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "Failed to stop streaming during go-live cleanup");
-            }
-        }
     }
 
     private void EnsureLiveSessionTransitioned(DateTimeOffset startedAt, Guid sessionId)
