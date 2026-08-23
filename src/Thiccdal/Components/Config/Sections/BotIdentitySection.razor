@@ -1,0 +1,146 @@
+@namespace Thiccdal.Components.Config.Sections
+@using Thiccdal.Infrastructure.Setup
+
+<div class="bot-identity-section">
+    <!-- Bot Identity -->
+    <div class="card bg-dark mb-4">
+        <div class="card-body">
+            <h6 class="card-title mb-3">
+                <span class="bi bi-robot me-2"></span>
+                Bot Identity
+            </h6>
+
+            <div class="mb-3">
+                <label class="form-label">Bot Name</label>
+                <input type="text" class="form-control" @bind="_botName" @bind:after="ValidateAndNotify"
+                       placeholder="Thiccdal" maxlength="25" />
+                <div class="form-text">
+                    Viewers mention this name to interact with the bot (e.g., @@Thiccdal)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Greeting Messages -->
+    <div class="card bg-dark mb-4">
+        <div class="card-body">
+            <h6 class="card-title mb-3">
+                <span class="bi bi-chat-heart me-2"></span>
+                Greeting Messages
+            </h6>
+
+            <div class="mb-3">
+                <label class="form-label">Stream Start Message</label>
+                <textarea class="form-control" rows="2" @bind="_streamStartMessage"
+                          placeholder="Welcome to the stream! Type !commands to see what I can do."></textarea>
+                <div class="form-text">
+                    Sent when the stream goes live (leave blank to disable)
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">New Follower Message</label>
+                <textarea class="form-control" rows="2" @bind="_newFollowerMessage"
+                          placeholder="Welcome to the community, {{username}}! 🎉"></textarea>
+                <div class="form-text">
+                    Use <code>{{username}}</code> for the follower's name
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">New Subscriber Message</label>
+                <textarea class="form-control" rows="2" @bind="_newSubMessage"
+                          placeholder="Thank you for subscribing, {{username}}! 💜"></textarea>
+                <div class="form-text">
+                    Use <code>{{username}}</code> and <code>{{tier}}</code> for sub details
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timed Messages -->
+    <div class="card bg-dark">
+        <div class="card-body">
+            <h6 class="card-title mb-3">
+                <span class="bi bi-clock-history me-2"></span>
+                Timed Messages
+                <span class="badge bg-secondary ms-2">Optional</span>
+            </h6>
+
+            <p class="text-muted small mb-3">
+                Messages sent automatically at regular intervals during the stream.
+            </p>
+
+            @foreach (var (message, index) in _timedMessages.Select((m, i) => (m, i)))
+            {
+                <div class="input-group mb-2">
+                    <input type="text" class="form-control"
+                           value="@message"
+                           @onchange="e => UpdateTimedMessage(index, e.Value?.ToString() ?? string.Empty)"
+                           placeholder="Follow me on Twitter @@username" />
+                    <button class="btn btn-outline-danger" type="button" @onclick="() => RemoveTimedMessage(index)">
+                        <span class="bi bi-trash"></span>
+                    </button>
+                </div>
+            }
+
+            <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="AddTimedMessage">
+                <span class="bi bi-plus-circle me-1"></span>
+                Add Timed Message
+            </button>
+
+            @if (_timedMessages.Count > 0)
+            {
+                <div class="mt-3">
+                    <label class="form-label">Message Interval (minutes)</label>
+                    <input type="number" class="form-control" @bind="_timedMessageInterval"
+                           min="5" max="60" style="max-width: 100px;" />
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<bool> OnValidationChanged { get; set; }
+
+    private string _botName = "Thiccdal";
+    private string _streamStartMessage = "Welcome to the stream! Type !commands to see what I can do.";
+    private string _newFollowerMessage = "Welcome to the community, {{username}}! 🎉";
+    private string _newSubMessage = "Thank you for subscribing, {{username}}! 💜";
+    private List<string> _timedMessages = new();
+    private int _timedMessageInterval = 15;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ValidateAndNotify();
+    }
+
+    private async Task ValidateAndNotify()
+    {
+        var isValid = !string.IsNullOrWhiteSpace(_botName);
+        await OnValidationChanged.InvokeAsync(isValid);
+    }
+
+    private void AddTimedMessage()
+    {
+        _timedMessages.Add(string.Empty);
+    }
+
+    private void RemoveTimedMessage(int index)
+    {
+        if (index >= 0 && index < _timedMessages.Count)
+        {
+            _timedMessages.RemoveAt(index);
+        }
+    }
+
+    private void UpdateTimedMessage(int index, string value)
+    {
+        if (index >= 0 && index < _timedMessages.Count)
+        {
+            _timedMessages[index] = value;
+        }
+    }
+}

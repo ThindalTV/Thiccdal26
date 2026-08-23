@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "thiccdal",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/Thiccdal/Thiccdal.csproj", "--launch-profile", "http"],
+      "port": 5226,
+      "url": "http://thiccdal.dev.localhost:5226"
+    }
+  ]
+}

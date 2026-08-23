@@ -65,6 +65,7 @@ public static class ThiccdalDataRegistrationExtensions
         services.AddSingleton<IBotCommandManagementService, BotCommandManagementService>();
         services.AddSingleton<IChatterMemoryService, ChatterMemoryService>();
         services.AddSingleton<IProactiveMessageCatalog, ProactiveMessageCatalog>();
+        services.AddSingleton<IProactiveMessageManagementService, ProactiveMessageManagementService>();
         services.AddSingleton<IEventBus, EventBus>();
         services.AddSingleton<IPlatformEventPump, PlatformEventPump>();
         services.AddScoped<ISetupStateService, SetupStateService>();

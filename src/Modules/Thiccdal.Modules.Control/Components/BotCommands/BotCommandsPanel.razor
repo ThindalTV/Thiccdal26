@@ -10,20 +10,6 @@
             <span class="ctrl-panel__title">Bot Commands</span>
             <span class="bot-cmds__summary">@GetSummaryText()</span>
         </div>
-        <div class="bot-cmds__header-actions">
-            <button type="button"
-                    class="bot-cmds__header-button bot-cmds__header-button--ghost"
-                    disabled="@(_commands.Count == 0 || _isBusy)"
-                    @onclick="OpenSelectedCommandDialog">
-                Manage
-            </button>
-            <button type="button"
-                    class="bot-cmds__header-button"
-                    disabled="@_isBusy"
-                    @onclick="OpenNewCommandDialog">
-                New Command
-            </button>
-        </div>
     </div>
     <div class="ctrl-panel__body bot-cmds__body">
         <div class="bot-cmds__stats">
@@ -54,8 +40,7 @@
         @if (_commands.Count == 0)
         {
             <div class="bot-cmds__empty">
-                <p>No commands are configured yet. Add one here and it will be saved to the application database for future streams.</p>
-                <button type="button" class="bot-cmds__action bot-cmds__action--primary" @onclick="OpenNewCommandDialog">Create First Command</button>
+                <p>No commands are configured yet. Add them in configuration and they appear here as one-tap buttons.</p>
             </div>
         }
         else
@@ -66,18 +51,6 @@
                         disabled="@(!CanRunSelectedCommand() || _isBusy)"
                         @onclick="RunSelectedCommand">
                     @(_isBusy ? "Working..." : "Run Selected")
-                </button>
-                <button type="button"
-                        class="bot-cmds__action"
-                        disabled="@(_selectedCommandId is null || _isBusy)"
-                        @onclick="OpenSelectedCommandDialog">
-                    Edit Selected
-                </button>
-                <button type="button"
-                        class="bot-cmds__action"
-                        disabled="@_isBusy"
-                        @onclick="OpenNewCommandDialog">
-                    Add Command
                 </button>
             </div>
 
@@ -116,32 +89,14 @@
             }
         }
 
-        <p class="bot-cmds__hint">Commands are loaded from the application database and can be run live or managed without leaving the dashboard.</p>
+        <p class="bot-cmds__hint">Tap a command to select it, then run it in chat. Add or edit commands in configuration.</p>
     </div>
 </div>
-
-<BotCommandManagementDialog IsOpen="_isDialogOpen"
-                            Commands="_commands"
-                            Draft="_draft"
-                            SelectedCommandId="_selectedCommandId"
-                            IsBusy="_isBusy"
-                            ErrorMessage="_errorMessage"
-                            StatusMessage="_statusMessage"
-                            CanRunSelectedCommand="@CanRunSelectedCommand()"
-                            OnClose="CloseManagementDialog"
-                            OnCreateNew="CreateNewCommand"
-                            OnSelectCommand="SelectCommand"
-                            OnDraftChanged="UpdateDraft"
-                            OnRun="RunSelectedCommand"
-                            OnSave="SaveCommand"
-                            OnDelete="DeleteCommand" />
 
 @code {
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private IReadOnlyList<BotCommandDefinition> _commands = Array.Empty<BotCommandDefinition>();
-    private BotCommandDefinitionInput _draft = CreateEmptyDraft();
     private long? _selectedCommandId;
-    private bool _isDialogOpen;
     private bool _isBusy;
     private string? _errorMessage;
     private string? _statusMessage;
@@ -158,49 +113,6 @@
         return ValueTask.CompletedTask;
     }
 
-    public async Task OpenManagementDialog()
-    {
-        _errorMessage = null;
-        _statusMessage = null;
-        _isDialogOpen = true;
-        await RefreshCommands(_selectedCommandId);
-    }
-
-    private Task CloseManagementDialog()
-    {
-        _isDialogOpen = false;
-        _errorMessage = null;
-        return Task.CompletedTask;
-    }
-
-    private async Task OpenSelectedCommandDialog()
-    {
-        if (_commands.Count == 0)
-        {
-            return;
-        }
-
-        await OpenManagementDialog();
-    }
-
-    private async Task OpenNewCommandDialog()
-    {
-        _errorMessage = null;
-        _statusMessage = null;
-        _isDialogOpen = true;
-        await RefreshCommands(_selectedCommandId);
-        await CreateNewCommand();
-    }
-
-    private Task CreateNewCommand()
-    {
-        _selectedCommandId = null;
-        _draft = CreateEmptyDraft();
-        _errorMessage = null;
-        _statusMessage = null;
-        return Task.CompletedTask;
-    }
-
     private Task SelectCommand(long commandId)
     {
         BotCommandDefinition? selectedCommand = _commands.FirstOrDefault(command => command.Id == commandId);
@@ -210,15 +122,8 @@
         }
 
         _selectedCommandId = selectedCommand.Id;
-        _draft = CreateDraft(selectedCommand);
         _errorMessage = null;
         _statusMessage = null;
-        return Task.CompletedTask;
-    }
-
-    private Task UpdateDraft(BotCommandDefinitionInput draft)
-    {
-        _draft = draft;
         return Task.CompletedTask;
     }
 
@@ -257,85 +162,6 @@
         }
     }
 
-    private async Task SaveCommand()
-    {
-        _isBusy = true;
-        _errorMessage = null;
-        _statusMessage = null;
-
-        try
-        {
-            if (_selectedCommandId.HasValue)
-            {
-                BotCommandDefinition? updatedCommand = await CommandManagementService.Update(
-                    _selectedCommandId.Value,
-                    _draft,
-                    _cancellationTokenSource.Token);
-
-                if (updatedCommand is null)
-                {
-                    throw new InvalidOperationException("The selected command no longer exists.");
-                }
-
-                await RefreshCommands(updatedCommand.Id);
-                _statusMessage = $"Saved {updatedCommand.Trigger}.";
-            }
-            else
-            {
-                BotCommandDefinition createdCommand = await CommandManagementService.Create(
-                    _draft,
-                    _cancellationTokenSource.Token);
-
-                await RefreshCommands(createdCommand.Id);
-                _statusMessage = $"Created {createdCommand.Trigger}.";
-            }
-        }
-        catch (Exception exception)
-        {
-            _errorMessage = exception.Message;
-        }
-        finally
-        {
-            _isBusy = false;
-        }
-    }
-
-    private async Task DeleteCommand()
-    {
-        BotCommandDefinition? selectedCommand = GetSelectedCommand();
-        if (selectedCommand is null)
-        {
-            _errorMessage = "Choose a saved command first.";
-            return;
-        }
-
-        _isBusy = true;
-        _errorMessage = null;
-        _statusMessage = null;
-
-        try
-        {
-            bool deleted = await CommandManagementService.Delete(selectedCommand.Id, _cancellationTokenSource.Token);
-            if (!deleted)
-            {
-                throw new InvalidOperationException("The selected command no longer exists.");
-            }
-
-            _selectedCommandId = null;
-            _draft = CreateEmptyDraft();
-            await RefreshCommands();
-            _statusMessage = $"Deleted {selectedCommand.Trigger}.";
-        }
-        catch (Exception exception)
-        {
-            _errorMessage = exception.Message;
-        }
-        finally
-        {
-            _isBusy = false;
-        }
-    }
-
     private async Task RefreshCommands(long? preferredCommandId = null)
     {
         try
@@ -358,22 +184,12 @@
                 selectedCommand = _commands[0];
             }
 
-            if (selectedCommand is null)
-            {
-                _selectedCommandId = null;
-                _draft = CreateEmptyDraft();
-            }
-            else
-            {
-                _selectedCommandId = selectedCommand.Id;
-                _draft = CreateDraft(selectedCommand);
-            }
+            _selectedCommandId = selectedCommand?.Id;
         }
         catch (Exception exception)
         {
             _commands = Array.Empty<BotCommandDefinition>();
             _selectedCommandId = null;
-            _draft = CreateEmptyDraft();
             _errorMessage = exception.Message;
         }
     }
@@ -419,21 +235,4 @@
         return $"{status} · Used {command.UseCount}×";
     }
 
-    private static BotCommandDefinitionInput CreateDraft(BotCommandDefinition command)
-    {
-        return new BotCommandDefinitionInput(
-            command.Trigger,
-            command.ResponseTemplate,
-            command.HandlerType,
-            command.IsEnabled);
-    }
-
-    private static BotCommandDefinitionInput CreateEmptyDraft()
-    {
-        return new BotCommandDefinitionInput(
-            string.Empty,
-            string.Empty,
-            null,
-            true);
-    }
 }

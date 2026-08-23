@@ -1,0 +1,71 @@
+@page "/config"
+@layout Thiccdal.Components.Layout.ConfigLayout
+@using Thiccdal.Components.Config
+@using Thiccdal.Infrastructure.Readiness
+@inject ISystemReadinessService ReadinessService
+@implements IDisposable
+
+<PageTitle>Configuration</PageTitle>
+
+<ConfigPage Title="Configuration"
+            Description="Set Thiccdal up here on a keyboard-and-mouse screen. The streamer dashboard and teleprompter stay touch-first and unlock as soon as the requirements below are met.">
+    <div class="overview__grid">
+        <article class="overview__card @(_readiness?.HasChannel == true ? "overview__card--done" : "")">
+            <span class="overview__marker" aria-hidden="true">@(_readiness?.HasChannel == true ? "✓" : "1")</span>
+            <h2 class="overview__card-title">Save your Twitch channel</h2>
+            <p class="overview__card-copy">Unlocks the teleprompter.</p>
+            <a class="overview__card-link" href="config/system/twitch">Open Twitch settings</a>
+        </article>
+
+        <article class="overview__card @(_readiness?.HasTwitchAuth == true ? "overview__card--done" : "")">
+            <span class="overview__marker" aria-hidden="true">@(_readiness?.HasTwitchAuth == true ? "✓" : "2")</span>
+            <h2 class="overview__card-title">Authorize a Twitch account</h2>
+            <p class="overview__card-copy">Unlocks the streamer dashboard.</p>
+            <a class="overview__card-link" href="config/system/twitch">Authorize now</a>
+        </article>
+
+        <article class="overview__card">
+            <span class="overview__marker" aria-hidden="true">3</span>
+            <h2 class="overview__card-title">Teach the bot</h2>
+            <p class="overview__card-copy">Add <code>!commands</code> and autoresponses.</p>
+            <a class="overview__card-link" href="config/bot/commands">Open bot commands</a>
+        </article>
+    </div>
+</ConfigPage>
+
+@code {
+    private SystemReadiness? _readiness;
+    private readonly CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ReadinessService.ReadinessChanged += HandleReadinessChanged;
+        await Refresh();
+    }
+
+    public void Dispose()
+    {
+        ReadinessService.ReadinessChanged -= HandleReadinessChanged;
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+
+    private void HandleReadinessChanged(object? sender, EventArgs args)
+    {
+        _ = InvokeAsync(Refresh);
+    }
+
+    private async Task Refresh()
+    {
+        try
+        {
+            _readiness = await ReadinessService.GetReadiness(_cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        StateHasChanged();
+    }
+}

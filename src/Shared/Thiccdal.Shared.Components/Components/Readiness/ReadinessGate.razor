@@ -1,0 +1,113 @@
+@namespace Thiccdal.Shared.Components.Components.Readiness
+@using Thiccdal.Infrastructure.Readiness
+@inject ISystemReadinessService ReadinessService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@if (_readiness is null)
+{
+    <div class="readiness-gate readiness-gate--loading" role="status" aria-live="polite">
+        <span class="readiness-gate__title">Checking configuration…</span>
+    </div>
+}
+else if (IsReady)
+{
+    @ChildContent
+}
+else
+{
+    <div class="readiness-gate" role="status" aria-live="polite">
+        <div class="readiness-gate__card">
+            <span class="readiness-gate__eyebrow">Not configured</span>
+            <h1 class="readiness-gate__title">@SurfaceName is not ready yet</h1>
+            <p class="readiness-gate__copy">@RequirementCopy</p>
+            <ul class="readiness-gate__list">
+                <li class="readiness-gate__item @(_readiness.HasChannel ? "readiness-gate__item--done" : "")">
+                    <span class="readiness-gate__marker" aria-hidden="true">@(_readiness.HasChannel ? "✓" : "○")</span>
+                    Twitch channel saved
+                </li>
+                @if (Requires is ReadinessRequirement.TwitchAuthorized)
+                {
+                    <li class="readiness-gate__item @(_readiness.HasTwitchAuth ? "readiness-gate__item--done" : "")">
+                        <span class="readiness-gate__marker" aria-hidden="true">@(_readiness.HasTwitchAuth ? "✓" : "○")</span>
+                        Twitch account authorized
+                    </li>
+                }
+            </ul>
+            <button type="button" class="readiness-gate__action" @onclick="OpenConfiguration">
+                Open configuration
+            </button>
+            <p class="readiness-gate__hint">Configuration is a keyboard-and-mouse surface — open it on a larger screen.</p>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// The surface name shown to the operator, for example "The streamer dashboard".
+    /// </summary>
+    [Parameter]
+    public string SurfaceName { get; set; } = "This surface";
+
+    /// <summary>
+    /// What this surface needs before it activates.
+    /// </summary>
+    [Parameter]
+    public ReadinessRequirement Requires { get; set; } = ReadinessRequirement.ChannelConfigured;
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private SystemReadiness? _readiness;
+    private readonly CancellationTokenSource _cts = new();
+
+    private bool IsReady => Requires switch
+    {
+        ReadinessRequirement.TwitchAuthorized => _readiness?.IsDashboardReady == true,
+        _ => _readiness?.IsPrompterReady == true
+    };
+
+    private string RequirementCopy => Requires switch
+    {
+        ReadinessRequirement.TwitchAuthorized =>
+            "Save a Twitch channel and authorize a Twitch account, then this surface activates automatically.",
+        _ => "Save a Twitch channel in configuration, then this surface activates automatically."
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        ReadinessService.ReadinessChanged += HandleReadinessChanged;
+        await Refresh();
+    }
+
+    public void Dispose()
+    {
+        ReadinessService.ReadinessChanged -= HandleReadinessChanged;
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+
+    private void OpenConfiguration()
+    {
+        Navigation.NavigateTo("/config");
+    }
+
+    private void HandleReadinessChanged(object? sender, EventArgs args)
+    {
+        _ = InvokeAsync(Refresh);
+    }
+
+    private async Task Refresh()
+    {
+        try
+        {
+            _readiness = await ReadinessService.GetReadiness(_cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        StateHasChanged();
+    }
+}

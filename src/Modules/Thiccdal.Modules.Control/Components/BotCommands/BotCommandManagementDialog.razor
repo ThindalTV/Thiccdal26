@@ -2,19 +2,22 @@
 
 @if (IsOpen)
 {
-    <div class="bot-command-dialog-backdrop" @onclick="Close" role="presentation">
+    <div class="@(Inline ? "bot-command-dialog-inline" : "bot-command-dialog-backdrop")" @onclick="Close" role="presentation">
         <div class="bot-command-dialog"
              @onclick:stopPropagation="true"
-             role="dialog"
-             aria-modal="true"
+             role="@(Inline ? "group" : "dialog")"
+             aria-modal="@(Inline ? "false" : "true")"
              aria-label="Manage bot commands">
-            <header class="bot-command-dialog__header">
-                <div>
-                    <h2 class="bot-command-dialog__title">Manage Commands</h2>
-                    <p class="bot-command-dialog__subtitle">Saved commands live in the database, and the live dashboard can run the currently selected enabled command without leaving this dialog.</p>
-                </div>
-                <button type="button" class="bot-command-dialog__close" @onclick="Close" aria-label="Close">✕</button>
-            </header>
+            @if (!Inline)
+            {
+                <header class="bot-command-dialog__header">
+                    <div>
+                        <h2 class="bot-command-dialog__title">Manage Commands</h2>
+                        <p class="bot-command-dialog__subtitle">Saved commands live in the database, and the live dashboard can run the currently selected enabled command without leaving this dialog.</p>
+                    </div>
+                    <button type="button" class="bot-command-dialog__close" @onclick="Close" aria-label="Close">✕</button>
+                </header>
+            }
 
             <div class="bot-command-dialog__body">
                 <section class="bot-command-dialog__catalog">
@@ -144,6 +147,11 @@
 }
 
 @code {
+    /// <summary>
+    /// Renders the editor in place instead of as a modal, for the configuration surface.
+    /// </summary>
+    [Parameter] public bool Inline { get; set; }
+
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public IReadOnlyList<BotCommandDefinition> Commands { get; set; } = Array.Empty<BotCommandDefinition>();
     [Parameter] public BotCommandDefinitionInput Draft { get; set; } = new(string.Empty, string.Empty, null, true);
@@ -162,7 +170,8 @@
 
     private Task Close()
     {
-        return OnClose.InvokeAsync();
+        // Inline mode has no dismiss affordance, so backdrop clicks must not close anything.
+        return Inline ? Task.CompletedTask : OnClose.InvokeAsync();
     }
 
     private Task CreateNew()

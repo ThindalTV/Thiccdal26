@@ -12,6 +12,36 @@ to YouTube, Discord, Facebook, X, or any other platform.
 Video is out of scope: Thiccdal never ingests, restreams, or records video — OBS publishes to
 Twitch directly. Do not reintroduce RTMP ingest, fanout, relay, or disk recording.
 
+## Surfaces
+
+Four separate surfaces, each with its own layout and input model:
+
+| Surface | Route | Input | Purpose |
+|---|---|---|---|
+| Streamer dashboard | `/dashboard` | Touch | Instant control while live. **No setup lives here.** |
+| Teleprompter | `/prompter` | Touch / read-only | On-camera script and chat |
+| Overlay | `/overlay` | — | OBS browser source |
+| Configuration | `/config` | Keyboard + mouse, large screen | Everything else |
+
+`/config` has two sections: **Bot** (commands, autoresponses, identity and greetings) and
+**System** (Twitch, AI keys, AI memory, viewer identities, pre-live checklist, appearance).
+There is no setup wizard — `/config` is the single configuration surface, and `/` redirects to it.
+
+Adding an editing affordance to the dashboard or teleprompter is a mistake; it belongs in
+`/config`. Components shared between the two get an `Inline` parameter that drops the modal
+chrome (see `BotCommandManagementDialog`, `PersonalPrepManageDialog`).
+
+### Readiness gating
+
+`ISystemReadinessService` (`Thiccdal.Infrastructure/Readiness/`) reports what is configured.
+Gated surfaces wrap themselves in `<ReadinessGate>`:
+
+- Teleprompter needs a saved Twitch channel.
+- Streamer dashboard needs a saved channel **and** an authorized Twitch account.
+
+Until then each shows an unconfigured notice pointing at `/config`, and activates automatically
+once the requirement is met.
+
 ## Build and test
 
 ```bash

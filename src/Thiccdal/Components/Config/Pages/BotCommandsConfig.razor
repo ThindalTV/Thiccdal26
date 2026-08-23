@@ -1,0 +1,11 @@
+@page "/config/bot/commands"
+@layout Thiccdal.Components.Layout.ConfigLayout
+@using Thiccdal.Components.Config
+@using Thiccdal.Modules.Control.Components.BotCommands
+
+<PageTitle>Bot commands — Configuration</PageTitle>
+
+<ConfigPage Title="Bot commands"
+            Description="Commands viewers trigger in chat, like !socials. Saved commands live in the database and appear on the streamer dashboard as one-tap buttons.">
+    <BotCommandsManager />
+</ConfigPage>
