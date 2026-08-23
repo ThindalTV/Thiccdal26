@@ -1,0 +1,33 @@
+@page "/config/system/appearance"
+@layout Thiccdal.Components.Layout.ConfigLayout
+@using Thiccdal.Components.Config
+@using Thiccdal.Infrastructure.Twitch
+@inject IEmoteRenderingOptions EmoteRenderingOptions
+
+<PageTitle>Appearance — Configuration</PageTitle>
+
+<ConfigPage Title="Appearance"
+            Description="How chat renders in the teleprompter and the overlay.">
+    <label class="appearance__row">
+        <input type="checkbox" checked="@_useAnimatedEmotes" @onchange="HandleAnimatedEmotesChanged" />
+        <span class="appearance__row-copy">
+            <span class="appearance__row-title">Animated emotes</span>
+            <span class="appearance__row-hint">Use animated emote art in the teleprompter and overlay. Turn this off if motion is distracting on camera.</span>
+        </span>
+    </label>
+</ConfigPage>
+
+@code {
+    private bool _useAnimatedEmotes;
+
+    protected override void OnInitialized()
+    {
+        _useAnimatedEmotes = EmoteRenderingOptions.UseAnimatedEmotes;
+    }
+
+    private void HandleAnimatedEmotesChanged(ChangeEventArgs e)
+    {
+        _useAnimatedEmotes = (bool)(e.Value ?? false);
+        EmoteRenderingOptions.SetUseAnimatedEmotes(_useAnimatedEmotes);
+    }
+}

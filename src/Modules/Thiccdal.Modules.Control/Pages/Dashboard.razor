@@ -6,125 +6,125 @@
 @using Thiccdal.Modules.Control.Components.OverlayGallery
 @using Thiccdal.Modules.Control.Components.Prompter
 @using Thiccdal.Modules.Control.Components.Questions
-@using Thiccdal.Modules.Control.Components.Settings
 @using Thiccdal.Modules.Control.Components.TopBar
+@using Thiccdal.Shared.Components.Components.Readiness
 @using Thiccdal.Infrastructure.Operators
 @layout Thiccdal.Modules.Control.Layout.DashboardLayout
 @inject IOperatorStateService OperatorStateService
 @implements IDisposable
 
-<div class="dashboard">
-    <TopBar OnStreamInfoClicked="OpenStreamInfoDialog" />
-    <div class="dashboard__body @(IsPreLive ? "dashboard__body--prelive" : "dashboard__body--live")">
-        @if (IsPreLive)
+<ReadinessGate SurfaceName="The streamer dashboard" Requires="ReadinessRequirement.TwitchAuthorized">
+    <div class="dashboard">
+        <TopBar OnStreamInfoClicked="OpenStreamInfoDialog" />
+        <div class="dashboard__body @(IsPreLive ? "dashboard__body--prelive" : "dashboard__body--live")">
+            @if (IsPreLive)
+            {
+                <section class="dashboard__col dashboard__col--prelive">
+                    <StreamInfoPanel />
+                    <SponsorSetupPanel />
+                </section>
+                <section class="dashboard__col dashboard__col--prelive">
+                    <OverlayTestPanel />
+                </section>
+                <section class="dashboard__col dashboard__col--prelive dashboard__col--right">
+                    <PreLiveChecklistPanel OnOpenStreamInfoRequested="OpenStreamInfoDialog"
+                                           OnOpenFullChecklistRequested="OpenChecklistDialog" />
+                </section>
+            }
+            else
+            {
+                <aside class="dashboard__col dashboard__col--left">
+                    <PrompterPanel />
+                    <BotCommandsPanel />
+                </aside>
+                <section class="dashboard__col dashboard__col--middle">
+                    <QuestionQueuePanel />
+                </section>
+                <section class="dashboard__col dashboard__col--right">
+                    <LowerThirdPanel />
+                    <div class="wip-wrap">
+                        <OverlayGalleryPanel />
+                        <div class="wip-overlay"></div>
+                    </div>
+                </section>
+            }
+        </div>
+
+        @if (!IsPreLive)
         {
-            <section class="dashboard__col dashboard__col--prelive">
-                <StreamInfoPanel />
-                <SponsorSetupPanel />
-            </section>
-            <section class="dashboard__col dashboard__col--prelive">
-                <OverlayTestPanel />
-            </section>
-            <section class="dashboard__col dashboard__col--prelive dashboard__col--right">
-                <PreLiveChecklistPanel OnOpenStreamInfoRequested="OpenStreamInfoDialog"
-                                       OnOpenFullChecklistRequested="OpenChecklistDialog" />
-            </section>
-        }
-        else
-        {
-            <aside class="dashboard__col dashboard__col--left">
-                <PrompterPanel />
-                <BotCommandsPanel @ref="_botCommandsPanel" />
-            </aside>
-            <section class="dashboard__col dashboard__col--middle">
-                <QuestionQueuePanel />
-            </section>
-            <section class="dashboard__col dashboard__col--right">
-                <LowerThirdPanel />
-                <div class="wip-wrap">
-                    <OverlayGalleryPanel />
-                    <div class="wip-overlay"></div>
+            <section class="dashboard__live-bottom-bar" role="toolbar" aria-label="Live mode controls">
+                <div class="dashboard__live-bottom-bar-copy">
+                    <span class="dashboard__live-bottom-bar-title">Live Controls</span>
+                    <span class="dashboard__live-bottom-bar-hint">Open deliberate mid-stream tools without turning the main live view into an edit surface.</span>
+                </div>
+                <div class="dashboard__live-bottom-bar-actions">
+                    <button type="button" class="dashboard__live-bottom-bar-button" @onclick="OpenLiveStreamInfoDialog">Stream Info</button>
                 </div>
             </section>
         }
     </div>
 
-    @if (!IsPreLive)
+    @if (_showStreamInfoDialog)
     {
-        <section class="dashboard__live-bottom-bar" role="toolbar" aria-label="Live mode controls">
-            <div class="dashboard__live-bottom-bar-copy">
-                <span class="dashboard__live-bottom-bar-title">Live Controls</span>
-                <span class="dashboard__live-bottom-bar-hint">Open deliberate mid-stream tools without turning the main live view into an edit surface.</span>
+        <div class="dashboard-dialog-backdrop" @onclick="CloseStreamInfoDialog" role="presentation">
+            <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Stream Info">
+                <div class="dashboard-dialog__header">
+                    <div>
+                        <h2 class="dashboard-dialog__title">Stream Settings Checklist</h2>
+                        <p class="dashboard-dialog__subtitle">Confirm the Twitch settings you have to change in the Creator Dashboard yourself.</p>
+                    </div>
+                    <button type="button" class="dashboard-dialog__close" @onclick="CloseStreamInfoDialog" aria-label="Close">✕</button>
+                </div>
+                <div class="dashboard-dialog__body">
+                    <StreamInfoDialog />
+                </div>
             </div>
-            <div class="dashboard__live-bottom-bar-actions">
-                <button type="button" class="dashboard__live-bottom-bar-button" @onclick="OpenManageCommandsDialog">Manage Commands</button>
-                <button type="button" class="dashboard__live-bottom-bar-button dashboard__live-bottom-bar-button--secondary" @onclick="OpenLiveStreamInfoDialog">Stream Info</button>
-            </div>
-        </section>
+        </div>
     }
-</div>
 
-@if (_showStreamInfoDialog)
-{
-    <div class="dashboard-dialog-backdrop" @onclick="CloseStreamInfoDialog" role="presentation">
-        <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Stream Info">
-            <div class="dashboard-dialog__header">
-                <div>
-                    <h2 class="dashboard-dialog__title">Operator Settings</h2>
-                    <p class="dashboard-dialog__subtitle">Handle deliberate pre-live checks and viewer identity cleanup from one non-live editing surface.</p>
+    @if (_showLiveStreamInfoDialog && !IsPreLive)
+    {
+        <div class="dashboard-dialog-backdrop" @onclick="CloseLiveStreamInfoDialog" role="presentation">
+            <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Live Stream Info">
+                <div class="dashboard-dialog__header">
+                    <div>
+                        <h2 class="dashboard-dialog__title">Stream Info</h2>
+                        <p class="dashboard-dialog__subtitle">Update the live title, category, or tags without leaving the operator view.</p>
+                    </div>
+                    <button type="button" class="dashboard-dialog__close" @onclick="CloseLiveStreamInfoDialog" aria-label="Close">✕</button>
                 </div>
-                <button type="button" class="dashboard-dialog__close" @onclick="CloseStreamInfoDialog" aria-label="Close">✕</button>
-            </div>
-            <div class="dashboard-dialog__body">
-                <OperatorSettingsDialog />
+                <div class="dashboard-dialog__body">
+                    <StreamInfoPanel />
+                </div>
             </div>
         </div>
-    </div>
-}
+    }
 
-@if (_showLiveStreamInfoDialog && !IsPreLive)
-{
-    <div class="dashboard-dialog-backdrop" @onclick="CloseLiveStreamInfoDialog" role="presentation">
-        <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Live Stream Info">
-            <div class="dashboard-dialog__header">
-                <div>
-                    <h2 class="dashboard-dialog__title">Stream Info</h2>
-                    <p class="dashboard-dialog__subtitle">Update the live title, category, or tags without leaving the operator view.</p>
+    @if (_showChecklistDialog && IsPreLive)
+    {
+        <div class="dashboard-dialog-backdrop" @onclick="CloseChecklistDialog" role="presentation">
+            <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Full checklist">
+                <div class="dashboard-dialog__header">
+                    <div>
+                        <h2 class="dashboard-dialog__title">Pre-Live Checklist</h2>
+                        <p class="dashboard-dialog__subtitle">Review every readiness item when you need the full checklist on a compact screen.</p>
+                    </div>
+                    <button type="button" class="dashboard-dialog__close" @onclick="CloseChecklistDialog" aria-label="Close">✕</button>
                 </div>
-                <button type="button" class="dashboard-dialog__close" @onclick="CloseLiveStreamInfoDialog" aria-label="Close">✕</button>
-            </div>
-            <div class="dashboard-dialog__body">
-                <StreamInfoPanel />
+                <div class="dashboard-dialog__body">
+                    <PreLiveChecklistPanel OnOpenStreamInfoRequested="OpenStreamInfoDialog"
+                                           OnOpenFullChecklistRequested="CloseChecklistDialog" />
+                </div>
             </div>
         </div>
-    </div>
-}
-
-@if (_showChecklistDialog && IsPreLive)
-{
-    <div class="dashboard-dialog-backdrop" @onclick="CloseChecklistDialog" role="presentation">
-        <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Full checklist">
-            <div class="dashboard-dialog__header">
-                <div>
-                    <h2 class="dashboard-dialog__title">Pre-Live Checklist</h2>
-                    <p class="dashboard-dialog__subtitle">Review every readiness item when you need the full checklist on a compact screen.</p>
-                </div>
-                <button type="button" class="dashboard-dialog__close" @onclick="CloseChecklistDialog" aria-label="Close">✕</button>
-            </div>
-            <div class="dashboard-dialog__body">
-                <PreLiveChecklistPanel OnOpenStreamInfoRequested="OpenStreamInfoDialog"
-                                       OnOpenFullChecklistRequested="CloseChecklistDialog" />
-            </div>
-        </div>
-    </div>
-}
+    }
+</ReadinessGate>
 
 @code {
     private OperatorMode _mode;
     private bool _showStreamInfoDialog;
     private bool _showLiveStreamInfoDialog;
     private bool _showChecklistDialog;
-    private BotCommandsPanel? _botCommandsPanel;
 
     private bool IsPreLive => _mode == OperatorMode.PreLive;
 
@@ -173,11 +173,6 @@
     {
         _showChecklistDialog = false;
         return Task.CompletedTask;
-    }
-
-    private Task OpenManageCommandsDialog()
-    {
-        return _botCommandsPanel?.OpenManagementDialog() ?? Task.CompletedTask;
     }
 
     private void HandleOperatorStateChanged(object? sender, EventArgs args)

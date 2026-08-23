@@ -1,0 +1,94 @@
+@using Thiccdal.Infrastructure.Readiness
+@inherits LayoutComponentBase
+@inject ISystemReadinessService ReadinessService
+@implements IDisposable
+
+<div class="config-shell">
+    <aside class="config-shell__sidebar">
+        <div class="config-shell__brand">
+            <span class="config-shell__brand-name">Thiccdal</span>
+            <span class="config-shell__brand-sub">Configuration</span>
+        </div>
+
+        <nav class="config-shell__nav">
+            <NavLink class="config-shell__link" href="config" Match="NavLinkMatch.All">Overview</NavLink>
+
+            <span class="config-shell__group">Bot</span>
+            <NavLink class="config-shell__link" href="config/bot/commands">Commands</NavLink>
+            <NavLink class="config-shell__link" href="config/bot/autoresponses">Autoresponses</NavLink>
+            <NavLink class="config-shell__link" href="config/bot/identity">Identity &amp; greetings</NavLink>
+
+            <span class="config-shell__group">System</span>
+            <NavLink class="config-shell__link" href="config/system/twitch">Twitch</NavLink>
+            <NavLink class="config-shell__link" href="config/system/ai">AI keys</NavLink>
+            <NavLink class="config-shell__link" href="config/system/memory">AI memory</NavLink>
+            <NavLink class="config-shell__link" href="config/system/viewers">Viewer identities</NavLink>
+            <NavLink class="config-shell__link" href="config/system/checklist">Pre-live checklist</NavLink>
+            <NavLink class="config-shell__link" href="config/system/appearance">Appearance</NavLink>
+        </nav>
+
+        <div class="config-shell__surfaces">
+            <span class="config-shell__group">Surfaces</span>
+            <a class="config-shell__link config-shell__link--external" href="/dashboard">
+                Dashboard
+                <span class="config-shell__state @(_readiness?.IsDashboardReady == true ? "config-shell__state--ready" : "")">
+                    @(_readiness?.IsDashboardReady == true ? "ready" : "blocked")
+                </span>
+            </a>
+            <a class="config-shell__link config-shell__link--external" href="/prompter">
+                Teleprompter
+                <span class="config-shell__state @(_readiness?.IsPrompterReady == true ? "config-shell__state--ready" : "")">
+                    @(_readiness?.IsPrompterReady == true ? "ready" : "blocked")
+                </span>
+            </a>
+            <a class="config-shell__link config-shell__link--external" href="/overlay">Overlay</a>
+        </div>
+    </aside>
+
+    <main class="config-shell__main">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private SystemReadiness? _readiness;
+    private readonly CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ReadinessService.ReadinessChanged += HandleReadinessChanged;
+        await Refresh();
+    }
+
+    public void Dispose()
+    {
+        ReadinessService.ReadinessChanged -= HandleReadinessChanged;
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+
+    private void HandleReadinessChanged(object? sender, EventArgs args)
+    {
+        _ = InvokeAsync(Refresh);
+    }
+
+    private async Task Refresh()
+    {
+        try
+        {
+            _readiness = await ReadinessService.GetReadiness(_cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        StateHasChanged();
+    }
+}

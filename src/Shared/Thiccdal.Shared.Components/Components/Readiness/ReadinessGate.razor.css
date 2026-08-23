@@ -1,0 +1,103 @@
+.readiness-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    background: #0b1120;
+    color: #e2e8f0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.readiness-gate__card {
+    width: min(560px, 100%);
+    padding: 32px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.86);
+    text-align: center;
+}
+
+.readiness-gate__eyebrow {
+    display: inline-block;
+    margin-bottom: 12px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(248, 113, 113, 0.16);
+    color: #fca5a5;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.readiness-gate__title {
+    margin: 0 0 12px;
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.readiness-gate__copy {
+    margin: 0 0 20px;
+    color: rgba(226, 232, 240, 0.72);
+    line-height: 1.5;
+}
+
+.readiness-gate__list {
+    margin: 0 0 24px;
+    padding: 0;
+    list-style: none;
+    text-align: left;
+}
+
+.readiness-gate__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.08);
+    color: rgba(226, 232, 240, 0.68);
+}
+
+.readiness-gate__item + .readiness-gate__item {
+    margin-top: 8px;
+}
+
+.readiness-gate__item--done {
+    color: #86efac;
+}
+
+.readiness-gate__marker {
+    flex: none;
+    width: 20px;
+    font-weight: 700;
+}
+
+.readiness-gate__action {
+    min-height: 48px;
+    padding: 0 28px;
+    border: none;
+    border-radius: 999px;
+    background: #9146ff;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.readiness-gate__action:hover {
+    background: #7c33e0;
+}
+
+.readiness-gate__hint {
+    margin: 16px 0 0;
+    color: rgba(226, 232, 240, 0.5);
+    font-size: 0.85rem;
+}
+
+.readiness-gate--loading .readiness-gate__title {
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: rgba(226, 232, 240, 0.6);
+}

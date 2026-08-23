@@ -1,0 +1,181 @@
+@using Thiccdal.Infrastructure.Bot
+@using Thiccdal.Infrastructure.Bot.Models
+@inject IBotCommandManagementService CommandManagementService
+@implements IAsyncDisposable
+
+<BotCommandManagementDialog Inline="true"
+                            IsOpen="true"
+                            Commands="_commands"
+                            Draft="_draft"
+                            SelectedCommandId="_selectedCommandId"
+                            IsBusy="_isBusy"
+                            CanRunSelectedCommand="false"
+                            ErrorMessage="@_errorMessage"
+                            StatusMessage="@_statusMessage"
+                            OnCreateNew="CreateNewCommand"
+                            OnSelectCommand="SelectCommand"
+                            OnDraftChanged="UpdateDraft"
+                            OnSave="SaveCommand"
+                            OnDelete="DeleteCommand" />
+
+@code {
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private IReadOnlyList<BotCommandDefinition> _commands = Array.Empty<BotCommandDefinition>();
+    private BotCommandDefinitionInput _draft = CreateEmptyDraft();
+    private long? _selectedCommandId;
+    private bool _isBusy;
+    private string? _errorMessage;
+    private string? _statusMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshCommands();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _cancellationTokenSource.Cancel();
+        _cancellationTokenSource.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+    private static BotCommandDefinitionInput CreateEmptyDraft()
+    {
+        return new BotCommandDefinitionInput(string.Empty, string.Empty, null, true);
+    }
+
+    private static BotCommandDefinitionInput CreateDraft(BotCommandDefinition command)
+    {
+        return new BotCommandDefinitionInput(
+            command.Trigger,
+            command.ResponseTemplate,
+            command.HandlerType,
+            command.IsEnabled);
+    }
+
+    private Task CreateNewCommand()
+    {
+        _selectedCommandId = null;
+        _draft = CreateEmptyDraft();
+        _errorMessage = null;
+        _statusMessage = null;
+        return Task.CompletedTask;
+    }
+
+    private Task SelectCommand(long commandId)
+    {
+        BotCommandDefinition? selectedCommand = _commands.FirstOrDefault(command => command.Id == commandId);
+        if (selectedCommand is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _selectedCommandId = selectedCommand.Id;
+        _draft = CreateDraft(selectedCommand);
+        _errorMessage = null;
+        _statusMessage = null;
+        return Task.CompletedTask;
+    }
+
+    private Task UpdateDraft(BotCommandDefinitionInput draft)
+    {
+        _draft = draft;
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveCommand()
+    {
+        _isBusy = true;
+        _errorMessage = null;
+        _statusMessage = null;
+
+        try
+        {
+            if (_selectedCommandId.HasValue)
+            {
+                BotCommandDefinition? updatedCommand = await CommandManagementService.Update(
+                    _selectedCommandId.Value,
+                    _draft,
+                    _cancellationTokenSource.Token);
+
+                if (updatedCommand is null)
+                {
+                    throw new InvalidOperationException("The selected command no longer exists.");
+                }
+
+                await RefreshCommands(updatedCommand.Id);
+                _statusMessage = $"Saved {updatedCommand.Trigger}.";
+            }
+            else
+            {
+                BotCommandDefinition createdCommand = await CommandManagementService.Create(
+                    _draft,
+                    _cancellationTokenSource.Token);
+
+                await RefreshCommands(createdCommand.Id);
+                _statusMessage = $"Created {createdCommand.Trigger}.";
+            }
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task DeleteCommand()
+    {
+        BotCommandDefinition? selectedCommand = _commands.FirstOrDefault(command => command.Id == _selectedCommandId);
+        if (selectedCommand is null)
+        {
+            _errorMessage = "Choose a saved command first.";
+            return;
+        }
+
+        _isBusy = true;
+        _errorMessage = null;
+        _statusMessage = null;
+
+        try
+        {
+            bool deleted = await CommandManagementService.Delete(selectedCommand.Id, _cancellationTokenSource.Token);
+            if (!deleted)
+            {
+                throw new InvalidOperationException("The selected command no longer exists.");
+            }
+
+            _selectedCommandId = null;
+            _draft = CreateEmptyDraft();
+            await RefreshCommands();
+            _statusMessage = $"Deleted {selectedCommand.Trigger}.";
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task RefreshCommands(long? preferredCommandId = null)
+    {
+        _commands = await CommandManagementService.List(_cancellationTokenSource.Token);
+
+        long? targetCommandId = preferredCommandId ?? _selectedCommandId;
+        BotCommandDefinition? selectedCommand = _commands.FirstOrDefault(command => command.Id == targetCommandId);
+
+        if (selectedCommand is null)
+        {
+            _selectedCommandId = null;
+            return;
+        }
+
+        _selectedCommandId = selectedCommand.Id;
+        _draft = CreateDraft(selectedCommand);
+    }
+}

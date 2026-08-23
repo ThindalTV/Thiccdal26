@@ -4,21 +4,24 @@
 @inject IPreLiveChecklistService PreLiveChecklistService
 @implements IAsyncDisposable
 
-@if (_isOpen)
+@if (_isOpen || Inline)
 {
-    <div class="personal-prep-dialog-backdrop" @onclick="Close" role="presentation">
+    <div class="@(Inline ? "personal-prep-dialog-inline" : "personal-prep-dialog-backdrop")" @onclick="Close" role="presentation">
         <div class="personal-prep-dialog"
              @onclick:stopPropagation="true"
-             role="dialog"
-             aria-modal="true"
+             role="@(Inline ? "group" : "dialog")"
+             aria-modal="@(Inline ? "false" : "true")"
              aria-label="Manage personal prep items">
-            <header class="personal-prep-dialog__header">
-                <div>
-                    <h2 class="personal-prep-dialog__title">Manage Personal Prep</h2>
-                    <p class="personal-prep-dialog__subtitle">Keep optional operator reminders editable before the show starts. Every change saves immediately and refreshes the checklist.</p>
-                </div>
-                <button type="button" class="personal-prep-dialog__close" @onclick="Close" aria-label="Close">✕</button>
-            </header>
+            @if (!Inline)
+            {
+                <header class="personal-prep-dialog__header">
+                    <div>
+                        <h2 class="personal-prep-dialog__title">Manage Personal Prep</h2>
+                        <p class="personal-prep-dialog__subtitle">Keep optional operator reminders editable before the show starts. Every change saves immediately and refreshes the checklist.</p>
+                    </div>
+                    <button type="button" class="personal-prep-dialog__close" @onclick="Close" aria-label="Close">✕</button>
+                </header>
+            }
 
             <div class="personal-prep-dialog__body">
                 @if (!string.IsNullOrWhiteSpace(_errorMessage))
@@ -122,9 +125,22 @@
     private IReadOnlyList<CustomChecklistItemDefinition> _items = Array.Empty<CustomChecklistItemDefinition>();
     private readonly Dictionary<int, string> _draftLabels = [];
     private bool _isBusy;
+    /// <summary>
+    /// Renders the editor in place instead of as a modal, for the configuration surface.
+    /// </summary>
+    [Parameter] public bool Inline { get; set; }
+
     private bool _isOpen;
     private string? _errorMessage;
     private string _newItemLabel = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Inline)
+        {
+            await RefreshItems();
+        }
+    }
 
     public async Task Open()
     {
@@ -137,6 +153,12 @@
 
     public Task Close()
     {
+        // Inline mode has no dismiss affordance, so backdrop clicks must not close anything.
+        if (Inline)
+        {
+            return Task.CompletedTask;
+        }
+
         _isOpen = false;
         _errorMessage = null;
         _newItemLabel = string.Empty;

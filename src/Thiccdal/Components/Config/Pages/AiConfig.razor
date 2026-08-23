@@ -1,0 +1,11 @@
+@page "/config/system/ai"
+@layout Thiccdal.Components.Layout.ConfigLayout
+@using Thiccdal.Components.Config
+@using Thiccdal.Components.Config.Sections
+
+<PageTitle>AI keys — Configuration</PageTitle>
+
+<ConfigPage Title="AI keys"
+            Description="Point Thiccdal at an OpenAI-compatible endpoint for question detection and AI chat replies. Works with LM Studio, Ollama, OpenAI, or anything else that speaks the same API.">
+    <AiSettingsSection />
+</ConfigPage>

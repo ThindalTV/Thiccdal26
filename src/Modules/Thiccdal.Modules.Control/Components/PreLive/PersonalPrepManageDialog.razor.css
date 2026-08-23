@@ -230,3 +230,13 @@
         padding: 16px;
     }
 }
+
+.personal-prep-dialog-inline {
+    display: block;
+}
+
+.personal-prep-dialog-inline .personal-prep-dialog {
+    max-width: none;
+    max-height: none;
+    box-shadow: none;
+}

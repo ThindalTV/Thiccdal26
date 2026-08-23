@@ -1,0 +1,56 @@
+.overview__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.overview__card {
+    padding: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.66);
+}
+
+.overview__card--done {
+    border-color: rgba(134, 239, 172, 0.4);
+}
+
+.overview__marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-bottom: 12px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.16);
+    color: rgba(226, 232, 240, 0.8);
+    font-weight: 700;
+}
+
+.overview__card--done .overview__marker {
+    background: rgba(134, 239, 172, 0.18);
+    color: #86efac;
+}
+
+.overview__card-title {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.overview__card-copy {
+    margin: 0 0 14px;
+    color: rgba(226, 232, 240, 0.62);
+    font-size: 0.92rem;
+}
+
+.overview__card-link {
+    color: #c4b5fd;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.overview__card-link:hover {
+    text-decoration: underline;
+}

@@ -310,3 +310,13 @@
         flex: 1;
     }
 }
+
+.bot-command-dialog-inline {
+    display: block;
+}
+
+.bot-command-dialog-inline .bot-command-dialog {
+    max-width: none;
+    max-height: none;
+    box-shadow: none;
+}

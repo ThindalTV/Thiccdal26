@@ -8,6 +8,7 @@
 @using Microsoft.JSInterop
 @using Thiccdal.Modules.Teleprompter.Components
 @using Thiccdal.Modules.Teleprompter.Models
+@using Thiccdal.Shared.Components.Components.Readiness
 @layout Thiccdal.Shared.Components.Layout.NullLayout
 
 @implements IAsyncDisposable
@@ -19,37 +20,39 @@
 @inject IOperatorStateService OperatorStateService
 @inject IQuestionOverlayService QuestionOverlayService
 
-<div id="prompterBackground">
-    @if (_showQuestionFlash)
-    {
-        <div class="prompter-flash prompter-flash--question"></div>
-        <div class="prompter-attention" role="status" aria-live="polite" aria-atomic="true">
-            <span class="prompter-attention__dot"></span>
-            <span>New question ready</span>
-        </div>
-    }
+<ReadinessGate SurfaceName="The teleprompter" Requires="ReadinessRequirement.ChannelConfigured">
+    <div id="prompterBackground">
+        @if (_showQuestionFlash)
+        {
+            <div class="prompter-flash prompter-flash--question"></div>
+            <div class="prompter-attention" role="status" aria-live="polite" aria-atomic="true">
+                <span class="prompter-attention__dot"></span>
+                <span>New question ready</span>
+            </div>
+        }
 
-    @if (_showEventFlash)
-    {
-        <div class="prompter-flash prompter-flash--event"></div>
-    }
+        @if (_showEventFlash)
+        {
+            <div class="prompter-flash prompter-flash--event"></div>
+        }
 
-    <SponsorBar />
+        <SponsorBar />
 
-    <header class="prompter-heading">
-        <span class="prompter-heading__label">Staged Stream Title</span>
-        <h1 class="prompter-heading__title">@GetPrompterTitle()</h1>
-    </header>
+        <header class="prompter-heading">
+            <span class="prompter-heading__label">Staged Stream Title</span>
+            <h1 class="prompter-heading__title">@GetPrompterTitle()</h1>
+        </header>
 
-    <div class="prompter-content">
-        <div id="chatList">
-            @foreach (var line in _lines)
-            {
-                <PrompterLine Line="@line" />
-            }
+        <div class="prompter-content">
+            <div id="chatList">
+                @foreach (var line in _lines)
+                {
+                    <PrompterLine Line="@line" />
+                }
+            </div>
         </div>
     </div>
-</div>
+</ReadinessGate>
 
 @code {
     private readonly CancellationTokenSource _cts = new();

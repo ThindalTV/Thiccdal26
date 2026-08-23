@@ -1,0 +1,184 @@
+@page "/config/bot/autoresponses"
+@layout Thiccdal.Components.Layout.ConfigLayout
+@using Thiccdal.Components.Config
+@using Thiccdal.Infrastructure.Bot
+@inject IProactiveMessageManagementService AutoresponseService
+@implements IDisposable
+
+<PageTitle>Autoresponses — Configuration</PageTitle>
+
+<ConfigPage Title="Autoresponses"
+            Description="Messages the bot sends on a timer while you are live. Each one waits at least its interval before repeating.">
+
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <p class="autoresponses__error" role="alert">@_errorMessage</p>
+    }
+
+    <div class="autoresponses">
+        <section class="autoresponses__list" aria-label="Saved autoresponses">
+            @if (_messages.Count == 0)
+            {
+                <p class="autoresponses__empty">No autoresponses yet. Add one on the right.</p>
+            }
+            else
+            {
+                @foreach (ProactiveMessageDefinition message in _messages)
+                {
+                    <article class="autoresponses__row @(_editingId == message.Id ? "autoresponses__row--active" : "")">
+                        <button type="button" class="autoresponses__row-main" @onclick="() => Edit(message)">
+                            <span class="autoresponses__row-text">@message.Message</span>
+                            <span class="autoresponses__row-meta">
+                                every @FormatInterval(message.IntervalSeconds)
+                                @if (!message.IsEnabled)
+                                {
+                                    <span class="autoresponses__badge">disabled</span>
+                                }
+                            </span>
+                        </button>
+                        <button type="button" class="autoresponses__delete" disabled="@_isBusy" @onclick="() => Delete(message.Id)" aria-label="Delete autoresponse">✕</button>
+                    </article>
+                }
+            }
+        </section>
+
+        <section class="autoresponses__editor" aria-label="Autoresponse editor">
+            <h2 class="autoresponses__editor-title">@(_editingId is null ? "New autoresponse" : "Edit autoresponse")</h2>
+
+            <label class="autoresponses__label" for="autoresponse-text">Message</label>
+            <textarea id="autoresponse-text" class="autoresponses__input" rows="3" @bind="_draftMessage"
+                      placeholder="Remember to follow if you are enjoying the stream!"></textarea>
+
+            <label class="autoresponses__label" for="autoresponse-interval">Interval (seconds)</label>
+            <input id="autoresponse-interval" class="autoresponses__input" type="number" min="30" step="30" @bind="_draftIntervalSeconds" />
+
+            <label class="autoresponses__check">
+                <input type="checkbox" @bind="_draftEnabled" />
+                Enabled
+            </label>
+
+            <div class="autoresponses__actions">
+                <button type="button" class="autoresponses__save" disabled="@_isBusy" @onclick="Save">Save</button>
+                @if (_editingId is not null)
+                {
+                    <button type="button" class="autoresponses__cancel" disabled="@_isBusy" @onclick="ResetDraft">Cancel</button>
+                }
+            </div>
+        </section>
+    </div>
+</ConfigPage>
+
+@code {
+    private readonly CancellationTokenSource _cts = new();
+    private IReadOnlyList<ProactiveMessageDefinition> _messages = Array.Empty<ProactiveMessageDefinition>();
+    private long? _editingId;
+    private string _draftMessage = string.Empty;
+    private int _draftIntervalSeconds = 600;
+    private bool _draftEnabled = true;
+    private bool _isBusy;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Reload();
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+
+    private static string FormatInterval(int seconds)
+    {
+        return seconds < 60
+            ? $"{seconds}s"
+            : $"{seconds / 60} min";
+    }
+
+    private void Edit(ProactiveMessageDefinition message)
+    {
+        _editingId = message.Id;
+        _draftMessage = message.Message;
+        _draftIntervalSeconds = message.IntervalSeconds;
+        _draftEnabled = message.IsEnabled;
+        _errorMessage = null;
+    }
+
+    private void ResetDraft()
+    {
+        _editingId = null;
+        _draftMessage = string.Empty;
+        _draftIntervalSeconds = 600;
+        _draftEnabled = true;
+        _errorMessage = null;
+    }
+
+    private async Task Save()
+    {
+        _isBusy = true;
+        _errorMessage = null;
+
+        try
+        {
+            ProactiveMessageInput input = new(_draftMessage, _draftIntervalSeconds, _draftEnabled);
+
+            if (_editingId is long id)
+            {
+                await AutoresponseService.Update(id, input, _cts.Token);
+            }
+            else
+            {
+                await AutoresponseService.Create(input, _cts.Token);
+            }
+
+            ResetDraft();
+            await Reload();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task Delete(long id)
+    {
+        _isBusy = true;
+        _errorMessage = null;
+
+        try
+        {
+            await AutoresponseService.Delete(id, _cts.Token);
+
+            if (_editingId == id)
+            {
+                ResetDraft();
+            }
+
+            await Reload();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task Reload()
+    {
+        try
+        {
+            _messages = await AutoresponseService.List(_cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+}

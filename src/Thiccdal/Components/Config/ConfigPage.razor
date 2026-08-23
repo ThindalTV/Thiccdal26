@@ -1,0 +1,26 @@
+@namespace Thiccdal.Components.Config
+
+<section class="config-page">
+    <header class="config-page__header">
+        <h1 class="config-page__title">@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <p class="config-page__description">@Description</p>
+        }
+    </header>
+
+    <div class="config-page__body">
+        @ChildContent
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

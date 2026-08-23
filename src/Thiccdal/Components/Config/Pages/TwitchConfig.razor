@@ -1,0 +1,11 @@
+@page "/config/system/twitch"
+@layout Thiccdal.Components.Layout.ConfigLayout
+@using Thiccdal.Components.Config
+@using Thiccdal.Modules.Control.Components.Integrations
+
+<PageTitle>Twitch — Configuration</PageTitle>
+
+<ConfigPage Title="Twitch"
+            Description="Authorize the bot account, save the channel it should operate in, and connect chat. Saving a channel unlocks the teleprompter; authorizing an account unlocks the streamer dashboard.">
+    <IntegrationsPanel />
+</ConfigPage>

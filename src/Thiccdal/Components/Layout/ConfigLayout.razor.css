@@ -1,0 +1,96 @@
+.config-shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+    background: #0b1120;
+    color: #e2e8f0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.config-shell__sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px 16px;
+    border-right: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.7);
+}
+
+.config-shell__brand {
+    display: flex;
+    flex-direction: column;
+    padding: 0 12px;
+}
+
+.config-shell__brand-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.config-shell__brand-sub {
+    color: rgba(226, 232, 240, 0.52);
+    font-size: 0.82rem;
+}
+
+.config-shell__nav,
+.config-shell__surfaces {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.config-shell__surfaces {
+    margin-top: auto;
+}
+
+.config-shell__group {
+    margin: 14px 12px 4px;
+    color: rgba(226, 232, 240, 0.44);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.config-shell__link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    color: rgba(226, 232, 240, 0.8);
+    text-decoration: none;
+    font-size: 0.94rem;
+}
+
+.config-shell__link:hover {
+    background: rgba(148, 163, 184, 0.1);
+    color: #f8fafc;
+}
+
+.config-shell__link.active {
+    background: rgba(145, 70, 255, 0.18);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.config-shell__state {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(248, 113, 113, 0.16);
+    color: #fca5a5;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.config-shell__state--ready {
+    background: rgba(134, 239, 172, 0.16);
+    color: #86efac;
+}
+
+.config-shell__main {
+    padding: 32px 40px 64px;
+    overflow-y: auto;
+}

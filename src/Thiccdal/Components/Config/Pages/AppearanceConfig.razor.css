@@ -1,0 +1,27 @@
+.appearance__row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 640px;
+    padding: 18px 20px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.66);
+    cursor: pointer;
+}
+
+.appearance__row-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.appearance__row-title {
+    font-weight: 600;
+}
+
+.appearance__row-hint {
+    color: rgba(226, 232, 240, 0.6);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
