@@ -7,7 +7,7 @@ namespace Thiccdal.Infrastructure.Remotes;
 public record PlatformManualReminder
 {
     /// <summary>
-    /// Gets the platform name (e.g., "Twitch", "YouTube").
+    /// Gets the platform name (e.g., "Twitch").
     /// </summary>
     public string Platform { get; init; } = string.Empty;
 

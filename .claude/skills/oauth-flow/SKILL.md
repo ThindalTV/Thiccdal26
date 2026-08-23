@@ -6,7 +6,7 @@ description: OAuth 2.0 authorization-code flow rules for this repo — the manda
 # OAuth authorization-code flow
 
 Applies to every platform integration that authorises a real account: Twitch, YouTube, Discord,
-Facebook, X, LinkedIn, TikTok.
+Facebook, X.
 
 ## The `state` parameter is not optional
 

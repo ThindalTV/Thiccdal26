@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Thiccdal.Data;
 
@@ -10,9 +11,11 @@ using Thiccdal.Data;
 namespace Thiccdal.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260822215058_DropRtmpRestreamAndRecording")]
+    partial class DropRtmpRestreamAndRecording
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -470,11 +473,50 @@ namespace Thiccdal.Data.Migrations
                     b.ToTable("UserIdentitySuggestions");
                 });
 
+            modelBuilder.Entity("Thiccdal.Data.Models.YouTubeToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AccessToken")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RefreshToken")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("YouTubeTokens");
+                });
+
             modelBuilder.Entity("Thiccdal.Data.Models.FollowEvent", b =>
                 {
                     b.HasBaseType("Thiccdal.Data.Models.PlatformEvent");
 
                     b.HasDiscriminator().HasValue("FollowEvent");
+                });
+
+            modelBuilder.Entity("Thiccdal.Data.Models.MembershipEvent", b =>
+                {
+                    b.HasBaseType("Thiccdal.Data.Models.PlatformEvent");
+
+                    b.Property<string>("LevelName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("MonthCount")
+                        .HasColumnType("INTEGER");
+
+                    b.HasDiscriminator().HasValue("MembershipEvent");
                 });
 
             modelBuilder.Entity("Thiccdal.Data.Models.RaidEvent", b =>
@@ -526,6 +568,27 @@ namespace Thiccdal.Data.Migrations
                     b.HasIndex("GifterPlatformUserId");
 
                     b.HasDiscriminator().HasValue("SubscribeEvent");
+                });
+
+            modelBuilder.Entity("Thiccdal.Data.Models.SuperChatEvent", b =>
+                {
+                    b.HasBaseType("Thiccdal.Data.Models.PlatformEvent");
+
+                    b.Property<long>("AmountMicros")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayString")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserComment")
+                        .HasColumnType("TEXT");
+
+                    b.HasDiscriminator().HasValue("SuperChatEvent");
                 });
 
             modelBuilder.Entity("Thiccdal.Data.Models.ChatMessage", b =>

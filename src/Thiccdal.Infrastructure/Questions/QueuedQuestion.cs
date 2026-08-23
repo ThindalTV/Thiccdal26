@@ -50,9 +50,7 @@ public sealed record QueuedQuestion(
 
     private static string GetDefaultColor(string? platform) => platform?.Trim().ToUpperInvariant() switch
     {
-        "YOUTUBE" => "live",
         "TWITCH" => "pending",
-        "KICK" => "connected",
         "MANUAL" => "default",
         _ => "default"
     };

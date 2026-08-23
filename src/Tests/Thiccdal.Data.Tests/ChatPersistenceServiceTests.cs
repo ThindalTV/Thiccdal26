@@ -17,7 +17,7 @@ public sealed class ChatPersistenceServiceTests : ApplicationDbContextTestFixtur
             new NullLogger<ChatPersistenceService>());
         RuntimeChatEvent chatEvent = new RuntimeChatEvent
         {
-            Source = RuntimePlatformEventSource.YouTube,
+            Source = RuntimePlatformEventSource.Null,
             Type = RuntimePlatformEventType.ChatMessage,
             SourceEventType = "textMessageEvent",
             Author = "viewer",
@@ -79,14 +79,14 @@ public sealed class ChatPersistenceServiceTests : ApplicationDbContextTestFixtur
     }
 
     [Fact]
-    public async Task WhenPersistingFacebookChatEvent_ThenFacebookAuthorIdIsStoredAsPlatformUserId()
+    public async Task WhenPersistingNonTwitchChatEvent_ThenAuthorIdIsStoredAsPlatformUserId()
     {
         ChatPersistenceService persistenceService = new(
             DbContextFactory,
             new NullLogger<ChatPersistenceService>());
         RuntimeChatEvent chatEvent = new()
         {
-            Source = RuntimePlatformEventSource.Facebook,
+            Source = RuntimePlatformEventSource.Null,
             Type = RuntimePlatformEventType.ChatMessage,
             SourceEventType = "facebook.comment",
             Author = "viewer",
@@ -150,14 +150,14 @@ public sealed class ChatPersistenceServiceTests : ApplicationDbContextTestFixtur
     }
 
     [Fact]
-    public async Task WhenPersistingDiscordChatEvent_ThenAdapterUserIdAndChannelIdArePreserved()
+    public async Task WhenPersistingNonTwitchChatEvent_ThenAdapterUserIdAndChannelIdArePreserved()
     {
         ChatPersistenceService persistenceService = new(
             DbContextFactory,
             new NullLogger<ChatPersistenceService>());
         RuntimeChatEvent chatEvent = new()
         {
-            Source = RuntimePlatformEventSource.Discord,
+            Source = RuntimePlatformEventSource.Null,
             Type = RuntimePlatformEventType.ChatMessage,
             SourceEventType = "discord.message",
             Author = "viewer",

@@ -334,10 +334,10 @@ public sealed class QuestionOverlayService : IQuestionOverlayService, IDisposabl
     {
         QueuedQuestion[] seedQuestions =
         [
-            QueuedQuestion.CreateDetected("YOUTUBE", "TechWatcher", "How long have you been streaming and what got you into it?", receivedAt: now.AddMinutes(-5)),
+            QueuedQuestion.CreateDetected("TWITCH", "TechWatcher", "How long have you been streaming and what got you into it?", receivedAt: now.AddMinutes(-5)),
             QueuedQuestion.CreateDetected("TWITCH", "PurplePanda", "Are you planning to do more collab streams?", receivedAt: now.AddMinutes(-8)),
             QueuedQuestion.CreateDetected("KICK", "KickViewer42", "What game are you going to play next session?", receivedAt: now.AddMinutes(-15)),
-            QueuedQuestion.CreateDetected("YOUTUBE", "GamingNerd", "Do you stream every day or on a schedule?", receivedAt: now.AddMinutes(-18)),
+            QueuedQuestion.CreateDetected("TWITCH", "GamingNerd", "Do you stream every day or on a schedule?", receivedAt: now.AddMinutes(-18)),
             QueuedQuestion.CreateDetected("TWITCH", "StreamFan99", "What's the best advice you'd give to someone just starting out on Twitch?", receivedAt: now.AddMinutes(-22))
         ];
 

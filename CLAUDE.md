@@ -1,9 +1,16 @@
 # Thiccdal
 
 Streaming command-and-control system, .NET 10 + Blazor Server. It runs on the stream PC and is
-operated from a separate device (typically a Surface Pro tablet in a browser). It handles RTMP
-ingest and fanout, multi-platform chat aggregation, a chatbot, a live overlay, a teleprompter,
-event tracking (follows, subs, redeems), and stream recording.
+operated from a separate device (typically a Surface Pro tablet in a browser). It handles
+multi-platform chat aggregation, a chatbot, a live overlay, a teleprompter, event tracking
+(follows, subs, redeems), and a pre-live checklist with a go-live action.
+
+Twitch is the only platform. The adapter architecture stays modular (`IPlatformConnection`, one
+project per platform under `src/Remote/`) so others can be added later, but do not add references
+to YouTube, Discord, Facebook, X, or any other platform.
+
+Video is out of scope: Thiccdal never ingests, restreams, or records video — OBS publishes to
+Twitch directly. Do not reintroduce RTMP ingest, fanout, relay, or disk recording.
 
 ## Build and test
 
@@ -43,11 +50,8 @@ src/Thiccdal.Infrastructure/        Interfaces, options, enums, value types — 
 src/Thiccdal.Data/                  DbContext, entity models, migrations
 src/Thiccdal.API/                   Minimal API endpoint extensions
 src/Thiccdal.AI/                    AI/LLM services
-src/Thiccdal.Streaming/             Streaming services consumed by the host
-src/Thiccdal.RtmpServer/            Standalone RTMP ingest/fanout/recording server
 src/Modules/Thiccdal.Modules.*/     ChatBot, Control, Overlay, Teleprompter
-src/Remote/Thiccdal.Remote.*/       Per-platform adapters (Twitch, YouTube, Discord, Facebook,
-                                    X, LinkedIn, TikTok, Instagram, LMStudio, Null)
+src/Remote/Thiccdal.Remote.*/       Per-platform adapters (Twitch, LMStudio, Null)
 src/Shared/Thiccdal.Shared.Components/
 src/Aspire/                         AppHost, ServiceDefaults
 src/Tools/                          Teleprompter.Display (Windows-only, built separately)
@@ -139,7 +143,5 @@ commit.
 
 ## Known rough edges
 
-- `docs/architecture/overview.md` still describes `Thiccdal.Streaming` as the RTMP ingest/fanout
-  host; that moved to `Thiccdal.RtmpServer`.
 - Stray local `artifacts/` folders are gitignored but were being globbed into compilation;
   `Directory.Build.props` now excludes them via `DefaultItemExcludes`.

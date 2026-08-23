@@ -6,9 +6,7 @@ using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Remotes;
-using Thiccdal.Infrastructure.Streaming;
 using Thiccdal.Infrastructure.Setup;
-using Thiccdal.Infrastructure.YouTube;
 
 namespace Thiccdal.Data;
 
@@ -64,14 +62,9 @@ public static class ThiccdalDataRegistrationExtensions
         services.AddSingleton<ICustomChecklistItemCatalog, CustomChecklistItemCatalog>();
         services.AddSingleton<ICustomChecklistItemManagementService, CustomChecklistItemManagementService>();
         services.AddSingleton<IUserIdentityService, UserIdentityService>();
-        services.AddSingleton<IYouTubeTokenStore, YouTubeTokenStore>();
         services.AddSingleton<IBotCommandManagementService, BotCommandManagementService>();
         services.AddSingleton<IChatterMemoryService, ChatterMemoryService>();
         services.AddSingleton<IProactiveMessageCatalog, ProactiveMessageCatalog>();
-        services.AddSingleton<IStreamRecordingService, StreamRecordingService>();
-        services.AddSingleton<IRestreamRuntimeService, RestreamRuntimeService>();
-        services.AddSingleton<IRestreamSettingsAccessor>(
-            static serviceProvider => (IRestreamSettingsAccessor)serviceProvider.GetRequiredService<IRestreamRuntimeService>());
         services.AddSingleton<IEventBus, EventBus>();
         services.AddSingleton<IPlatformEventPump, PlatformEventPump>();
         services.AddScoped<ISetupStateService, SetupStateService>();

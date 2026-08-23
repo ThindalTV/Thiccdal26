@@ -11,8 +11,8 @@ public sealed class UserIdentityServiceTests : ApplicationDbContextTestFixture
     public async Task WhenSearchMatchesDisplayNameAcrossPlatforms_ThenMatchingRowsAreReturned()
     {
         await SeedPlatformUser(PlatformEventSource.Twitch, "alice-twitch", "AliceTV");
-        await SeedPlatformUser(PlatformEventSource.YouTube, "alice-youtube", "Alice_YT");
-        await SeedPlatformUser(PlatformEventSource.Discord, "bob-discord", "Bob");
+        await SeedPlatformUser(PlatformEventSource.Null, "alice-youtube", "Alice_YT");
+        await SeedPlatformUser(PlatformEventSource.Null, "bob-discord", "Bob");
 
         UserIdentityService service = new(DbContextFactory);
 
@@ -20,14 +20,14 @@ public sealed class UserIdentityServiceTests : ApplicationDbContextTestFixture
 
         Assert.Equal(2, results.Count);
         Assert.Contains(results, static result => result.Source == PlatformEventSource.Twitch);
-        Assert.Contains(results, static result => result.Source == PlatformEventSource.YouTube);
+        Assert.Contains(results, static result => result.Source == PlatformEventSource.Null);
     }
 
     [Fact]
     public async Task WhenMergeHasNoExistingIdentity_ThenCanonicalIdentityIsCreatedAndSuggestionAccepted()
     {
         long firstUserId = await SeedPlatformUser(PlatformEventSource.Twitch, "alice-twitch", "AliceTV");
-        long secondUserId = await SeedPlatformUser(PlatformEventSource.YouTube, "alice-youtube", "Alice_YT");
+        long secondUserId = await SeedPlatformUser(PlatformEventSource.Null, "alice-youtube", "Alice_YT");
 
         await using (ApplicationDbContext seedContext = await CreateDbContextAsync())
         {
@@ -82,14 +82,14 @@ public sealed class UserIdentityServiceTests : ApplicationDbContextTestFixture
             };
             PlatformUser youTubeUser = new()
             {
-                Source = PlatformEventSource.YouTube,
+                Source = PlatformEventSource.Null,
                 PlatformUserId = "alice-youtube",
                 DisplayName = "Alice_YT",
                 UserIdentity = secondIdentity
             };
             PlatformUser discordUser = new()
             {
-                Source = PlatformEventSource.Discord,
+                Source = PlatformEventSource.Null,
                 PlatformUserId = "alice-discord",
                 DisplayName = "AliceDisc",
                 UserIdentity = secondIdentity
@@ -139,7 +139,7 @@ public sealed class UserIdentityServiceTests : ApplicationDbContextTestFixture
             };
             UserIdentity youTubeIdentity = new()
             {
-                DisplayName = "Alice YouTube"
+                DisplayName = "Alice Alt"
             };
 
             PlatformUser twitchUser = new()
@@ -151,14 +151,14 @@ public sealed class UserIdentityServiceTests : ApplicationDbContextTestFixture
             };
             PlatformUser youTubeUser = new()
             {
-                Source = PlatformEventSource.YouTube,
+                Source = PlatformEventSource.Null,
                 PlatformUserId = "alice-youtube",
                 DisplayName = "Alice_YT",
                 UserIdentity = youTubeIdentity
             };
             PlatformUser discordUser = new()
             {
-                Source = PlatformEventSource.Discord,
+                Source = PlatformEventSource.Null,
                 PlatformUserId = "alice-discord",
                 DisplayName = "AliceDisc",
                 UserIdentity = youTubeIdentity
@@ -190,7 +190,7 @@ public sealed class UserIdentityServiceTests : ApplicationDbContextTestFixture
         Assert.Single(identities);
         Assert.Equal(targetIdentityId, result.UserIdentityId);
         Assert.Equal(targetIdentityId, identities[0].Id);
-        Assert.Equal("Alice YouTube", result.DisplayName);
+        Assert.Equal("Alice Alt", result.DisplayName);
         Assert.Equal([twitchUserId, youTubeUserId, discordUserId], result.PlatformUserIds.OrderBy(static id => id).ToArray());
         Assert.Equal(3, identities[0].PlatformUsers.Count);
     }
@@ -222,14 +222,14 @@ public sealed class UserIdentityServiceTests : ApplicationDbContextTestFixture
             };
             PlatformUser youTubeUser = new()
             {
-                Source = PlatformEventSource.YouTube,
+                Source = PlatformEventSource.Null,
                 PlatformUserId = "alice-youtube",
                 DisplayName = "Alice_YT",
                 UserIdentity = secondIdentity
             };
             PlatformUser discordUser = new()
             {
-                Source = PlatformEventSource.Discord,
+                Source = PlatformEventSource.Null,
                 PlatformUserId = "alice-discord",
                 DisplayName = "AliceDisc",
                 UserIdentity = secondIdentity
@@ -279,7 +279,7 @@ public sealed class UserIdentityServiceTests : ApplicationDbContextTestFixture
     public async Task WhenMergeTargetIsNotSelected_ThenMergeThrows()
     {
         long firstUserId = await SeedPlatformUser(PlatformEventSource.Twitch, "alice-twitch", "AliceTV");
-        long secondUserId = await SeedPlatformUser(PlatformEventSource.YouTube, "alice-youtube", "Alice_YT");
+        long secondUserId = await SeedPlatformUser(PlatformEventSource.Null, "alice-youtube", "Alice_YT");
 
         UserIdentityService service = new(DbContextFactory);
 

@@ -49,9 +49,6 @@ public static class ChatBotRegistrationExtension
             collection.AddSingleton<ActivityFeedService>();
             collection.AddSingleton<IActivityFeedService>(sp => sp.GetRequiredService<ActivityFeedService>());
             collection.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ActivityFeedService>());
-            collection.AddSingleton<ChatRepostService>();
-            collection.AddSingleton<IChatRepostService>(sp => sp.GetRequiredService<ChatRepostService>());
-            collection.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ChatRepostService>());
             collection.TryAddSingleton<ICommandRegistry, CommandRegistry>();
             collection.TryAddSingleton<ITokenInterpolator, TokenInterpolator>();
             collection.TryAddSingleton<ICommandUsageTracker, InMemoryCommandUsageTracker>();

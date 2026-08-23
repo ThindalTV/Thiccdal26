@@ -98,12 +98,6 @@
         return source switch
         {
             PlatformEventSource.Twitch => "chat-feed-overlay__message--twitch",
-            PlatformEventSource.YouTube => "chat-feed-overlay__message--youtube",
-            PlatformEventSource.Discord => "chat-feed-overlay__message--discord",
-            PlatformEventSource.Facebook => "chat-feed-overlay__message--facebook",
-            PlatformEventSource.X => "chat-feed-overlay__message--x",
-            PlatformEventSource.LinkedIn => "chat-feed-overlay__message--linkedin",
-            PlatformEventSource.TikTok => "chat-feed-overlay__message--tiktok",
             _ => "chat-feed-overlay__message--default"
         };
     }

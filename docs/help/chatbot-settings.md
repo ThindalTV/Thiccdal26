@@ -66,7 +66,7 @@ Chatter memory:
 - ❌ Does **not** store raw chat transcripts
 - ❌ Does **not** store OAuth tokens, moderation notes, or health/location data
 - ❌ Does **not** track sensitive topics (politics, religion, health, etc.)
-- 🔒 Is scoped per platform and channel (Twitch user ≠ YouTube user)
+- 🔒 Is scoped per platform and channel
 
 ### Enabling/Disabling Chatter Memory
 

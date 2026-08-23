@@ -37,25 +37,7 @@ public sealed class PlatformManualReminderProviderTests
     }
 
     [Fact]
-    public void WhenGetReminders_ThenReturnsYouTubeReminders()
-    {
-        // Arrange
-        IPlatformManualReminderProvider provider = CreateProvider();
-
-        // Act
-        var reminders = provider.GetReminders();
-        var youtubeReminders = reminders.Where(r => r.Platform == "YouTube").ToList();
-
-        // Assert
-        Assert.NotEmpty(youtubeReminders);
-        Assert.Contains(youtubeReminders, r => r.Setting == "Made for Kids");
-        Assert.Contains(youtubeReminders, r => r.Setting == "Super Chat");
-        Assert.Contains(youtubeReminders, r => r.Setting == "Visibility");
-        Assert.Contains(youtubeReminders, r => r.Setting == "Age restriction");
-    }
-
-    [Fact]
-    public void WhenGetReminders_ThenReturnsAllPlatforms()
+    public void WhenGetReminders_ThenOnlyTwitchIsListed()
     {
         // Arrange
         IPlatformManualReminderProvider provider = CreateProvider();
@@ -65,13 +47,7 @@ public sealed class PlatformManualReminderProviderTests
         var platforms = reminders.Select(r => r.Platform).Distinct().ToList();
 
         // Assert
-        Assert.Contains("Twitch", platforms);
-        Assert.Contains("YouTube", platforms);
-        Assert.Contains("Discord", platforms);
-        Assert.Contains("Facebook", platforms);
-        Assert.Contains("X", platforms);
-        Assert.Contains("LinkedIn", platforms);
-        Assert.Contains("TikTok", platforms);
+        Assert.Equal(["Twitch"], platforms);
     }
 
     [Fact]

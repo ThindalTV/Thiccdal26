@@ -22,30 +22,6 @@
     --platform-accent: #9146ff;
 }
 
-.lower-third-overlay--youtube {
-    --platform-accent: #ff4444;
-}
-
-.lower-third-overlay--discord {
-    --platform-accent: #5865f2;
-}
-
-.lower-third-overlay--facebook {
-    --platform-accent: #1877f2;
-}
-
-.lower-third-overlay--x {
-    --platform-accent: #d1d5db;
-}
-
-.lower-third-overlay--linkedin {
-    --platform-accent: #0a66c2;
-}
-
-.lower-third-overlay--tiktok {
-    --platform-accent: #25f4ee;
-}
-
 .lower-third-overlay--manual {
     --platform-accent: #38bdf8;
 }

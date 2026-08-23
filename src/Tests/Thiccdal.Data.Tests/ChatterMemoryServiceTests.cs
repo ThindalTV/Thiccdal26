@@ -15,7 +15,7 @@ public sealed class ChatterMemoryServiceTests : ApplicationDbContextTestFixture
         await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "I like soulslikes", DateTime.UtcNow.AddMinutes(-10));
         await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "Speedruns tonight sound fun", DateTime.UtcNow.AddMinutes(-5));
         await SeedMessage(PlatformEventSource.Twitch, "other-channel", "viewer-1", "Kaylee", "I like chess", DateTime.UtcNow.AddMinutes(-4));
-        await SeedMessage(PlatformEventSource.YouTube, "main-channel", "viewer-1", "Kaylee", "I like platformers", DateTime.UtcNow.AddMinutes(-3));
+        await SeedMessage(PlatformEventSource.Null, "main-channel", "viewer-1", "Kaylee", "I like platformers", DateTime.UtcNow.AddMinutes(-3));
         await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-2", "River", "I like tactics games", DateTime.UtcNow.AddMinutes(-2));
 
         ChatterMemoryService service = CreateService();
@@ -90,14 +90,14 @@ public sealed class ChatterMemoryServiceTests : ApplicationDbContextTestFixture
     {
         DateTimeOffset now = new(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);
         await SeedMessage(PlatformEventSource.Twitch, "main-channel", "viewer-1", "Kaylee", "I like soulslikes", now.UtcDateTime.AddMinutes(-10));
-        await SeedMessage(PlatformEventSource.YouTube, "yt-channel", "viewer-2", "River", "I like metroidvanias", now.UtcDateTime.AddMinutes(-9));
+        await SeedMessage(PlatformEventSource.Null, "yt-channel", "viewer-2", "River", "I like metroidvanias", now.UtcDateTime.AddMinutes(-9));
 
         ChatterMemoryService service = CreateService(now: now);
 
         await service.ResetAll("operator");
 
         Assert.Null(await service.GetMemoryContext(PlatformEventSource.Twitch, "main-channel", "viewer-1"));
-        Assert.Null(await service.GetMemoryContext(PlatformEventSource.YouTube, "yt-channel", "viewer-2"));
+        Assert.Null(await service.GetMemoryContext(PlatformEventSource.Null, "yt-channel", "viewer-2"));
 
         await using ApplicationDbContext dbContext = await CreateDbContextAsync();
         Assert.Equal(2, await dbContext.ChatMessages.CountAsync());

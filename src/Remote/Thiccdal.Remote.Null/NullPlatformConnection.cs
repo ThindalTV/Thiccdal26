@@ -3,11 +3,10 @@ using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Integrations;
 using Thiccdal.Infrastructure.Remotes;
-using Thiccdal.Infrastructure.Streaming;
 
 namespace Thiccdal.Remote.Null;
 
-public sealed class NullPlatformConnection : IPlatformConnection, IIntegrationConnectionMonitor, IRtmpRelayDestinationProvider
+public sealed class NullPlatformConnection : IPlatformConnection, IIntegrationConnectionMonitor
 {
     private readonly NullOptions _options;
     private readonly ILogger<NullPlatformConnection> _logger;
@@ -110,23 +109,6 @@ public sealed class NullPlatformConnection : IPlatformConnection, IIntegrationCo
         }
 
         return Task.CompletedTask;
-    }
-
-    public Task<RtmpRelayDestination?> GetRelayDestination(CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (string.IsNullOrWhiteSpace(_options.RtmpRelayUrl))
-        {
-            return Task.FromResult<RtmpRelayDestination?>(null);
-        }
-
-        return Task.FromResult<RtmpRelayDestination?>(
-            new RtmpRelayDestination
-            {
-                PlatformName = PlatformName,
-                DestinationUrl = _options.RtmpRelayUrl.Trim()
-            });
     }
 
     private Task SetConnectionState(bool connected)

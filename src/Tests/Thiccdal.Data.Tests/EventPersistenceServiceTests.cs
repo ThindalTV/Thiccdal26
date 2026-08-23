@@ -5,13 +5,11 @@ using Thiccdal.Data.Models;
 using Thiccdal.Infrastructure.Remotes;
 using PersistedPlatformEvent = Thiccdal.Data.Models.PlatformEvent;
 using RuntimeChatEvent = Thiccdal.Infrastructure.Bot.Models.ChatEvent;
-using RuntimeMembershipEvent = Thiccdal.Infrastructure.Bot.Models.MembershipEvent;
 using RuntimePlatformEvent = Thiccdal.Infrastructure.Bot.Models.PlatformEvent;
 using RuntimePlatformEventSource = Thiccdal.Infrastructure.Bot.Models.PlatformEventSource;
 using RuntimePlatformEventType = Thiccdal.Infrastructure.Bot.Models.PlatformEventType;
 using RuntimeRaidEvent = Thiccdal.Infrastructure.Bot.Models.TwitchRaidEvent;
 using RuntimeRedeemEvent = Thiccdal.Infrastructure.Bot.Models.TwitchRedeemEvent;
-using RuntimeSuperChatEvent = Thiccdal.Infrastructure.Bot.Models.SuperChatEvent;
 using RuntimeSubscribeEvent = Thiccdal.Infrastructure.Bot.Models.TwitchSubscribeEvent;
 
 namespace Thiccdal.Data.Tests;
@@ -166,66 +164,6 @@ public sealed class EventPersistenceServiceTests : ApplicationDbContextTestFixtu
         RaidEvent storedEvent = await dbContext.PlatformEvents.OfType<RaidEvent>().SingleAsync();
         Assert.Equal("raiderchannel", storedEvent.RaidingChannel);
         Assert.Equal(12, storedEvent.ViewerCount);
-    }
-
-    [Fact]
-    public async Task WhenSuperChatEventPersisted_ThenTypedFieldsAreStored()
-    {
-        EventPersistenceService persistenceService = CreatePersistenceService();
-        RuntimeSuperChatEvent superChatEvent = new()
-        {
-            Source = RuntimePlatformEventSource.YouTube,
-            Type = RuntimePlatformEventType.SuperChat,
-            SourceEventType = "superChatEvent",
-            Author = "viewer",
-            Channel = "channel-1",
-            ExternalId = "sc-1",
-            Summary = "viewer sent $5.00",
-            OccurredAt = DateTime.UtcNow,
-            RawData = "{\"type\":\"superChatEvent\"}",
-            AmountMicros = 5_000_000,
-            Currency = "USD",
-            DisplayString = "$5.00",
-            UserComment = "Great stream!"
-        };
-
-        await persistenceService.Persist(superChatEvent);
-
-        await using ApplicationDbContext dbContext = await CreateDbContextAsync();
-        SuperChatEvent storedEvent = await dbContext.PlatformEvents.OfType<SuperChatEvent>().SingleAsync();
-        Assert.Equal(5_000_000, storedEvent.AmountMicros);
-        Assert.Equal("USD", storedEvent.Currency);
-        Assert.Equal("$5.00", storedEvent.DisplayString);
-        Assert.Equal("Great stream!", storedEvent.UserComment);
-        Assert.Equal("superChatEvent", storedEvent.SourceEventType);
-    }
-
-    [Fact]
-    public async Task WhenMembershipEventPersisted_ThenTypedFieldsAreStored()
-    {
-        EventPersistenceService persistenceService = CreatePersistenceService();
-        RuntimeMembershipEvent membershipEvent = new()
-        {
-            Source = RuntimePlatformEventSource.YouTube,
-            Type = RuntimePlatformEventType.Membership,
-            SourceEventType = "memberMilestoneChatEvent",
-            Author = "viewer",
-            Channel = "channel-1",
-            ExternalId = "member-1",
-            Summary = "viewer membership milestone",
-            OccurredAt = DateTime.UtcNow,
-            RawData = "{\"type\":\"memberMilestoneChatEvent\"}",
-            LevelName = "Gold",
-            MonthCount = 6
-        };
-
-        await persistenceService.Persist(membershipEvent);
-
-        await using ApplicationDbContext dbContext = await CreateDbContextAsync();
-        MembershipEvent storedEvent = await dbContext.PlatformEvents.OfType<MembershipEvent>().SingleAsync();
-        Assert.Equal("Gold", storedEvent.LevelName);
-        Assert.Equal(6, storedEvent.MonthCount);
-        Assert.Equal("memberMilestoneChatEvent", storedEvent.SourceEventType);
     }
 
     private EventPersistenceService CreatePersistenceService()

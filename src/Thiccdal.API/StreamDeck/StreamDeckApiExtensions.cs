@@ -5,7 +5,6 @@ using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Questions;
-using Thiccdal.Infrastructure.Streaming;
 using Thiccdal.Infrastructure.Teleprompter;
 
 #pragma warning disable CA1724 // Type names should not match namespaces
@@ -30,8 +29,6 @@ public static class StreamDeckApiExtensions
         RouteGroupBuilder group = endpoints.MapGroup("/api/streamdeck")
             .WithTags("StreamDeck");
 
-        MapStreamingEndpoints(group);
-        MapRestreamEndpoints(group);
         MapTeleprompterEndpoints(group);
         MapOverlayEndpoints(group);
         MapQuestionsEndpoints(group);
@@ -39,192 +36,6 @@ public static class StreamDeckApiExtensions
         MapOperatorEndpoints(group);
 
         return endpoints;
-    }
-
-    private static void MapStreamingEndpoints(RouteGroupBuilder parent)
-    {
-        RouteGroupBuilder group = parent.MapGroup("/streaming");
-
-        group.MapGet(
-                "/status",
-                static (IStreamingService streamingService) =>
-                {
-                    StreamingStatusData data = new StreamingStatusData(
-                        streamingService.IsRunning,
-                        streamingService.State.ToString());
-                    return Results.Ok(StreamDeckResponse<StreamingStatusData>.Ok(data));
-                })
-            .WithName("StreamDeck_GetStreamingStatus")
-            .Produces<StreamDeckResponse<StreamingStatusData>>(StatusCodes.Status200OK);
-
-        group.MapPost(
-                "/go-live",
-                static async (IGoLiveActionService goLiveService, CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        await goLiveService.Execute(cancellationToken);
-                        return Results.Ok(StreamDeckResponse.Ok("Go-live workflow executed"));
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.Ok(StreamDeckResponse.Fail(ex.Message));
-                    }
-                })
-            .WithName("StreamDeck_GoLive")
-            .Produces<StreamDeckResponse>(StatusCodes.Status200OK);
-
-        group.MapPost(
-                "/stop",
-                static async (IStreamingService streamingService, CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        await streamingService.Stop(cancellationToken);
-                        return Results.Ok(StreamDeckResponse.Ok("Streaming stopped"));
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.Ok(StreamDeckResponse.Fail(ex.Message));
-                    }
-                })
-            .WithName("StreamDeck_StopStreaming")
-            .Produces<StreamDeckResponse>(StatusCodes.Status200OK);
-    }
-
-    private static void MapRestreamEndpoints(RouteGroupBuilder parent)
-    {
-        RouteGroupBuilder group = parent.MapGroup("/restream");
-
-        group.MapGet(
-                "/status",
-                static async (IRestreamRuntimeService restreamService, CancellationToken cancellationToken) =>
-                {
-                    RestreamControlState state = await restreamService.GetState(cancellationToken);
-                    return Results.Ok(StreamDeckResponse<RestreamControlState>.Ok(state));
-                })
-            .WithName("StreamDeck_GetRestreamStatus")
-            .Produces<StreamDeckResponse<RestreamControlState>>(StatusCodes.Status200OK);
-
-        group.MapPost(
-                "/start",
-                static async (IRestreamRuntimeService restreamService, CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        await restreamService.Start(cancellationToken);
-                        return Results.Ok(StreamDeckResponse.Ok("Restream started"));
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.Ok(StreamDeckResponse.Fail(ex.Message));
-                    }
-                })
-            .WithName("StreamDeck_StartRestream")
-            .Produces<StreamDeckResponse>(StatusCodes.Status200OK);
-
-        group.MapPost(
-                "/stop",
-                static async (IRestreamRuntimeService restreamService, CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        await restreamService.Stop(cancellationToken);
-                        return Results.Ok(StreamDeckResponse.Ok("Restream stopped"));
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.Ok(StreamDeckResponse.Fail(ex.Message));
-                    }
-                })
-            .WithName("StreamDeck_StopRestream")
-            .Produces<StreamDeckResponse>(StatusCodes.Status200OK);
-
-        group.MapPost(
-                "/destinations/{platform}/enable",
-                static async (
-                    string platform,
-                    IRestreamRuntimeService restreamService,
-                    CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        RestreamDestinationUpdateRequest request = new RestreamDestinationUpdateRequest
-                        {
-                            PlatformName = platform,
-                            IsEnabled = true
-                        };
-                        await restreamService.UpdateDestination(request, cancellationToken);
-                        return Results.Ok(StreamDeckResponse.Ok($"{platform} enabled"));
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.Ok(StreamDeckResponse.Fail(ex.Message));
-                    }
-                })
-            .WithName("StreamDeck_EnableDestination")
-            .Produces<StreamDeckResponse>(StatusCodes.Status200OK);
-
-        group.MapPost(
-                "/destinations/{platform}/disable",
-                static async (
-                    string platform,
-                    IRestreamRuntimeService restreamService,
-                    CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        RestreamDestinationUpdateRequest request = new RestreamDestinationUpdateRequest
-                        {
-                            PlatformName = platform,
-                            IsEnabled = false
-                        };
-                        await restreamService.UpdateDestination(request, cancellationToken);
-                        return Results.Ok(StreamDeckResponse.Ok($"{platform} disabled"));
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.Ok(StreamDeckResponse.Fail(ex.Message));
-                    }
-                })
-            .WithName("StreamDeck_DisableDestination")
-            .Produces<StreamDeckResponse>(StatusCodes.Status200OK);
-
-        group.MapPost(
-                "/destinations/{platform}/toggle",
-                static async (
-                    string platform,
-                    IRestreamRuntimeService restreamService,
-                    CancellationToken cancellationToken) =>
-                {
-                    try
-                    {
-                        RestreamControlState state = await restreamService.GetState(cancellationToken);
-                        RestreamDestinationState? destination = state.Destinations
-                            .FirstOrDefault(d => string.Equals(d.PlatformName, platform, StringComparison.OrdinalIgnoreCase));
-
-                        if (destination is null)
-                        {
-                            return Results.Ok(StreamDeckResponse.Fail($"Platform '{platform}' not found"));
-                        }
-
-                        RestreamDestinationUpdateRequest request = new RestreamDestinationUpdateRequest
-                        {
-                            PlatformName = platform,
-                            IsEnabled = !destination.IsEnabled
-                        };
-                        await restreamService.UpdateDestination(request, cancellationToken);
-
-                        string newState = request.IsEnabled == true ? "enabled" : "disabled";
-                        return Results.Ok(StreamDeckResponse.Ok($"{platform} {newState}"));
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.Ok(StreamDeckResponse.Fail(ex.Message));
-                    }
-                })
-            .WithName("StreamDeck_ToggleDestination")
-            .Produces<StreamDeckResponse>(StatusCodes.Status200OK);
     }
 
     private static void MapTeleprompterEndpoints(RouteGroupBuilder parent)
@@ -427,13 +238,25 @@ public static class StreamDeckApiExtensions
                 })
             .WithName("StreamDeck_SetLiveMode")
             .Produces<StreamDeckResponse>(StatusCodes.Status200OK);
+
+        group.MapPost(
+                "/go-live",
+                static async (IGoLiveActionService goLiveService, CancellationToken cancellationToken) =>
+                {
+                    try
+                    {
+                        await goLiveService.Execute(cancellationToken);
+                        return Results.Ok(StreamDeckResponse.Ok("Go-live workflow executed"));
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.Ok(StreamDeckResponse.Fail(ex.Message));
+                    }
+                })
+            .WithName("StreamDeck_GoLive")
+            .Produces<StreamDeckResponse>(StatusCodes.Status200OK);
     }
 }
-
-/// <summary>
-/// Streaming status data payload.
-/// </summary>
-public sealed record StreamingStatusData(bool IsRunning, string State);
 
 /// <summary>
 /// Operator mode data payload.

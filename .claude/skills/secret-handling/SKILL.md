@@ -5,9 +5,9 @@ description: Rules for handling credentials in this repo — which files never t
 
 # Secret handling
 
-This project holds live streaming credentials: Twitch client secrets, Discord bot tokens,
-YouTube/LinkedIn/TikTok/Facebook access tokens, RTMP stream keys, and an RTMP server API key.
-Several of these grant broadcast rights to a real channel. Treat them accordingly.
+This project holds live streaming credentials: Twitch client secrets, Discord bot tokens, and
+YouTube/Facebook/X access tokens. Several of these grant posting rights on a real channel.
+Treat them accordingly.
 
 ## Never read
 
@@ -34,10 +34,9 @@ messages, or PR descriptions. Watch for:
 | Connection strings with credentials | `Server=…;Password=…` |
 | JWTs | `eyJ….eyJ….…` |
 | Private keys | `-----BEGIN … PRIVATE KEY-----` |
-| RTMP stream keys | the tail segment of an ingest URL |
 
-Write a reference instead of a value: "set `Twitch:ClientSecret` via user secrets", or
-"stream key is configured in the restream settings", never the value itself.
+Write a reference instead of a value: "set `Twitch:ClientSecret` via user secrets", never the
+value itself.
 
 Test fixtures use obvious fakes (`"test-client-secret"`), never a redacted real credential.
 

@@ -13,7 +13,6 @@ public static class WizardStepCatalog
     {
         new WizardStepModel(WizardStep.Welcome, "Welcome", "Introduction to Thiccdal setup", IsOptional: false),
         new WizardStepModel(WizardStep.Database, "Database", "Configure database connection", IsOptional: false),
-        new WizardStepModel(WizardStep.Streaming, "Streaming", "Configure RTMP ingest and recording", IsOptional: false),
         new WizardStepModel(WizardStep.Platforms, "Platforms", "Connect streaming platforms", IsOptional: true),
         new WizardStepModel(WizardStep.AiSetup, "AI Setup", "Configure AI integration", IsOptional: true),
         new WizardStepModel(WizardStep.BotConfig, "Bot Config", "Set up chatbot settings", IsOptional: false),

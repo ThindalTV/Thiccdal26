@@ -91,37 +91,4 @@ public sealed class EventTickerOverlayComponentTests
         Assert.Equal("⚔️ RaidLeader is raiding with 42 viewers!", tickerText);
     }
 
-    [Fact]
-    public void WhenSuperChatEventArrives_ThenTickerTextMatchesContract()
-    {
-        PlatformEvent platformEvent = new()
-        {
-            Source = PlatformEventSource.YouTube,
-            Type = PlatformEventType.SuperChat,
-            Author = "GeneroUser",
-            Channel = "ThindalTV",
-            Summary = "GeneroUser sent 5.00 USD: Great stream!"
-        };
-
-        string? tickerText = EventTickerOverlayComponent.CreateTickerText(platformEvent);
-
-        Assert.Equal("💰 GeneroUser sent 5.00 USD!", tickerText);
-    }
-
-    [Fact]
-    public void WhenMembershipEventArrives_ThenTickerTextMatchesContract()
-    {
-        PlatformEvent platformEvent = new()
-        {
-            Source = PlatformEventSource.YouTube,
-            Type = PlatformEventType.Membership,
-            Author = "NewMember",
-            Channel = "ThindalTV",
-            Summary = "NewMember became a member"
-        };
-
-        string? tickerText = EventTickerOverlayComponent.CreateTickerText(platformEvent);
-
-        Assert.Equal("🌟 NewMember became a member!", tickerText);
-    }
 }

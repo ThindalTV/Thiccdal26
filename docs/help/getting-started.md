@@ -213,7 +213,6 @@ services:
     volumes:
       - ./data:/app/data  # Database persistence
       - ./config:/app/config  # Configuration files
-      - ./recordings:/app/recordings  # Stream recordings (if enabled)
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Data Source=/app/data/thiccdal.db
@@ -229,7 +228,6 @@ services:
 |--------|---------|---------|
 | `/app/data` | SQLite database and persisted state | `-v ./data:/app/data` |
 | `/app/config` | Configuration and credential files (if external) | `-v ./config:/app/config` |
-| `/app/recordings` | Stream recordings (optional) | `-v ./recordings:/app/recordings` |
 
 ### Planned Environment Variables
 
@@ -388,27 +386,11 @@ For detailed UI instructions, see [Connecting Thiccdal to Twitch](./connecting-t
 
 ### Supported Platforms
 
-Thiccdal currently supports the following platforms:
+Thiccdal is a Twitch bot and overlay:
 
 - ✅ **Twitch** — Fully integrated (see [Connecting to Twitch](./connecting-to-twitch.md))
-- ✅ **YouTube Live** — Fully integrated (see [Connecting to YouTube](./connecting-to-youtube.md))
-- ✅ **Discord** — Fully integrated (see [Discord Setup](./discord-setup.md))
 
-### Planned Platforms (In Development)
-
-The following platforms are planned for future releases:
-
-- 🔜 **Facebook Live** — Under development (see [Facebook Live Integration](./connecting-to-facebook.md))
-- 🔜 **X (Twitter) Live** — Under development (see [X Live Integration](./connecting-to-x.md))
-
-### Blocked Platforms (Awaiting API Approval)
-
-These platforms require special approval from the platform provider before integration is possible:
-
-- 🚫 **LinkedIn Live** — Awaiting LinkedIn API approval (see [LinkedIn Integration](./connecting-to-linkedin.md))
-- 🚫 **TikTok Live** — Awaiting TikTok API approval (see [TikTok Integration](./connecting-to-tiktok.md))
-
-For details on each platform, including requirements, token setup, and current blockers, see the platform-specific guides listed above.
+The adapter architecture is modular, so other platforms can be added later, but none ship today.
 
 Check back as Thiccdal development continues. You can follow progress on [GitHub releases](https://github.com/ThindalTV/Thiccdal26/releases).
 

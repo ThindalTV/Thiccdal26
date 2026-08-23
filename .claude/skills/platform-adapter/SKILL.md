@@ -1,6 +1,6 @@
 ---
 name: platform-adapter
-description: How to build or modify a platform integration under src/Remote/ — registration extensions, the Infrastructure/Data seam for tokens and persistence, typed HTTP clients, raw payload preservation, connection monitors, and optional RTMP relay capability. Use when adding a platform, changing an adapter, or wiring an adapter into DI.
+description: How to build or modify a platform integration under src/Remote/ — registration extensions, the Infrastructure/Data seam for tokens and persistence, typed HTTP clients, raw payload preservation, and connection monitors. Use when adding a platform, changing an adapter, or wiring an adapter into DI.
 ---
 
 # Platform adapter patterns
@@ -95,19 +95,15 @@ the token, before redirecting, so subscribed circuits re-render.
 An adapter with no stored token yet is in an explicit disconnected state. Do not throw on startup
 because credentials are absent — model it as state the operator surface can explain.
 
-## RTMP relay is an optional capability
+## Adapters are chat and events only
 
-Being connected for chat does not mean a platform can be restreamed to. Adapters that can resolve
-a concrete outbound RTMP publish URL additionally implement `IRtmpRelayDestinationProvider`
-(`Thiccdal.Infrastructure/Streaming/`), returning `null` when the destination is not configured yet.
-
-`RestreamRuntimeService` (`src/Thiccdal.Data/`) and `RtmpFanoutService`
-(`src/Thiccdal.RtmpServer/Services/`) treat relay support as an explicit capability. Keep it that
-way — an adapter should never fake fanout success, so the operator surface can name the exact gap.
+Thiccdal does not ingest, restream, or record video — OBS publishes to each platform directly.
+An adapter surfaces chat, events, and connection state. Do not add relay, fanout, or stream-key
+handling to one.
 
 ## Testing
 
 `Thiccdal.Remote.Null` provides no-op implementations that log every operation at `Information`
-level; use it as the stand-in for a live platform. Note that only `Instagram.Tests` and
-`Twitch.Tests` currently exist under `src/Tests/Remote/` — a new adapter test project must be added
-to `Thiccdal.slnx` or it will never run.
+level; use it as the stand-in for a live platform. Note that only `Twitch.Tests` currently exists
+under `src/Tests/Remote/` — a new adapter test project must be added to `Thiccdal.slnx` or it will
+never run.

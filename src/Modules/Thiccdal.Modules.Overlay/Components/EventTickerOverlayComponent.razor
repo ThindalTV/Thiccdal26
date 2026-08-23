@@ -82,8 +82,6 @@
             TwitchFollowEvent followEvent => $"❤️ {followEvent.Author} followed!",
             TwitchRedeemEvent redeemEvent => $"⭐ {redeemEvent.Author} redeemed {ResolveRewardTitle(redeemEvent)}",
             TwitchRaidEvent raidEvent => $"⚔️ {raidEvent.RaidingChannel} is raiding with {raidEvent.ViewerCount} viewers!",
-            { Type: PlatformEventType.SuperChat } superChatEvent => $"💰 {superChatEvent.Author} sent {ResolveSuperChatDisplayString(superChatEvent)}!",
-            { Type: PlatformEventType.Membership } membershipEvent => $"🌟 {membershipEvent.Author} became a member!",
             _ => null
         };
     }
@@ -178,20 +176,5 @@
     private static string ResolveRewardTitle(TwitchRedeemEvent redeemEvent)
     {
         return string.IsNullOrWhiteSpace(redeemEvent.RewardTitle) ? "channel points" : redeemEvent.RewardTitle;
-    }
-
-    private static string ResolveSuperChatDisplayString(PlatformEvent platformEvent)
-    {
-        const string marker = " sent ";
-        string summary = platformEvent.Summary ?? string.Empty;
-        int markerIndex = summary.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (markerIndex >= 0)
-        {
-            string remainder = summary[(markerIndex + marker.Length)..];
-            int commentIndex = remainder.IndexOf(':');
-            return commentIndex >= 0 ? remainder[..commentIndex].Trim() : remainder.Trim();
-        }
-
-        return "a Super Chat";
     }
 }

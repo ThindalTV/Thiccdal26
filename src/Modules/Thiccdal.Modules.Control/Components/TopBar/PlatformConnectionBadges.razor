@@ -24,13 +24,7 @@
 @code {
     private static readonly IReadOnlyDictionary<string, int> PlatformOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
-        ["Twitch"] = 0,
-        ["YouTube"] = 1,
-        ["Discord"] = 2,
-        ["Facebook"] = 3,
-        ["X"] = 4,
-        ["LinkedIn"] = 5,
-        ["TikTok"] = 6
+        ["Twitch"] = 0
     };
 
     private IReadOnlyList<IPlatformConnection> _platforms = [];

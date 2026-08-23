@@ -1,14 +1,8 @@
-using Thiccdal.Infrastructure.Discord;
-using Thiccdal.Infrastructure.Facebook;
 using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Remotes;
-using Thiccdal.Infrastructure.Streaming;
 using Thiccdal.Infrastructure.Twitch;
-using Thiccdal.Infrastructure.X;
-using Thiccdal.Infrastructure.YouTube;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 
 namespace Thiccdal.Infrastructure.Operators;
 
@@ -21,29 +15,21 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
     private const string PlatformConnectionsCategory = "Platform Connections";
     private const string StreamInfoCategory = "Stream Info";
     private const string ObsTechnicalCategory = "OBS & Technical";
-    private const string RecordingCategory = "Recording";
     private const string OverlayVerificationCategory = "Overlay Verification";
     private const string PersonalPrepCategory = "Personal Prep";
 
     private readonly IOperatorStateService _operatorStateService;
     private readonly IOverlayService _overlayService;
     private readonly IPlatformManualReminderProvider _manualReminderProvider;
-    private readonly IRecordingStorageProbe _recordingStorageProbe;
     private readonly ICustomChecklistItemCatalog _customChecklistItemCatalog;
     private readonly IReadOnlyList<IPlatformConnection> _platformConnections;
-    private readonly IOptions<StreamingOptions> _streamingOptions;
-    private readonly Lock _recordingStatusLock = new();
     private readonly Lock _checkedItemsLock = new();
     private readonly Lock _personalPrepDefinitionsLock = new();
     private readonly Dictionary<string, DateTimeOffset> _checkedItems = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<Action> _unsubscribeActions = [];
     private List<ChecklistItemDefinition> _personalPrepDefinitions = CreateDefaultPersonalPrepDefinitions();
-    private readonly TimeSpan _recordingPollInterval;
     private readonly TimeSpan _overlayActionCompletionDelay;
 
-    private CancellationTokenSource? _recordingPollCts;
-    private Task? _recordingPollTask;
-    private RecordingStorageStatus _lastObservedRecordingStatus;
 
     [ActivatorUtilitiesConstructor]
     public PreLiveChecklistService(
@@ -51,65 +37,15 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
         IEnumerable<IPlatformConnection> platformConnections,
         IOverlayService overlayService,
         IPlatformManualReminderProvider manualReminderProvider,
-        IRecordingStorageProbe recordingStorageProbe,
-        IOptions<StreamingOptions> streamingOptions,
+        ICustomChecklistItemCatalog customChecklistItemCatalog,
         TimeProvider timeProvider)
         : this(
             operatorStateService,
             platformConnections,
             overlayService,
             manualReminderProvider,
-            recordingStorageProbe,
-            new StaticCustomChecklistItemCatalog(CreateDefaultCatalogItems()),
-            streamingOptions,
-            timeProvider,
-            TimeSpan.FromSeconds(30),
-            DefaultOverlayActionCompletionDelay)
-    {
-    }
-
-    public PreLiveChecklistService(
-        IOperatorStateService operatorStateService,
-        IEnumerable<IPlatformConnection> platformConnections,
-        IOverlayService overlayService,
-        IPlatformManualReminderProvider manualReminderProvider,
-        IRecordingStorageProbe recordingStorageProbe,
-        IOptions<StreamingOptions> streamingOptions,
-        TimeProvider timeProvider,
-        TimeSpan recordingPollInterval)
-        : this(
-            operatorStateService,
-            platformConnections,
-            overlayService,
-            manualReminderProvider,
-            recordingStorageProbe,
-            new StaticCustomChecklistItemCatalog(CreateDefaultCatalogItems()),
-            streamingOptions,
-            timeProvider,
-            recordingPollInterval,
-            DefaultOverlayActionCompletionDelay)
-    {
-    }
-
-    public PreLiveChecklistService(
-        IOperatorStateService operatorStateService,
-        IEnumerable<IPlatformConnection> platformConnections,
-        IOverlayService overlayService,
-        IPlatformManualReminderProvider manualReminderProvider,
-        IRecordingStorageProbe recordingStorageProbe,
-        ICustomChecklistItemCatalog customChecklistItemCatalog,
-        IOptions<StreamingOptions> streamingOptions,
-        TimeProvider timeProvider)
-        : this(
-            operatorStateService,
-            platformConnections,
-            overlayService,
-            manualReminderProvider,
-            recordingStorageProbe,
             customChecklistItemCatalog,
-            streamingOptions,
             timeProvider,
-            TimeSpan.FromSeconds(30),
             DefaultOverlayActionCompletionDelay)
     {
     }
@@ -119,78 +55,20 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
         IEnumerable<IPlatformConnection> platformConnections,
         IOverlayService overlayService,
         IPlatformManualReminderProvider manualReminderProvider,
-        IRecordingStorageProbe recordingStorageProbe,
         ICustomChecklistItemCatalog customChecklistItemCatalog,
-        IOptions<StreamingOptions> streamingOptions,
         TimeProvider timeProvider,
-        TimeSpan recordingPollInterval)
-        : this(
-            operatorStateService,
-            platformConnections,
-            overlayService,
-            manualReminderProvider,
-            recordingStorageProbe,
-            customChecklistItemCatalog,
-            streamingOptions,
-            timeProvider,
-            recordingPollInterval,
-            DefaultOverlayActionCompletionDelay)
-    {
-    }
-
-    public PreLiveChecklistService(
-        IOperatorStateService operatorStateService,
-        IEnumerable<IPlatformConnection> platformConnections,
-        IOverlayService overlayService,
-        IPlatformManualReminderProvider manualReminderProvider,
-        IRecordingStorageProbe recordingStorageProbe,
-        IOptions<StreamingOptions> streamingOptions,
-        TimeProvider timeProvider,
-        TimeSpan recordingPollInterval,
-        TimeSpan overlayActionCompletionDelay)
-        : this(
-            operatorStateService,
-            platformConnections,
-            overlayService,
-            manualReminderProvider,
-            recordingStorageProbe,
-            new StaticCustomChecklistItemCatalog(CreateDefaultCatalogItems()),
-            streamingOptions,
-            timeProvider,
-            recordingPollInterval,
-            overlayActionCompletionDelay)
-    {
-    }
-
-    public PreLiveChecklistService(
-        IOperatorStateService operatorStateService,
-        IEnumerable<IPlatformConnection> platformConnections,
-        IOverlayService overlayService,
-        IPlatformManualReminderProvider manualReminderProvider,
-        IRecordingStorageProbe recordingStorageProbe,
-        ICustomChecklistItemCatalog customChecklistItemCatalog,
-        IOptions<StreamingOptions> streamingOptions,
-        TimeProvider timeProvider,
-        TimeSpan recordingPollInterval,
         TimeSpan overlayActionCompletionDelay)
     {
-        ArgumentNullException.ThrowIfNull(recordingStorageProbe);
         ArgumentNullException.ThrowIfNull(customChecklistItemCatalog);
-        ArgumentNullException.ThrowIfNull(streamingOptions);
         ArgumentNullException.ThrowIfNull(timeProvider);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(recordingPollInterval, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(overlayActionCompletionDelay, TimeSpan.Zero);
 
         _operatorStateService = operatorStateService;
         _overlayService = overlayService;
         _manualReminderProvider = manualReminderProvider;
-        _recordingStorageProbe = recordingStorageProbe;
         _customChecklistItemCatalog = customChecklistItemCatalog;
         _platformConnections = platformConnections.ToArray();
-        _streamingOptions = streamingOptions;
-        _recordingPollInterval = recordingPollInterval;
         _overlayActionCompletionDelay = overlayActionCompletionDelay;
-        _lastObservedRecordingStatus = _recordingStorageProbe.GetStatus();
 
         _operatorStateService.StateChanged += HandleDependencyStateChanged;
         _unsubscribeActions.Add(() => _operatorStateService.StateChanged -= HandleDependencyStateChanged);
@@ -316,55 +194,16 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (_recordingPollTask is not null)
-        {
-            return;
-        }
-
         await Reload(cancellationToken);
-
-        _recordingPollCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _recordingPollTask = PollRecordingState(_recordingPollCts.Token);
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken)
+    public Task StopAsync(CancellationToken cancellationToken)
     {
-        CancellationTokenSource? recordingPollCts = Interlocked.Exchange(ref _recordingPollCts, null);
-        Task? recordingPollTask = Interlocked.Exchange(ref _recordingPollTask, null);
-
-        if (recordingPollCts is null)
-        {
-            return;
-        }
-
-        await recordingPollCts.CancelAsync();
-
-        try
-        {
-            if (recordingPollTask is not null)
-            {
-                await recordingPollTask.WaitAsync(cancellationToken);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        finally
-        {
-            recordingPollCts.Dispose();
-        }
+        return Task.CompletedTask;
     }
 
     public void Dispose()
     {
-        if (_recordingPollCts is not null)
-        {
-            _recordingPollCts.Cancel();
-            _recordingPollCts.Dispose();
-            _recordingPollCts = null;
-            _recordingPollTask = null;
-        }
-
         foreach (Action unsubscribe in _unsubscribeActions)
         {
             unsubscribe();
@@ -393,7 +232,6 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
 
     private ChecklistItemState[] BuildItems()
     {
-        RecordingStorageStatus recordingStatus = GetRecordingStatus();
         List<ChecklistItemState> items =
         [
             .. BuildPlatformConnectionItems(),
@@ -411,10 +249,8 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
                 hint: "Checks when a staged pre-live category is present."),
             CreateManualReminderItem(),
             CreateManualItem("obs-scene-ready", "OBS scene configured and active", true, ObsTechnicalCategory, 200, "Confirm the correct scene collection is live in OBS."),
-            CreateManualItem("ingest-url-copied", "RTMP ingest URL configured in OBS", true, ObsTechnicalCategory, 201, "Copy the ingest URL into OBS, then leave this checked once the target is saved.", _streamingOptions.Value.IngestUrl, true),
             CreateManualItem("audio-levels-set", "Audio levels checked", true, ObsTechnicalCategory, 202, null),
             CreateManualItem("test-stream-done", "Test stream completed", false, ObsTechnicalCategory, 203, null),
-            .. BuildRecordingItems(recordingStatus),
             .. BuildOverlayItems(),
             .. BuildPersonalPrepItems()
         ];
@@ -567,45 +403,6 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
         };
     }
 
-    private IEnumerable<ChecklistItemState> BuildRecordingItems(RecordingStorageStatus recordingStatus)
-    {
-        yield return new ChecklistItemState
-        {
-            Definition = new ChecklistItemDefinition
-            {
-                Id = "recording-path-configured",
-                Category = RecordingCategory,
-                Label = "Recording output path configured",
-                Type = ChecklistItemType.Auto,
-                IsRequired = false,
-                Hint = "Checks when the configured recording folder is available.",
-                SortOrder = 206
-            },
-            IsChecked = recordingStatus.IsPathConfigured,
-            IsAutoChecked = recordingStatus.IsPathConfigured,
-            IsWarning = !recordingStatus.IsPathConfigured && !string.IsNullOrWhiteSpace(recordingStatus.PathWarningMessage),
-            WarningMessage = recordingStatus.PathWarningMessage
-        };
-
-        yield return new ChecklistItemState
-        {
-            Definition = new ChecklistItemDefinition
-            {
-                Id = "recording-disk-space",
-                Category = RecordingCategory,
-                Label = "Sufficient disk space (≥ 10 GB free)",
-                Type = ChecklistItemType.AutoWithWarn,
-                IsRequired = false,
-                Hint = "Warns without blocking go live when the recording drive gets tight.",
-                SortOrder = 207
-            },
-            IsChecked = recordingStatus.HasSufficientDiskSpace,
-            IsAutoChecked = recordingStatus.HasSufficientDiskSpace,
-            IsWarning = !recordingStatus.HasSufficientDiskSpace && !string.IsNullOrWhiteSpace(recordingStatus.DiskSpaceWarningMessage),
-            WarningMessage = recordingStatus.DiskSpaceWarningMessage
-        };
-    }
-
     private ChecklistItemState CreateStreamInfoItem(string itemId, string label, int sortOrder, bool isChecked, string? hint)
     {
         return new ChecklistItemState
@@ -664,26 +461,6 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
                     twitchService.ConnectionStateChanged += twitchHandler;
                     _unsubscribeActions.Add(() => twitchService.ConnectionStateChanged -= twitchHandler);
                     break;
-                case IYouTubeService youTubeService:
-                    EventHandler<YouTubeConnectionState> youTubeHandler = (_, _) => StateChanged?.Invoke(this, EventArgs.Empty);
-                    youTubeService.ConnectionStateChanged += youTubeHandler;
-                    _unsubscribeActions.Add(() => youTubeService.ConnectionStateChanged -= youTubeHandler);
-                    break;
-                case IFacebookService facebookService:
-                    EventHandler<FacebookConnectionState> facebookHandler = (_, _) => StateChanged?.Invoke(this, EventArgs.Empty);
-                    facebookService.ConnectionStateChanged += facebookHandler;
-                    _unsubscribeActions.Add(() => facebookService.ConnectionStateChanged -= facebookHandler);
-                    break;
-                case IDiscordService discordService:
-                    EventHandler<DiscordConnectionState> discordHandler = (_, _) => StateChanged?.Invoke(this, EventArgs.Empty);
-                    discordService.ConnectionStateChanged += discordHandler;
-                    _unsubscribeActions.Add(() => discordService.ConnectionStateChanged -= discordHandler);
-                    break;
-                case IXService xService:
-                    EventHandler<XConnectionState> xHandler = (_, _) => StateChanged?.Invoke(this, EventArgs.Empty);
-                    xService.ConnectionStateChanged += xHandler;
-                    _unsubscribeActions.Add(() => xService.ConnectionStateChanged -= xHandler);
-                    break;
             }
         }
     }
@@ -693,54 +470,6 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
         lock (_personalPrepDefinitionsLock)
         {
             return [.. _personalPrepDefinitions];
-        }
-    }
-
-    private RecordingStorageStatus GetRecordingStatus()
-    {
-        RecordingStorageStatus status = _recordingStorageProbe.GetStatus();
-
-        lock (_recordingStatusLock)
-        {
-            _lastObservedRecordingStatus = status;
-        }
-
-        return status;
-    }
-
-    private async Task PollRecordingState(CancellationToken cancellationToken)
-    {
-        EvaluateRecordingStatusChange();
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(_recordingPollInterval, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-
-            EvaluateRecordingStatusChange();
-        }
-    }
-
-    private void EvaluateRecordingStatusChange()
-    {
-        RecordingStorageStatus currentStatus = _recordingStorageProbe.GetStatus();
-        bool changed;
-
-        lock (_recordingStatusLock)
-        {
-            changed = currentStatus != _lastObservedRecordingStatus;
-            _lastObservedRecordingStatus = currentStatus;
-        }
-
-        if (changed)
-        {
-            StateChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
