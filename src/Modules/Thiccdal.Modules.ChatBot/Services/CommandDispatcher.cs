@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Operators;
+using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Remotes;
 
 namespace Thiccdal.Modules.ChatBot.Services;
@@ -21,6 +22,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
     private readonly ITokenInterpolator _tokenInterpolator;
     private readonly IOperatorStateService _operatorStateService;
     private readonly IChatBotAiResponder _chatBotAiResponder;
+    private readonly ILowerThirdService _lowerThirdService;
     private readonly IServiceProvider _serviceProvider;
     private readonly IEnumerable<IPlatformConnection> _platformConnections;
     private readonly ILogger<CommandDispatcher> _logger;
@@ -32,6 +34,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
         ITokenInterpolator tokenInterpolator,
         IOperatorStateService operatorStateService,
         IChatBotAiResponder chatBotAiResponder,
+        ILowerThirdService lowerThirdService,
         IServiceProvider serviceProvider,
         IEnumerable<IPlatformConnection> platformConnections,
         ILogger<CommandDispatcher> logger)
@@ -42,6 +45,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
         _tokenInterpolator = tokenInterpolator;
         _operatorStateService = operatorStateService;
         _chatBotAiResponder = chatBotAiResponder;
+        _lowerThirdService = lowerThirdService;
         _serviceProvider = serviceProvider;
         _platformConnections = platformConnections;
         _logger = logger;
@@ -91,7 +95,8 @@ public sealed class CommandDispatcher : ICommandDispatcher
         CommandContext context = CreateContext(chatEvent, trigger, messageParts.Skip(1).ToArray(), useCount);
         string? response = await ResolveResponse(command, context, cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(response))
+        // The lower third stays operator-driven: a viewer typing the trigger must not take the overlay.
+        if (!command.SendInChat || string.IsNullOrWhiteSpace(response))
         {
             return;
         }
@@ -117,7 +122,12 @@ public sealed class CommandDispatcher : ICommandDispatcher
         CommandContext context = CreateOperatorContext(normalizedTrigger, useCount);
         string? response = await ResolveResponse(command, context, cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(response))
+        if (command.ShowOnLowerThird)
+        {
+            ShowOnLowerThird(command, response);
+        }
+
+        if (!command.SendInChat || string.IsNullOrWhiteSpace(response))
         {
             return;
         }
@@ -249,6 +259,23 @@ public sealed class CommandDispatcher : ICommandDispatcher
         using IServiceScope scope = _serviceProvider.CreateScope();
         IBotCommandManagementService managementService = scope.ServiceProvider.GetRequiredService<IBotCommandManagementService>();
         await managementService.IncrementUseCount(trigger, cancellationToken);
+    }
+
+    private void ShowOnLowerThird(BotCommandDefinition command, string? response)
+    {
+        string text = FirstNonEmpty(command.LowerThirdText, response);
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new InvalidOperationException($"{command.Trigger} has no lower-third copy to show.");
+        }
+
+        _lowerThirdService.ShowMessage(FirstNonEmpty(command.LowerThirdTitle, command.Trigger), text);
+    }
+
+    private static string FirstNonEmpty(string? preferred, string? fallback)
+    {
+        return string.IsNullOrWhiteSpace(preferred) ? fallback ?? string.Empty : preferred;
     }
 
     private async Task SendOperatorResponse(string response, CancellationToken cancellationToken)

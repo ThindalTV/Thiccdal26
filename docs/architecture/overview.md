@@ -1,7 +1,8 @@
 # Thiccdal – Architecture Overview
 
 > **Status:** Living document. Updated as decisions are made and features are built.
-> See `/architecture/` for individual Architectural Decision Records (ADRs).
+> An `/architecture/` folder is reserved for individual Architectural Decision Records, but no
+> ADRs have been written yet — this document is currently the single source of truth.
 
 ---
 
@@ -9,89 +10,114 @@
 
 Thiccdal is a streaming command-and-control system. It runs on a stream PC and is operated
 from a separate device (e.g., a Surface Pro tablet via browser). A single operator interface
-gives full visibility and control of all platform connections, chat, events, overlays, and
-stream output — without needing to switch between apps or screens.
+gives full visibility and control of platform connections, chat, events, and overlays —
+without needing to switch between apps or screens.
+
+### Scope boundaries
+
+Two constraints shape everything below. Both are deliberate; treat them as invariants.
+
+**Twitch is the only platform.** The adapter architecture stays modular — `IPlatformConnection`,
+one project per platform under `/src/Remote/` — so another platform could be added later. Until
+that decision is made, no code, configuration, or documentation refers to YouTube, Discord,
+Facebook, X, TikTok, or LinkedIn.
+
+**Video is out of scope.** Thiccdal never ingests, restreams, records, or otherwise touches the
+video pipeline. OBS publishes to Twitch directly and Thiccdal never sits between them. There is
+no RTMP ingest, no fanout, no relay, no disk recording, and no stream-key handling. Thiccdal's
+relationship with OBS is read-only telemetry over obs-websocket (§3.13).
 
 ---
 
 ## 2. High-Level Architecture
 
+OBS publishes video to Twitch on its own. Thiccdal runs alongside it on the same machine,
+handling chat, events, overlays, and operator control.
+
 ```
+   OBS Studio ──────── RTMP video ────────▶ Twitch
+       │  ▲                                   │
+       │  │ obs-websocket (stream state)      │ chat + EventSub
+       │  │ browser source / browser dock     │
+       ▼  │                                   ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                         Stream PC (Server)                               │
-│                                                                          │
-│  OBS Studio                                                              │
-│      │ RTMP push                                                         │
-│      ▼                                                                   │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │  Thiccdal.Streaming (RTMP Ingest + Fanout)                       │   │
-│  │   ├── Relay → Twitch RTMP                                        │   │
-│  │   ├── Relay → YouTube RTMP                                       │   │
-│  │   ├── Relay → Discord RTMP                                       │   │
-│  │   └── Record to disk                                             │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │  Thiccdal (Blazor Server host)                                   │   │
 │  │   ├── Thiccdal.Modules.Control      (operator UI, touch-friendly)│   │
 │  │   ├── Thiccdal.Modules.Teleprompter (combined chat + events)     │   │
 │  │   ├── Thiccdal.Modules.Overlay      (SignalR → OBS browser src)  │   │
-│  │   └── Status Endpoint               (online/offline image/enum)  │   │
+│  │   ├── Thiccdal.Modules.ChatBot      (aggregation + commands)     │   │
+│  │   └── Thiccdal.API                  (status + Stream Deck)       │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │  Thiccdal.Infrastructure                                         │   │
-│  │   └── Interfaces  (IPlatformConnection, IChatService, …)         │   │
+│  │   └── Interfaces, options, value types — no EF Core              │   │
+│  │       (IPlatformConnection, IChatService, IObsConnection, …)     │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │  Thiccdal.Data                                                   │   │
 │  │   ├── ApplicationDbContext  (SQLite / EF Core)                   │   │
-│  │   ├── Entity Models         (User, ChatMessage, PlatformEvent…)  │   │
+│  │   ├── Entity Models         (ChatMessage, PlatformEvent, …)      │   │
 │  │   └── Migrations                                                 │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 │  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │  Remote Platform Adapters                                         │  │
-│  │   ├── Thiccdal.Remote.Twitch                                      │  │
-│  │   ├── Thiccdal.Remote.YouTube                                     │  │
-│  │   ├── Thiccdal.Remote.Facebook                                    │  │
-│  │   ├── Thiccdal.Remote.X                                           │  │
-│  │   ├── Thiccdal.Remote.Discord                                     │  │
-│  │   ├── Thiccdal.Remote.LinkedIn  ⚠ UI disabled until API approved │  │
-│  │   ├── Thiccdal.Remote.TikTok   ⚠ UI disabled until API approved  │  │
-│  │   └── Thiccdal.Remote.Null    (logging-only, used in tests)       │  │
+│  │  Remote Adapters                                                  │  │
+│  │   ├── Thiccdal.Remote.Twitch    chat, EventSub, Helix, OAuth      │  │
+│  │   ├── Thiccdal.Remote.Obs       obs-websocket stream state        │  │
+│  │   ├── Thiccdal.Remote.LMStudio  local LLM for AI features         │  │
+│  │   └── Thiccdal.Remote.Null      logging-only; used in tests       │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────┘
                           ▲                  ▲
              Blazor Server │                 │  Overlay browser source
-             circuit (WS)  │                 │  (OBS browser plugin, WS)
+             circuit (WS)  │                 │  and teleprompter dock
                     ┌──────┴───────┐   ┌─────┴────────────┐
-                    │ Control UI   │   │  Overlay Page     │
-                    │ (any browser)│   │  (OBS/browser)    │
-                    │ multi-client │   │                   │
+                    │ Control UI   │   │ Overlay Page      │
+                    │ (Surface Pro)│   │ Prompter Page     │
+                    │ multi-client │   │ (inside OBS)      │
                     └──────────────┘   └──────────────────┘
 ```
 
 ### Project & Module Layout
 
+Directory structure on disk mirrors the solution structure. The solution file is
+`Thiccdal.slnx` (XML solution format) at the repo root.
+
 ```
-/src/Thiccdal/                          Blazor Server host
-/src/Thiccdal.Infrastructure/           Interfaces, enums, value types — no EF Core
-  Bot/                                    IChatService, chat event models
+/src/Thiccdal/                          Blazor Server host (surfaces, /config pages, layouts)
+/src/Thiccdal.Infrastructure/           Interfaces, options, enums, value types — no EF Core
+  AI/                                     AI abstractions shared by the AI project
+  Actions/                                Operator quick-action contracts
+  Bot/                                    IChatService, ICommandDispatcher, chat event models
     Models/                               ChatEvent, PlatformEvent, RawEvent, PlatformEventSource
-  Remotes/                                IChatSource (per-platform chat adapter contract)
+  Integrations/                           IIntegrationConnectionMonitor
+  LmStudio/                               LmStudioOptions and local-LLM contracts
+  Operators/                              Operator state, pre-live checklist, go-live action
+  Overlay/                                IOverlayService, IOverlayComponent
+  Questions/                              Question queue and detection contracts
+  Readiness/                              ISystemReadinessService, SystemReadiness
+  Remotes/                                IPlatformConnection, IChatSource, IEventBus
+  Setup/                                  IConfigurationPersistenceService (settings store)
+  Sponsors/                               ISponsorshipService
+  Streaming/                              IObsConnection, ObsState, ObsOptions
   Teleprompter/                           ITeleprompterService, ScrollDirection, ScrollEventArgs
   Twitch/                                 ITwitchService, ITwitchTokenManager, TwitchOptions
 /src/Thiccdal.Data/                     EF Core DbContext, entities, migrations
   Models/                                 Entity classes (e.g. TwitchToken)
   Migrations/                             EF Core migration files
-/src/Thiccdal.API/                      HTTP status and control endpoints
-/src/Thiccdal.Streaming/               RTMP ingest, fanout, recording
+/src/Thiccdal.API/                      Minimal API endpoint extensions
+  Status/                                 Online/offline status endpoint (§3.9)
+  StreamDeck/                             Stream Deck control endpoints
+/src/Thiccdal.AI/                       AI/LLM services
 /src/Modules/
   Thiccdal.Modules.ChatBot/             Chat aggregation + command dispatch (Razor Class Library)
     Services/
-  Thiccdal.Modules.Control/             Command & Control operator UI (Razor Class Library)
+  Thiccdal.Modules.Control/             Streamer dashboard (Razor Class Library)
     Components/
     Layout/
     Pages/
@@ -109,88 +135,122 @@ stream output — without needing to switch between apps or screens.
   Thiccdal.Shared.Components/           Shared primitive UI components (Razor Class Library)
     Components/
       Primitives/                          InputContainer, TextBox, NumberBox, CheckBox, …
+      Readiness/                           ReadinessGate surface gating
     Models/                                SelectOption and other shared data types
 /src/Remote/
-  Thiccdal.Remote.Twitch/
-  Thiccdal.Remote.YouTube/
-  Thiccdal.Remote.Facebook/
-  Thiccdal.Remote.X/
-  Thiccdal.Remote.Discord/
-  Thiccdal.Remote.LinkedIn/              ⚠ disabled until API approved
-  Thiccdal.Remote.TikTok/               ⚠ disabled until API approved
+  Thiccdal.Remote.Twitch/                chat, EventSub, Helix, OAuth
+  Thiccdal.Remote.Obs/                   obs-websocket client for OBS Studio
+  Thiccdal.Remote.LMStudio/              local LLM client for AI features
   Thiccdal.Remote.Null/                  logging-only; used in tests
 /src/Aspire/
   Thiccdal.Aspire.AppHost/              Aspire AppHost
   Thiccdal.Aspire.ServiceDefaults/      Aspire ServiceDefaults
-/src/Tests/
-  Thiccdal.Tests/                        Main project tests
+/src/Tests/                             Mirrors the source tree
+  Thiccdal.Tests/                        Host and Infrastructure tests
   Thiccdal.Data.Tests/                   Data layer tests
+  Thiccdal.AI.Tests/                     AI service tests
+  Modules/
+    Thiccdal.Modules.ChatBot.Tests/
+    Thiccdal.Modules.Teleprompter.Tests/
   Remote/
     Thiccdal.Remote.Twitch.Tests/
+    Thiccdal.Remote.Obs.Tests/
 /docs/architecture/                     Architecture .md files
+/docs/help/                             End-user documentation
+/architecture/                          Architectural Decision Records (reserved; empty today)
 ```
+
+A test project that is not listed in `Thiccdal.slnx` is never built or run. If you add one, add
+it to the solution in the same commit.
 
 ---
 
 ## 3. Feature Descriptions
 
-### 3.1 RTMP Multicast (Thiccdal.Streaming)
+### 3.0 Surfaces
 
-OBS pushes a single RTMP stream to Thiccdal. The streaming subsystem ingests it and fans it
-out to multiple platform RTMP endpoints concurrently. Each relay target is independently
-configured (URL, stream key) and independently monitored.
+Thiccdal presents four separate surfaces. Each has its own layout, its own input model, and its
+own audience. They are not variations of one page.
 
-- If the ingest stream disconnects, a "Be Right Back" slate is injected into all relay outputs
-  so viewers see a placeholder rather than a frozen or dropped stream.
-- All active relay sessions are recorded to disk. Recording metadata (start/end time, file path,
-  platform, error state) is persisted in the database.
-- Restream runtime control plus ingest and recording configuration are exposed through
-  Thiccdal-owned API endpoints so the operator configuration view can manage them without editing
-  JSON files by hand.
-- The current in-repo implementation uses LiveStreamingServerNet for ingest and FFmpeg for
-  per-destination relay and BRB processes. Only adapters that expose concrete RTMP destinations
-  participate in live fanout today.
-- Each relay target is an `IStreamTarget` implementation. Adding a new platform requires
-  creating a new project under `/src/Remote/` and registering it.
+| Surface | Route | Input | Purpose |
+|---|---|---|---|
+| Streamer dashboard | `/dashboard` | Touch | Instant control while live. **No setup lives here.** |
+| Teleprompter | `/prompter` | Touch / read-only | On-camera script and chat |
+| Overlay | `/overlay` | — | OBS browser source |
+| Configuration | `/config` | Keyboard + mouse, large screen | Everything else |
 
-### 3.2 Platform Connection Abstraction
+`/config` has two sections: **Bot** (`/config/bot/*` — commands, autoresponses, identity and
+greetings) and **System** (`/config/system/*` — Twitch, AI keys, AI memory, viewer identities,
+pre-live checklist, appearance). There is no setup wizard; `/config` is the single configuration
+surface, and `/` redirects to it because the root has no surface of its own.
 
-Every platform adapter (Twitch, YouTube, Facebook, X, Discord, LinkedIn, TikTok, Null)
-implements `IPlatformConnection`, which combines three concerns:
+**Adding an editing affordance to the dashboard or teleprompter is a mistake** — it belongs in
+`/config`. Components shared between the two take an `Inline` parameter that drops the modal
+chrome (see `BotCommandManagementDialog`, `PersonalPrepManageDialog`).
 
-| Sub-interface | Responsibility |
+#### Readiness gating
+
+`ISystemReadinessService` (`Thiccdal.Infrastructure/Readiness/`) reports what is configured.
+Gated surfaces wrap themselves in `<ReadinessGate>`:
+
+| Surface | Requirement |
 |---|---|
-| `IChatService` | Send and receive chat messages |
-| `IStreamTarget` | Accept and relay RTMP stream data |
-| `PlatformEventSource` | Emit typed `PlatformEvent` objects |
+| Teleprompter | A saved Twitch channel |
+| Streamer dashboard | A saved channel **and** an authorized Twitch account |
 
-The `Null` implementation logs every operation at `Information` level and emits no traffic.
-It is the default in unit tests, is suitable for offline development, and is used for full-stack
-integration coverage of the host.
+Until then each shows an unconfigured notice pointing at `/config`, and activates automatically
+once the requirement is met — no restart, because readiness changes raise `ReadinessChanged` and
+the circuit re-renders.
 
-LinkedIn is implemented as a full `IPlatformConnection` but its UI entry is rendered as
-disabled with a tooltip explaining that LinkedIn Live API access requires platform approval.
+### 3.1 Platform Connection Abstraction
 
-### 3.3 Event System
+Every platform adapter implements `IPlatformConnection`. Today that is Twitch and Null; the
+interface exists so a second platform can be added without reworking the consumers.
 
-All platform happenings
+| Member | Responsibility |
+|---|---|
+| `IChatSource` (base) | Send and receive chat messages |
+| `PlatformName` | Display name used by status and operator surfaces |
+| `State` | Normalised `PlatformConnectionState` |
+| `LastError` | Platform error message when `State` is `Error` |
+| `RefreshConnectionState` | Re-reads auth or transport state |
 
-All platform happenings — subscribes, follows, redeems, raids, likes, superchats — derive
-from `PlatformEvent`. Known event types have dedicated record types with additional properties.
-Unknown events create a `RawEvent` of the base `PlatformEvent` called RawEvent with a `RawData` field containing the raw
-platform payload so that no information is silently discarded.
+Implementations are resolved through DI and never referenced by concrete type outside their own
+project. The `Null` implementation logs every operation at `Information` level and emits no
+traffic; it is the default in unit tests and suitable for offline development.
+
+> `IPlatformConnection` also inherits `IStreamTarget`, which is an empty marker interface left
+> over from the removed restreaming feature. It carries no members and no implementation does
+> anything with it.
+
+Platform auth state reaches the UI through `IIntegrationConnectionMonitor`
+(`Thiccdal.Infrastructure/Integrations/`) rather than through `IPlatformConnection` directly, so
+components can render any platform's connection status without knowing which platform it is.
+
+### 3.2 Event System
+
+All platform happenings — subscribes, follows, redeems, raids, cheers — derive from
+`PlatformEvent`. Known event types have dedicated record types carrying additional properties
+(for example `TwitchSubscribeEvent`). Unrecognised events emit the base `PlatformEvent` with a
+`RawData` field holding the raw platform payload, so nothing is silently discarded.
 
 **Rule:** Every event is persisted to the database *before* it is dispatched to subscribers.
 This guarantees a full audit trail regardless of downstream handler failures.
 
-### 3.4 Chat Aggregation & User History
+When normalising a batched or polled payload, store the serialized **item** payload and the
+source event name — not the batch envelope. `PlatformUserIdResolver` reads item-level raw data,
+and an envelope silently breaks identity resolution.
 
-All incoming chat messages, regardless of platform, are normalised to a `ChatMessage` record
-and persisted. Each message is linked to a `PlatformUser` record scoped to its platform.
-Cross-platform user identity matching (recognising the same person on Twitch and YouTube) is
-a stretch goal and will be scaffolded but not initially implemented.
+### 3.3 Chat Aggregation & User History
 
-### 3.5 Chatbot
+All incoming chat messages are normalised to a `ChatMessage` record and persisted. Each message
+is linked to a `PlatformUser` record scoped to its platform.
+
+`UserIdentity` and `UserIdentitySuggestion` entities exist to link one person's accounts
+together. With Twitch as the only platform there is nothing to correlate across, so the
+scaffolding is in place but the feature is dormant.
+
+### 3.4 Chatbot
 
 The chatbot listens to all chat sources and dispatches on command triggers (`!<name>`) as well
 as firing proactive messages on a configurable timer.
@@ -215,7 +275,7 @@ Response templates support interpolation tokens:
 | Token | Resolves to |
 |---|---|
 | `{user}` | Display name of the requesting chatter |
-| `{platform}` | Platform name (Twitch, YouTube, etc.) |
+| `{platform}` | Platform name (Twitch) |
 | `{count}` | How many times this command has been triggered this session |
 | `{uptime}` | Current stream uptime |
 
@@ -235,7 +295,7 @@ same boundary can be pointed at any compatible endpoint later without changing c
 Future: richer AI handlers (for example free-form bot responses) can build on the same abstraction
 layer as an opt-in `ICommandHandler`.
 
-### 3.6 Overlay (Thiccdal.Modules.Overlay)
+### 3.5 Overlay (Thiccdal.Modules.Overlay)
 
 The overlay is a separate Blazor page (`/overlay`) intended to be loaded in OBS as a browser
 source. It lives in the `Thiccdal.Modules.Overlay` Razor Class Library and is hosted by the
@@ -252,26 +312,38 @@ Initial components:
 Overlay components that support pre-live verification implement `ITestableOverlayComponent`,
 which extends `IOverlayComponent` with a single method: the test flash.
 
-When triggered from the Pre-Live Checklist (see §3.18), the component displays a prominent
+When triggered from the Pre-Live Checklist (see §3.12), the component displays a prominent
 full-component overlay for 3 seconds showing **“■ TESTING — [Component Name]”** in large
 bold text with a lime/green border pulse. This is deliberately more visible and persistent
-than the event flash (see §3.7), because its purpose is confirmation that the overlay is
+than the event flash (see §3.6), because its purpose is confirmation that the overlay is
 correctly positioned and visible in OBS, not just a brief notification.
 
 The test is triggered via the same `IOperatorStateService` state mechanism so it fires on all
 connected sessions simultaneously (useful when one operator is watching OBS while another
 operates the control device).
 
-### 3.7 Teleprompter (Thiccdal.Modules.Teleprompter)
+### 3.6 Teleprompter (Thiccdal.Modules.Teleprompter)
 
 A full-screen page (`/prompter`) showing the combined event and chat feed in large, readable
 text. Lives in the `Thiccdal.Modules.Teleprompter` Razor Class Library and is hosted by the
 main Blazor Server app. **The teleprompter itself has no interactive controls** — it is a
 passive display intended to be shown on a second monitor or screen facing the streamer.
 
+#### Hosting the prompter view
+The prompter is displayed as an **OBS custom browser dock** pointed at `http://<host>/prompter`,
+floated onto the streamer's reading monitor. There is no companion desktop application: a
+WebView2 shell (`Thiccdal.Teleprompter.Display`) previously wrapped this same page to add monitor
+placement, click-through, a global hotkey, and an obs-websocket client. The OBS dock supplies the
+window management for free, the control device supplies the interaction, and the obs-websocket
+client moved into the host (see §3.13) — so the shell was removed.
+
+Because the OBS browser engine cannot be taught to trust the development certificate, the host
+applies **neither `UseHttpsRedirection` nor HSTS**. Every surface is reachable over HTTP and
+HTTPS alike; reintroducing either middleware breaks the dock.
+
 Scrolling is driven entirely from the **Command & Control UI** via shared state. The operator
 taps up/down scroll buttons on their control device (Surface Pro) and the prompter view reacts
-in real time through the same multi-operator state sync mechanism (see §3.13).
+in real time through the same multi-operator state sync mechanism (see §3.10).
 
 #### Prompter attention flash
 Because the prompter is the streamer’s primary on-screen reference, **the prompter page itself
@@ -280,15 +352,15 @@ flashes** when something requires attention. Two triggers:
 | Trigger | Flash style |
 |---|---|
 | New question added to the queue | Gradient sweep from the right edge, ~0.5 s, cyan/teal accent |
-| Significant platform event (sub, raid, cheer, membership) | Gradient sweep from the right edge, ~0.5 s, gold accent |
+| Significant platform event (subscribe or raid) | Gradient sweep from the right edge, ~0.5 s, gold accent |
 
 The flash is implemented as a CSS animation (`@keyframes`) applied to a fixed-position overlay
 div injected by JS interop. It auto-dismisses and does not obstruct the prompter text.
 
 The control UI shows its own separate flash indicator for new questions (in the question queue
-panel header — see §3.8), independent of the prompter flash.
+panel header — see §3.7), independent of the prompter flash.
 
-### 3.8 Question Queue
+### 3.7 Question Queue
 
 Questions posted in any chat are flagged (manually or by a bot command). The queue is displayed
 in the operator UI. The operator can:
@@ -301,48 +373,41 @@ in the operator UI. The operator can:
 
 All three state transitions are synced across all connected operator sessions.
 
-### 3.9 Command & Control UI (Thiccdal.Modules.Control)
+### 3.8 Streamer Dashboard (Thiccdal.Modules.Control)
 
-The operator UI lives in the `Thiccdal.Modules.Control` Razor Class Library and operates in
-two distinct **modes** that share the same page URL but render different primary content:
+The streamer dashboard (`/dashboard`) lives in the `Thiccdal.Modules.Control` Razor Class
+Library. It is a **touch surface for use while live** — no setup lives here (§3.0). It is gated
+behind `<ReadinessGate>` on a saved channel plus an authorized Twitch account.
 
-#### Pre-Live mode (initial state on startup)
+The page composes independent panels, each owning its own state and `.razor.css`:
 
-Focused on preparation. The right half of the screen shows the Pre-Live Checklist (see §3.18).
-The left half shows a stream-info quick-set panel (title, category, tags) and an overlay
-test area.
-
-| Region | Content |
+| Panel | Role |
 |---|---|
-| Top bar (left) | Stream status (**Pre-Live**), per-platform connection status badges |
-| Top bar (right) | **Go Live** button — disabled with a badge showing “✗ N items remaining”; glows green and becomes tappable when the checklist is complete |
-| Left panel | Stream info quick-set (title, category, tags) + overlay test buttons per component |
-| Right panel | Pre-Live Checklist (scrollable, categorised, progress bar at top) |
-| Bottom bar | Platform connect/disconnect quick actions |
+| `TopBar` | Stream status badge, platform connection indicators, go-live action |
+| `PrompterPanel` | Teleprompter scroll controls (▲ / ▼) driving shared scroll state |
+| `QuestionQueuePanel` | Dismiss / Feature / Complete on queued viewer questions (§3.7) |
+| `LowerThirdPreviewPanel` | Shows what the lower-third overlay is currently displaying |
+| `PredefinedOverlaysPanel` | Triggers registered overlay components |
+| `BotCommandsPanel` | Fires bot commands without typing in chat |
+| `StreamInfoPanel` | Stages title, category, and tags before going live |
 
-#### Live mode (after Go Live is confirmed)
+#### Operator mode
 
-Focused on operation. Identical to the original single-screen design.
+`IOperatorStateService` holds an `OperatorMode` of `PreLive` or `Live`, shared across all
+connected operator sessions (§3.10). Panels react to the mode rather than the page swapping
+wholesale.
 
-| Region | Content |
-|---|---|
-| Top bar (left) | Stream status (**Live ●**, uptime), per-platform connection status badges |
-| Top bar (right) | **Go Offline** button (requires confirmation); checklist icon showing “✓ all clear” or “✗ N” for any auto-check that regressed |
-| Left panel | Combined chat feed (scrollable, platform badge per message) |
-| Centre panel | Teleprompter scroll controls (▲ / ▼ buttons), question queue below |
-| Bottom bar | Chatbot controls, timer status, “Manage Commands” button, “Stream Info” button |
+**Go Live** does not start the broadcast — OBS does that, independently. `IGoLiveActionService`
+saves a checklist snapshot against a new session `Guid`, transitions the mode to `Live`, and
+resets the checklist. Chat, the bot, and the overlay are then tracked against that session.
 
-Switching from Pre-Live to Live requires pressing **Go Live** and confirming the dialog.
-The confirmation dialog shows a final summary of the checklist (any unchecked optional items
-are listed as warnings, not blockers).
+> **Current state:** the Pre-Live Checklist panel is not mounted on the dashboard right now, and
+> **Go Live** asks for a plain confirmation rather than gating on checklist items. The checklist
+> service and its persistence (§3.12) are intact and still drive personal-prep editing under
+> `/config/system/checklist`. The panel layout above is under active change — treat the panel
+> list as indicative, not a contract.
 
-The **Go Live** action starts the RTMP relay to all enabled platforms simultaneously. It
-replaces the previous “start/stop stream relay” quick action.
-
-Responsive breakpoints allow a phone to show a minimal subset (status + question queue in
-live mode; status + checklist progress in pre-live mode).
-
-### 3.10 Online/Offline Status Endpoint
+### 3.9 Online/Offline Status Endpoint
 
 A lightweight endpoint (`/status`) returns the current stream state and live session
 information, making it useful for external embeds, status pages, and stream overlays.
@@ -360,46 +425,26 @@ information, making it useful for external embeds, status pages, and stream over
     "uptime": "01:23:45"
   },
   "platforms": [
-    { "name": "Twitch",   "state": "Connected" },
-    { "name": "YouTube",  "state": "Connected" },
-    { "name": "Facebook", "state": "Connected" },
-    { "name": "X",        "state": "Error", "error": "Auth token expired" }
+    { "name": "Twitch", "state": "Connected" }
   ]
 }
 ```
 
-When offline, `"stream"` is `null` and all platform states are `"Disconnected"`.
+The `platforms` array carries one entry per registered `IPlatformConnection`. `error` is present
+only when that platform's state is `Error`. When offline, `"stream"` is `null`.
 
-**`GET /status/badge.svg`** returns a static image asset that flips between an online and
-an offline graphic. Intended for embedding in GitHub READMEs, websites, or stream panels
-without needing a downstream JSON consumer.
+**`GET /status/badge.svg`** serves `badge-online.svg` or `badge-offline.svg` from `wwwroot`
+depending on the current state, with caching disabled. Intended for embedding in GitHub READMEs,
+websites, or stream panels without needing a downstream JSON consumer.
 
-This lets external sites embed a live status badge without additional infrastructure.
+Both endpoints sit behind a permissive CORS policy (`StatusApi`) so external sites can read them
+directly.
 
-### 3.11 Stream Recording
+Alongside `/status`, `Thiccdal.API` exposes `/api/streamdeck/*` endpoints for physical Stream
+Deck control — teleprompter scrolling, overlays, questions, chat, and operator mode. See
+`docs/help/streamdeck-api.md`.
 
-When the RTMP ingest is active, Thiccdal records all stream output to disk. Filename includes
-date/time and stream session ID. Start time, end time, file path, and any error state are
-written to the `StreamRecording` table. If a recording fails to finalise correctly, the
-database row is marked with an error and the partial file path is preserved.
-
-### 3.12 LinkedIn Integration
-
-LinkedIn Live requires explicit API access approval from LinkedIn. The full adapter is built
-and registered in DI — `IStreamTarget`, `IChatService`, and `IEventSource` are all
-implemented — but the platform is marked as **disabled** in the operator UI until approval
-is granted.
-
-Behaviour when disabled:
-- The LinkedIn connection status badge is rendered with a "pending approval" state.
-- Start/connect buttons are disabled with a tooltip explaining the situation.
-- The RTMP relay target skips LinkedIn silently (logged at `Debug` level).
-- No credentials are required in `appsettings.json` until the integration is activated.
-
-When LinkedIn API access is eventually granted, enabling the integration is a configuration
-change only — no code changes required.
-
-### 3.13 Multi-Operator Support
+### 3.10 Multi-Operator Support
 
 Multiple operator sessions can connect to the same Thiccdal instance simultaneously from day
 one — no authentication is required in the initial release.
@@ -417,14 +462,15 @@ This means:
 
 Authentication and role-based access are explicitly out of scope for v1.
 
-### 3.14 Platform Manual Settings Reminders
+### 3.11 Platform Manual Settings Reminders
 
-Some platform settings cannot be controlled via any API and must be configured manually in
-each platform’s web dashboard before going live. These are surfaced in the Stream Info dialog
-as a per-platform checklist so the operator doesn’t miss them.
+Some platform settings cannot be controlled via any API and must be configured manually in the
+platform’s web dashboard before going live. These are surfaced in the Stream Info dialog as a
+per-platform checklist so the operator doesn’t miss them.
 
-The reminders are defined in code as a `IReadOnlyList<PlatformManualReminder>` and are
-never stored in the database — they change only when platform capabilities change.
+The reminders are defined in code as an `IReadOnlyList<PlatformManualReminder>` returned by
+`IPlatformManualReminderProvider`, and are never stored in the database — they change only when
+platform capabilities change.
 
 | Platform | Setting | Reminder text |
 |---|---|---|
@@ -432,63 +478,12 @@ never stored in the database — they change only when platform capabilities cha
 | Twitch | Stream delay | "Enable/configure stream delay in Creator Dashboard if needed" |
 | Twitch | Extensions | "Activate/configure extensions in Creator Dashboard" |
 | Twitch | Ad schedule | "Configure ad schedule in Creator Dashboard" |
-| YouTube | Made for Kids | "Confirm ‘Made for Kids’ setting in YouTube Studio" |
-| YouTube | Super Chat | "Verify Super Chat & Super Thanks are enabled in YouTube Studio" |
-| YouTube | Visibility | "Set visibility to Public in YouTube Studio when ready" |
-| YouTube | Age restriction | "Review age restriction setting in YouTube Studio" |
-| Discord | Stream permissions | "Configure who can view the stream in server/channel settings" |
-| Discord | NSFW | "Review NSFW channel flag in server settings" |
-| LinkedIn | All settings | "LinkedIn Live settings must be configured in LinkedIn Studio" |
-| Facebook | Privacy | "Set broadcast privacy (Timeline / Page / Group) before going live — cannot change mid-stream" |
-| Facebook | App Review | "Confirm Live Video permissions have passed App Review" |
-| X | Broadcast Tweet | "Compose the broadcast Tweet text before starting — cannot edit after stream begins" |
-| X | API tier | "Verify X API write access tier is active (Basic or higher required)" |
-| TikTok | All settings | "TikTok Live settings must be configured in TikTok Studio — API access pending approval" |
 
-New reminders are added by extending the `PlatformManualReminder` list in
-`Thiccdal.Infrastructure`; no database migration is required.
+New reminders are added by extending the list in `PlatformManualReminderProvider`
+(`Thiccdal.Modules.Overlay/Services/`); no database migration is required. `Thiccdal.Remote.Null`
+provides a no-op provider for tests.
 
-### 3.15 Facebook Live Integration
-
-Facebook Live is a high-priority addition. Meta’s Graph API provides full programmatic
-control over live videos: create a `LiveVideo` object to obtain an RTMP ingest URL, update
-the broadcast title, start/stop the stream, and retrieve viewer counts.
-
-- Chat is read via the Graph API `/{live-video-id}/comments` edge (polling on interval,
-  as there is no push mechanism for public live comments).
-- Events such as reactions and new followers are available via the Graph API.
-- Stream info (title, description, status) is fully settable via API.
-- The manual settings reminder covers privacy setting (Timeline vs. Page vs. Group) since
-  that must be chosen at `LiveVideo` creation time and cannot be changed mid-stream.
-
-**API access:** A Facebook App with `live_video` and `pages_manage_posts` permissions is
-required. These require App Review for production use.
-
-### 3.16 X (Twitter) Live Integration
-
-X Live uses RTMP via the `media/upload` and `statuses/update` endpoints to create a
-live broadcast. The broadcast produces a persistent Tweet that viewers can find.
-
-- Chat is read by polling the Tweet’s reply thread via the X API v2 `search/recent`.
-- Events (likes, reposts, new follows during a live) are available via filtered stream.
-- Title/description maps to the broadcast Tweet’s text (editable before going live only).
-- **API tier note:** X API Basic tier is sufficient for read access; write access (posting
-  the broadcast Tweet) requires Basic or higher. Verify current tier requirements at
-  implementation time — X’s pricing and tier structure changes frequently.
-
-### 3.17 TikTok Live Integration
-
-TikTok Live supports RTMP via TikTok Live Studio. TikTok’s Open API for live streaming
-requires explicit approval from TikTok (similar to the LinkedIn Live approval process).
-
-The full adapter is built but the platform is marked as **disabled** in the operator UI
-until approval is granted. The same disabled-state pattern as LinkedIn applies (see §3.12).
-
-- Chat read via `live.comment_list` API endpoint.
-- Events (gifts, likes, new followers) via `live.event_list`.
-- Stream info (title) settable via `live.update` API.
-
-### 3.18 Pre-Live Checklist
+### 3.12 Pre-Live Checklist
 
 Before the stream goes live, the operator works through a structured checklist. The **Go Live**
 button is disabled until all *required* items are checked. Optional items produce a warning
@@ -506,31 +501,28 @@ summary in the Go Live confirmation dialog but do not block starting.
 #### Checklist categories and items
 
 **🔌 Platform Connections** *(auto, required)*
-All enabled platforms must be in `Connected` state. The system monitors `IPlatformConnection.State`
-and checks/unchecks items automatically. Disabled platforms (LinkedIn, TikTok) are hidden.
+Every visible platform must be in `Connected` state. The system monitors
+`IPlatformConnection.State` and checks/unchecks items automatically. Platforms in
+`PendingApproval` or `Disabled` state produce no checklist item at all.
 
-| Item | Type |
-|---|---|
-| Twitch chat connected | Auto |
-| YouTube chat connected | Auto |
-| Facebook chat connected | Auto |
-| X chat connected | Auto |
-| Discord connected | Auto |
+| Item | Type | Notes |
+|---|---|---|
+| Twitch connected | Auto | One item per registered `IPlatformConnection`; `Error` state blocks and surfaces `LastError` |
 
 **📋 Stream Info** *(required)*
 
 | Item | Type | Notes |
 |---|---|---|
-| Stream title set | Auto | Checks if `StreamSession.Title` is non-empty |
-| Category/game set | Auto | Checks if `StreamSession.Category` is non-empty |
+| Stream title set | Auto | Checks the staged pre-live title in `IOperatorStateService` is non-empty |
+| Category/game set | Auto | Checks the staged pre-live category is non-empty |
 | Platform manual settings reviewed | Action | Opens the Stream Info dialog; operator confirms each platform's manual reminder checklist |
 
-**🎬 OBS & Technical** *(manual, required)*
+**🎬 OBS & Technical** *(required)*
 
 | Item | Type | Notes |
 |---|---|---|
 | OBS scene configured and active | Manual | Operator confirms the active OBS scene before going live |
-| RTMP ingest URL configured in OBS | Manual | Displays `StreamingOptions.IngestUrl` inline as a copyable reference and auto-checks when copied |
+| OBS connected | Auto | Present only when `Obs:Enabled` is true; driven by `IObsConnection` (§3.13) |
 | Audio levels checked | Manual | |
 | Test stream completed | Manual | Optional confidence check before the real show starts |
 
@@ -544,15 +536,8 @@ confirms the overlay is visible and correctly positioned in OBS, then checks the
 | Chat feed overlay visible | Action | [Test Flash] triggers `ITestableOverlayComponent.Test()` |
 | Event ticker overlay visible | Action | Same |
 | Lower third overlay visible | Action | Same |
-| Prompter overlay visible | Action | Navigates to `/prompter` on test; operator verifies |
+| Prompter overlay visible | Action | Operator confirms the teleprompter dock in OBS (§3.6) |
 | *(additional registered overlay components)* | Action | Automatically added as new components register |
-
-**💾 Recording** *(auto-with-warn, required)*
-
-| Item | Type | Notes |
-|---|---|---|
-| Recording output path configured | Auto | Checks `StreamingOptions` recording path is non-empty |
-| Disk space available (≥ 10 GB free) | Auto | Polled from file system at checklist open |
 
 **✔ Personal Prep** *(manual, optional)*
 
@@ -582,6 +567,34 @@ timestamps) is optionally persisted to the `ChecklistSession` DB entity for post
 
 Custom personal prep items are stored in the `CustomChecklistItem` DB entity.
 
+### 3.13 OBS Integration (Thiccdal.Remote.Obs)
+
+OBS Studio runs on the same machine as Thiccdal and exposes **obs-websocket v5** on
+`localhost:4455`. `Thiccdal.Remote.Obs` holds an authenticated session open against it and
+reports what it learns through `IObsConnection` (`Thiccdal.Infrastructure/Streaming/`):
+
+| Member | Meaning |
+|---|---|
+| `ObsState.IsEnabled` | The integration is switched on via `Obs:Enabled` |
+| `ObsState.IsConnected` | An identified obs-websocket session is open |
+| `ObsState.IsStreaming` | OBS reports an active stream output |
+| `ObsState.LastError` | Why the last connection attempt failed |
+
+`ObsConnectionHostedService` opens the session at startup and closes it at shutdown. The session
+loop reconnects with exponential backoff, so OBS being closed — at startup or mid-session — is
+normal state rather than an error. On connect it issues a `GetStreamStatus` request so a Thiccdal
+restart mid-stream reports the truth instead of waiting for the next `StreamStateChanged` event.
+
+The pre-live checklist consumes this: when the integration is enabled it emits a required
+**OBS connected** auto item under *OBS & Technical*, surfacing `LastError` as the warning text.
+When the integration is disabled the item is omitted entirely rather than sitting permanently
+unchecked.
+
+This client previously lived inside the `Thiccdal.Teleprompter.Display` desktop shell, where it
+existed only to show and hide that shell's window on stream start and stop. Moving it into the
+host puts the OBS connection next to the go-live workflow that cares about it, and removed the
+last piece of logic justifying a separately distributed executable (see §3.6).
+
 ---
 
 ## 4. Data Model (Key Entities)
@@ -592,99 +605,150 @@ Custom personal prep items are stored in the `CustomChecklistItem` DB entity.
 > `Thiccdal.Data` references `Thiccdal.Infrastructure` for its entity implementations.
 
 ```
-PlatformUser          — id, platform (enum), platform_user_id, display_name, created_at
-ChatMessage           — id, platform_user_id, platform, content, sent_at, raw_data
-PlatformEvent         — id, platform, event_type (discriminator), occurred_at, raw_data
-  └─ SubscribeEvent   — tier, is_gift, gifter_platform_user_id
-  └─ FollowEvent      — (no extra fields beyond base)
-  └─ RedeemEvent      — reward_id, reward_title, user_input
-  └─ RaidEvent        — raiding_channel, viewer_count
-BotCommand            — id, trigger, response_template, handler_type (nullable), is_enabled, use_count
-ProactiveMessage      — id, message, interval_seconds, is_enabled, last_sent_at
-StreamRecording       — id, session_id, platform, file_path, started_at, ended_at, error
-StreamSession         — id, started_at, ended_at, title, category, tags (CSV)
-ChecklistSession      — id, stream_session_id, item_id, checked_at (nullable), was_auto_checked
-CustomChecklistItem   — id, label, sort_order, is_enabled
+PlatformUser               — id, platform, platform_user_id, display_name, created_at
+ChatMessage                — id, platform_user_id, platform, content, sent_at, raw_data
+PlatformEvent              — id, platform, event_type (discriminator), occurred_at, raw_data
+  └─ SubscribeEvent        — tier, is_gift, gifter_platform_user_id
+  └─ FollowEvent           — (no extra fields beyond base)
+  └─ RedeemEvent           — reward_id, reward_title, user_input
+  └─ RaidEvent             — raiding_channel, viewer_count
+BotCommand                 — id, trigger, response_template, handler_type (nullable), is_enabled, use_count
+ProactiveMessage           — id, message, interval_seconds, is_enabled, last_sent_at
+ChecklistSession           — id, session_id (Guid), recorded_at, items[]
+  └─ ChecklistSessionItem  — item_id, category, label, status, is_required, warning_message
+CustomChecklistItem        — id, label, sort_order, is_enabled
+ChatterMemoryReset         — id, source, channel, platform_user_id, requested_by, reset_at
+UserIdentity               — id, display_name, created_at, platform_users[]
+UserIdentitySuggestion     — proposed links between platform users; status enum
+TwitchToken                — persisted OAuth token for the Twitch adapter
+TwitchTargetChannelConfiguration — target_channel, broadcaster_id, updated_at
+AppConfiguration           — key/value store backing IConfigurationPersistenceService
 ```
 
+Note there is no stream-session or recording entity. A live session is identified by the `Guid`
+stamped onto `ChecklistSession` at go-live and held in memory by `IOperatorStateService`;
+Thiccdal does not record video, so nothing tracks files on disk.
+
 **Code-side value types** (not DB entities, defined in `Thiccdal.Infrastructure`):
-- `PlatformManualReminder` — hardcoded per-platform manual setting reminders (§3.14)
+- `PlatformManualReminder` — hardcoded per-platform manual setting reminders (§3.11)
 - `ChecklistItemDefinition` — defines each checklist item (id, category, label, type, is_required)
-- `ChecklistItemState` — runtime state per item (checked, auto-checked, blocked); held in `IOperatorStateService`
+- `ChecklistItemState` — runtime state per item (checked, auto-checked, blocked)
+- `SystemReadiness` — which operator surfaces are usable given current configuration
+- `ObsState` — OBS connection and stream-output state (§3.13)
 
 ---
 
 ## 5. Configuration Shape (IOptions)
 
-```csharp
-// appsettings.json → "Streaming"
-StreamingOptions
-  ├── IngestUrl          string   // e.g. "rtmp://localhost:1935/live"
-  └── Targets[]
-        ├── Platform     string
-        ├── RtmpUrl      string
-        └── StreamKey    string   // from env var via binding
+All configuration goes through typed `IOptions<T>` classes. Never read `IConfiguration` by magic
+string.
 
+```csharp
 // appsettings.json → "Twitch"
 TwitchOptions
-  ├── DefaultTargetChannel       string
-  ├── DefaultBroadcasterId       string
-  ├── BotUsername                string
-  ├── BotUserId                  string
-  ├── ClientId                   string
-  ├── ClientSecret               string   // env var
-  ├── RedirectUri                string
-  ├── OAuthBaseAddress           string
-  ├── Helix:BaseAddress          string
-  ├── Helix:StreamStateRefreshSeconds int
-  ├── EventSub:WebSocketUrl      string
-  └── EventSub:ReconnectDelaySeconds int
+  ├── ClientId                          string
+  ├── ClientSecret                      string   // user secret / env var
+  ├── RedirectUri                       string
+  ├── OAuthBaseAddress                  string
+  ├── Scopes[]                          string
+  ├── Helix                             TwitchHelixOptions
+  │     ├── BaseAddress                 string
+  │     ├── StreamStateRefreshSeconds   int      // default 30
+  │     └── SendChatMessagesViaHelix    bool     // default true
+  └── EventSub                          TwitchEventSubOptions
+        ├── WebSocketUrl                string
+        ├── ReconnectDelaySeconds       int      // default 5
+        ├── RequireModeratorAccess      bool     // default true
+        └── UseAnimatedEmotes           bool     // default true
 
-// appsettings.json → "YouTube"
-YouTubeOptions
-  ├── ChannelId          string
-  └── ApiKey             string   // env var
+// appsettings.json → "Obs"
+ObsOptions
+  ├── Enabled                        bool     // default false
+  ├── Host                           string   // default "localhost"
+  ├── Port                           int      // default 4455
+  ├── Password                       string   // obs-websocket server password
+  ├── InitialReconnectDelaySeconds   int      // default 1
+  └── MaxReconnectDelaySeconds       int      // default 60
 
-// appsettings.json → "Discord"
-DiscordOptions
-  ├── GuildId            string
-  ├── StreamChannelId    string
-  └── BotToken           string   // env var
+// appsettings.json → "ChatBot"
+ChatBotOptions
+  ├── BotName                           string   // default "Thiccdal"
+  ├── AutoQueueQuestions                bool     // default true
+  └── AiResponder                       ChatBotAiResponderOptions
+        ├── Enabled                     bool
+        ├── ChatterMemoryEnabled        bool     // default true
+        ├── ChatterMemoryRetentionDays  int?     // null = no automatic cutoff
+        ├── SentimentEnabled            bool     // default true
+        ├── Model / MaxOutputTokenCount / Temperature / SystemPrompt
 
-// appsettings.json → "Facebook"
-FacebookOptions
-  ├── PageId             string
-  ├── AppId              string
-  └── AppSecret          string   // env var
+// appsettings.json → "AI:OpenAICompatible"
+OpenAiOptions
+  ├── Endpoint                string   // default local LM Studio endpoint
+  ├── ApiKey                  string
+  └── RequestTimeoutSeconds   int      // default 30
 
-// appsettings.json → "X"
-XOptions
-  ├── ApiKey             string
-  ├── ApiKeySecret       string   // env var
-  ├── AccessToken        string   // env var
-  └── AccessTokenSecret  string   // env var
+// appsettings.json → "AI:QuestionDetection"
+QuestionDetectionOptions
+  ├── Enabled                 bool
+  └── Model / MaxOutputTokenCount / Temperature / SystemPrompt / UserPromptTemplate
 
-// appsettings.json → "TikTok"
-TikTokOptions
-  ├── IsEnabled          bool     // false until API approved
-  └── AccessToken        string   // env var
+// appsettings.json → "LMStudio"
+LmStudioOptions
+  ├── BaseAddress             string
+  ├── ApiKey                  string
+  └── RequestTimeoutSeconds   int      // default 30
 
-// appsettings.json → "Chatbot"
-ChatbotOptions
-  └── ProactiveIntervalSeconds   int   // default interval; per-command overrides in DB
+// appsettings.json → "Prompter"
+PrompterOptions
+  └── ScrollStepPx            int      // default 150
+
+// appsettings.json → "UserIdentity"
+UserIdentityOptions
+  └── SimilarityThreshold     double   // default 0.85
+
+// appsettings.json → "Null"
+NullOptions
+  ├── PlatformName            string   // default "Null"
+  └── AuthorizationUrl        string
 ```
+
+### Database-backed settings
+
+Configuration is mid-migration from `appsettings.json` toward database-backed settings. The
+`AppConfiguration` key/value table plus `IConfigurationPersistenceService`
+(`Thiccdal.Infrastructure/Setup/`) provide typed JSON get/set, consumed by the `/config`
+surface. Most `*Options` classes still bind from `appsettings.json`.
+
+`ISetupStateService`, `SetupStateService`, and `SetupLayout.razor` are leftovers from the removed
+installation wizard — no route mounts them any more (§10).
+
+The Twitch target channel and broadcaster ID moved to the database already
+(`TwitchTargetChannelConfiguration`) and are no longer `TwitchOptions` members.
+
+### Secrets
+
+Platform credentials come from gitignored local `appsettings.json` overrides, user secrets, or
+environment variables — increasingly from the database-backed store. Never commit a live secret
+value, and never paste one into logs, commit messages, or documentation; refer to the config key
+instead.
 
 ---
 
 ## 6. UI & Styling Conventions
 
-All UI work across `Thiccdal.Modules.Control`, `Thiccdal.Modules.Overlay`, and
-`Thiccdal.Modules.Teleprompter` follows these rules:
+All UI work across `Thiccdal.Modules.Control`, `Thiccdal.Modules.Overlay`,
+`Thiccdal.Modules.Teleprompter`, and the `/config` pages in `Thiccdal` follows these rules:
 
 ### No third-party CSS libraries
 
 The project uses **no third-party CSS frameworks or UI component libraries** (no Bootstrap,
-Tailwind, MudBlazor, etc.). All styling is hand-authored.
+Tailwind, MudBlazor, etc.). All styling is hand-authored, and no stylesheet is loaded from a CDN.
+
+> **Known divergence:** several `/config` pages under `src/Thiccdal/Components/Config/Pages/`
+> are marked up with Bootstrap class names (`card`, `btn btn-primary`, `row g-3`,
+> `form-control`, `alert`, `bi bi-*` icons). Bootstrap is *not* referenced anywhere, so those
+> classes resolve to almost nothing — `wwwroot/app.css` defines only `.btn-primary` and a shared
+> focus rule. This is markup drift to clean up, not a hidden dependency.
 
 ### Isolated component CSS
 
@@ -852,6 +916,7 @@ Feature components consume wrappers only — never bare inputs:
 
 @* Bad — bare input leaks styling responsibility into the feature component *@
 <input type="text" @bind="_title" class="..." />
+```
 
 ---
 
@@ -859,6 +924,11 @@ Feature components consume wrappers only — never bare inputs:
 
 Steps are numbered. **Major** headings represent cohesive phases; sub-steps are individually
 shippable and testable. Items marked *(stretch)* are planned but not in the first iterations.
+
+> **Phases 6, 7, 7b–7e, and 8 no longer exist.** They covered YouTube, Discord, LinkedIn,
+> Facebook, X, and TikTok adapters plus the RTMP multicast server — all removed when the project
+> narrowed to Twitch-only with video out of scope (§1). The remaining phase numbers are left as
+> they were so existing step IDs stay stable; the gap is deliberate, not an omission.
 
 ---
 
@@ -929,103 +999,6 @@ shippable and testable. Items marked *(stretch)* are planned but not in the firs
 | 5.10 | Add `Thiccdal.Remote.Twitch.Tests` project | |
 
 ---
-
-### Phase 6 — YouTube Integration
-
-| # | Step | Notes |
-|---|---|---|
-| 6.1 | Add `Thiccdal.Remote.YouTube` project | YouTube Data API v3 client |
-| 6.2 | Implement YouTube live chat polling | API has no push; poll on interval |
-| 6.3 | Map YouTube SuperChat and Membership events | |
-| 6.4 | Map YouTube chat messages to `ChatMessage` | |
-| 6.5 | Map unrecognised YouTube events to base `PlatformEvent` | |
-| 6.6 | Implement YouTube broadcast info API (set title, description) | |
-| 6.7 | Unit-test all event mappings | |
-
----
-
-### Phase 7 — Discord Integration
-
-| # | Step | Notes |
-|---|---|---|
-| 7.1 | Add `Thiccdal.Remote.Discord` project | Discord.Net NuGet |
-| 7.2 | Implement Discord bot connect/disconnect | `IChatService` |
-| 7.3 | Map Discord messages to `ChatMessage` | |
-| 7.4 | Map Discord reactions/events to `PlatformEvent` | |
-| 7.5 | Map Discord live-stream RTMP relay | `IStreamTarget` |
-| 7.6 | Unit-test all event mappings | |
-
----
-
-### Phase 7b — LinkedIn Integration
-
-| # | Step | Notes |
-|---|---|---|
-| 7b.1 | Add `Thiccdal.Remote.LinkedIn` project | LinkedIn Marketing API client |
-| 7b.2 | Implement `IStreamTarget` for LinkedIn Live RTMP | Stub; logs until API approved |
-| 7b.3 | Implement `IChatService` stub | LinkedIn has no public live chat API; log all ops |
-| 7b.4 | Implement `IEventSource` stub | Emit base `PlatformEvent` with `RawData` |
-| 7b.5 | Add `LinkedInOptions` with `IsEnabled` flag | When false, adapter is registered but skips all I/O |
-| 7b.6 | Mark LinkedIn as disabled in operator UI | Badge shows "pending approval" tooltip |
-| 7b.7 | Unit-test that disabled adapter performs no I/O | Verify no HTTP calls; verify log entry |
-
----
-
-### Phase 7c — Facebook Live Integration
-
-| # | Step | Notes |
-|---|---|---|
-| 7c.1 | Add `Thiccdal.Remote.Facebook` project | Meta Graph API SDK / HTTP client |
-| 7c.2 | Implement `IStreamTarget` — create `LiveVideo`, obtain RTMP ingest URL | `FacebookOptions`: PageId, AppId, AppSecret |
-| 7c.3 | Implement `IChatService` — poll `/{live-video-id}/comments` | Send messages via Graph API post |
-| 7c.4 | Map comment events to `ChatMessage` | |
-| 7c.5 | Map reactions/follow events to `PlatformEvent` | |
-| 7c.6 | Implement Facebook stream info API (title, description) | Via `LiveVideo` update endpoint |
-| 7c.7 | Unit-test all event mappings | |
-
----
-
-### Phase 7d — X (Twitter) Live Integration
-
-| # | Step | Notes |
-|---|---|---|
-| 7d.1 | Add `Thiccdal.Remote.X` project | X API v2 HTTP client |
-| 7d.2 | Implement `IStreamTarget` — create broadcast, obtain RTMP ingest URL | `XOptions`: ApiKey, ApiKeySecret, AccessToken, AccessTokenSecret |
-| 7d.3 | Implement `IChatService` — poll Tweet replies via `search/recent` | Rate-limit aware |
-| 7d.4 | Map reply events to `ChatMessage` | |
-| 7d.5 | Map likes/reposts to `PlatformEvent` | |
-| 7d.6 | Unit-test all event mappings and rate-limit handling | |
-
----
-
-### Phase 7e — TikTok Live Integration *(disabled until API approved)*
-
-| # | Step | Notes |
-|---|---|---|
-| 7e.1 | Add `Thiccdal.Remote.TikTok` project | TikTok Open API client |
-| 7e.2 | Implement `IStreamTarget` stub | RTMP via TikTok Live Studio endpoint |
-| 7e.3 | Implement `IChatService` — `live.comment_list` polling | |
-| 7e.4 | Implement `IEventSource` — `live.event_list` (gifts, likes, follows) | |
-| 7e.5 | Add `TikTokOptions` with `IsEnabled` flag | Same disabled pattern as LinkedIn |
-| 7e.6 | Mark TikTok as disabled in operator UI | Badge shows "pending approval" tooltip |
-| 7e.7 | Unit-test that disabled adapter performs no I/O | |
-
----
-
-### Phase 8 — RTMP Multicast Server
-
-| # | Step | Notes |
-|---|---|---|
-| 8.1 | Add `Thiccdal.Streaming` project | Choose RTMP library (e.g. Xabe.FFmpeg relay, LiveReacting, or custom) |
-| 8.2 | Implement RTMP ingest listener | OBS pushes here |
-| 8.3 | Implement fanout relay to `IStreamTarget` list | Concurrent; isolated failure per target |
-| 8.4 | Detect ingest disconnect; inject BRB slate | FFmpeg static video loop or image |
-| 8.5 | Persist relay session start/stop to `StreamRecording` | |
-| 8.6 | Record to disk | Configurable output path and format |
-| 8.7 | Unit-test relay lifecycle (connect, fanout, disconnect, BRB) | Mock IStreamTarget |
-
----
-
 ### Phase 9 — Chatbot
 
 | # | Step | Notes |
@@ -1054,7 +1027,7 @@ shippable and testable. Items marked *(stretch)* are planned but not in the firs
 | 10.3 | Implement stream status badge (Pre-Live / Live ● uptime) | Top bar left |
 | 10.4 | Implement per-platform connection status badges | Including disabled-platform states |
 | 10.5 | Implement Go Live button with locked/ready/confirming states | Top bar right; disabled until checklist complete |
-| 10.6 | Implement Go Offline button (live mode only) | Requires confirmation; stops all relays |
+| 10.6 | Implement Go Offline button (live mode only) | Requires confirmation; ends the Thiccdal session only — OBS stops the broadcast |
 | 10.7 | Implement confirmation dialog component | Reusable; shows summary list of warnings if any |
 | 10.8 | Implement combined chat feed component (live mode) | Left panel; scrollable; platform badge per message |
 | 10.9 | Implement teleprompter scroll controls (live mode) | ▲ / ▼ buttons driving shared scroll state |
@@ -1081,7 +1054,7 @@ shippable and testable. Items marked *(stretch)* are planned but not in the firs
 | 11.9 | Implement prompter attention flash (new question) | CSS gradient sweep from right, cyan; JS interop |
 | 11.10 | Implement prompter attention flash (significant event) | Same mechanism, gold accent |
 | 11.11 | Implement manual settings reminders in Stream Info dialog | Hardcoded list; checklist UI |
-| 11.12 | Write bUnit tests for each overlay component render | |
+| 11.12 | ~~Write bUnit tests for each overlay component render~~ | Dropped — bUnit was deliberately removed; logic tests only (§9) |
 
 ---
 
@@ -1091,7 +1064,7 @@ shippable and testable. Items marked *(stretch)* are planned but not in the firs
 |---|---|---|
 | 12.1 | Define `StreamStatusResponse` record | `State`, `Stream` (nullable), `Platforms[]` |
 | 12.2 | Add `GET /status` returning `StreamStatusResponse` JSON | Reads from `IOperatorStateService` |
-| 12.3 | Populate `stream` object from active `StreamSession` | title, category, tags, startedAt, uptime |
+| 12.3 | Populate `stream` object from the active operator stream state | title, category, tags, startedAt, uptime |
 | 12.4 | Populate `platforms[]` from all registered `IPlatformConnection` instances | name + state per adapter |
 | 12.5 | Add `GET /status/badge.svg` returning image | Online/offline static asset |
 | 12.6 | Unit-test `/status` JSON shape when online, offline, and partial failure | |
@@ -1146,195 +1119,90 @@ shippable and testable. Items marked *(stretch)* are planned but not in the firs
 | 16.3 | Implement `PreLiveChecklistService` singleton | Holds all item states; publishes to `IOperatorStateService` |
 | 16.4 | Implement Platform Connections category (auto-check monitors) | Subscribes to `IPlatformConnection.State` changes |
 | 16.5 | Implement Stream Info category (auto-checks + action trigger) | Auto-checks title/category; action opens stream info panel |
-| 16.6 | Implement OBS & Technical category (manual items) | Hard-coded definitions; shows ingest URL inline |
+| 16.6 | Implement OBS & Technical category | Manual items plus the auto **OBS connected** item from `IObsConnection` (§3.13) |
 | 16.7 | Implement Overlay Verification category (action items) | Enumerates `ITestableOverlayComponent` registrations dynamically |
-| 16.8 | Implement Recording category (auto-with-warn) | Polls path config + disk space |
+| 16.8 | ~~Implement Recording category (auto-with-warn)~~ | Dropped — Thiccdal does not record video (§1) |
 | 16.9 | Implement Personal Prep category (manual, optional) | Loads custom items from `CustomChecklistItem` DB entity |
 | 16.10 | Implement CRUD UI for custom personal prep items | Dialog; stored in DB |
 | 16.11 | Implement Go Live button enabled/disabled logic | Reads `IPreLiveChecklistService.AllRequiredChecked` |
 | 16.12 | Implement Go Live confirmation dialog | Shows checklist summary; lists unchecked optional items as warnings |
-| 16.13 | Implement Go Live action | Transitions mode to `Live`; starts RTMP relay to all enabled platforms |
+| 16.13 | Implement Go Live action | Saves the checklist snapshot and transitions mode to `Live`; OBS starts the broadcast independently |
 | 16.14 | Add `ChecklistSession` EF entity + migration | Persists final item states per stream session |
-| 16.15 | Unit-test auto-check logic for each auto/auto-with-warn item | |
+| 16.15 | Unit-test auto-check logic for each auto item | |
 | 16.16 | Unit-test Go Live button disabled until all required items checked | |
-| 16.17 | Integration test: Go Live action starts relay and transitions mode |
+| 16.17 | Unit-test that the Go Live action saves a session and transitions mode | |
 
 ---
 
-## 7. GitHub Copilot Skills, Agents & Prompt Catalogue
+## 8. Agent Skills
 
-All skills and agents below are from [github/awesome-copilot](https://github.com/github/awesome-copilot) —
-the official curated collection maintained by GitHub.
+Repo-specific conventions are packaged as skills under `.claude/skills/`. Each is a `SKILL.md`
+with a `description` that states when it applies, so an agent loads it only for relevant work.
 
-### Recommended Skills
-
-Skills enhance Copilot for specific tasks. Install via the Copilot CLI:
-
-```bash
-copilot plugin marketplace add github/awesome-copilot
-copilot plugin install <skill-id>@awesome-copilot
-```
-
-Or open the linked `SKILL.md` and add its contents to `.github/copilot-instructions.md`.
-
-| Priority | Skill | What it does for Thiccdal |
-|---|---|---|
-| ★★★ | [`aspire`](https://github.com/github/awesome-copilot/blob/main/skills/aspire/SKILL.md) | Aspire CLI, AppHost orchestration, service discovery, integrations — covers everything in Phases 1–2 |
-| ★★★ | [`dotnet-best-practices`](https://github.com/github/awesome-copilot/blob/main/skills/dotnet-best-practices/SKILL.md) | Validates C# code against .NET best practices; enforces the conventions in this repo |
-| ★★★ | [`ef-core`](https://github.com/github/awesome-copilot/blob/main/skills/ef-core/SKILL.md) | EF Core best practices; migrations, TPH discriminators, `DbContext` lifetimes |
-| ★★★ | [`csharp-async`](https://github.com/github/awesome-copilot/blob/main/skills/csharp-async/SKILL.md) | C# async best practices — critical given the whole codebase is async by convention |
-| ★★★ | [`csharp-xunit`](https://github.com/github/awesome-copilot/blob/main/skills/csharp-xunit/SKILL.md) | xUnit best practices including data-driven tests; used project-wide |
-| ★★★ | [`nuget-manager`](https://github.com/github/awesome-copilot/blob/main/skills/nuget-manager/SKILL.md) | Add/update NuGet packages (TwitchLib, Discord.Net, EF Core, etc.) without leaving chat |
-| ★★★ | [`microsoft-code-reference`](https://github.com/github/awesome-copilot/blob/main/skills/microsoft-code-reference/SKILL.md) | Look up .NET API signatures, working samples, and SDK correctness |
-| ★★★ | [`refactor`](https://github.com/github/awesome-copilot/blob/main/skills/refactor/SKILL.md) | Surgical refactoring without behaviour change; useful when splitting layers or extracting services |
-| ★★☆ | [`fluentui-blazor`](https://github.com/github/awesome-copilot/blob/main/skills/fluentui-blazor/SKILL.md) | Fluent UI Blazor component library guidance; relevant for the touch-friendly operator UI |
-| ★★☆ | [`dotnet-design-pattern-review`](https://github.com/github/awesome-copilot/blob/main/skills/dotnet-design-pattern-review/SKILL.md) | Reviews C#/.NET code for design pattern use; flags anti-patterns |
-| ★★☆ | [`review-and-refactor`](https://github.com/github/awesome-copilot/blob/main/skills/review-and-refactor/SKILL.md) | Combined code review + refactor pass against defined project standards |
-| ★★☆ | [`webapp-testing`](https://github.com/github/awesome-copilot/blob/main/skills/webapp-testing/SKILL.md) | Playwright-based testing of `/overlay` and `/prompter` as they run in a real browser |
-| ★★☆ | [`web-design-reviewer`](https://github.com/github/awesome-copilot/blob/main/skills/web-design-reviewer/SKILL.md) | Visual inspection of running pages; validates touch-friendly layout on Surface Pro form factor |
-| ★★☆ | [`git-commit`](https://github.com/github/awesome-copilot/blob/main/skills/git-commit/SKILL.md) | Conventional commit messages with intelligent staging |
-| ★★☆ | [`github-issues`](https://github.com/github/awesome-copilot/blob/main/skills/github-issues/SKILL.md) | Create/update GitHub issues directly from chat — bug reports, feature requests |
-| ★★☆ | [`update-specification`](https://github.com/github/awesome-copilot/blob/main/skills/update-specification/SKILL.md) | Keeps this architecture doc in sync as new requirements are decided |
-| ★☆☆ | [`csharp-docs`](https://github.com/github/awesome-copilot/blob/main/skills/csharp-docs/SKILL.md) | Ensures public types have XML doc comments |
-| ★☆☆ | [`prd`](https://github.com/github/awesome-copilot/blob/main/skills/prd/SKILL.md) | Generate a PRD for a new feature before starting implementation |
-| ★☆☆ | [`sql-optimization`](https://github.com/github/awesome-copilot/blob/main/skills/sql-optimization/SKILL.md) | SQLite query tuning and index strategy for the `ApplicationDbContext` |
-| ★☆☆ | [`appinsights-instrumentation`](https://github.com/github/awesome-copilot/blob/main/skills/appinsights-instrumentation/SKILL.md) | Add Azure App Insights telemetry if cloud monitoring is needed |
-
----
-
-### Recommended Agents
-
-Agents are persistent Copilot personas activated for a session. Install via the VS Code badge
-in each agent's file, or add the `.agent.md` content to your Copilot workspace settings.
-
-| Priority | Agent | When to use |
-|---|---|---|
-| ★★★ | [`Expert .NET software engineer`](https://github.com/github/awesome-copilot/blob/main/agents/expert-dotnet-software-engineer.agent.md) | Activate for any substantial feature implementation — enforces SOLID, async, DI patterns |
-| ★★★ | [`C#/.NET Janitor`](https://github.com/github/awesome-copilot/blob/main/agents/csharp-dotnet-janitor.agent.md) | Clean up, modernize, and reduce tech debt across existing C# code |
-| ★★☆ | [`Context Architect`](https://github.com/github/awesome-copilot/blob/main/agents/context-architect.agent.md) | Plan and execute multi-file changes — useful when scaffolding a new platform adapter or phase |
-| ★★☆ | [`Debug Mode`](https://github.com/github/awesome-copilot/blob/main/agents/debug-mode.agent.md) | Focused debugging session for a specific failing test or runtime error |
-| ★★☆ | [`DevOps Expert`](https://github.com/github/awesome-copilot/blob/main/agents/devops-expert.agent.md) | CI/CD pipeline, GitHub Actions, containerisation, and deployment questions |
-| ★☆☆ | [`Critical Thinking Mode`](https://github.com/github/awesome-copilot/blob/main/agents/critical-thinking-mode.agent.md) | Challenge an architecture decision or approach before committing to it |
-
-> **Note:** Agent file names in awesome-copilot may differ from display names.
-> Browse [agents/](https://github.com/github/awesome-copilot/tree/main/agents) to find the exact `.agent.md` file.
-
----
-
-### Built-in Copilot Chat Commands
-
-| Command | When to use |
+| Skill | Applies when |
 |---|---|
-| `/fix` | Fix a compiler error or test failure Copilot has context on |
-| `/explain` | Understand an existing class or algorithm |
-| `/tests` | Generate xUnit tests for a selected class or method |
-| `/doc` | Generate XML doc comments for a public API |
-| `@workspace` | Ask a question that spans multiple files |
+| `platform-adapter` | Adding or changing an adapter under `src/Remote/` — registration extensions, the Infrastructure/Data seam, typed HTTP clients, connection monitors |
+| `database-migrations` | Changing entity models, adding a migration, or touching database startup |
+| `oauth-flow` | Implementing or changing OAuth — the mandatory CSRF state parameter, callback shape, token revocation |
+| `secret-handling` | Touching configuration, platform credentials, connection strings, or the settings store |
+| `nuget-cve-remediation` | Restore or build fails on an NU1901–NU1904 package advisory |
+| `docs-style` | Writing or editing anything under `docs/` or `architecture/` (Microsoft Style Guide) |
+| `windows-dev` | Running shell commands, scripting, or committing on the Windows dev machine |
 
-### File Reference Shortcuts
+Project-wide conventions that apply to *every* change — layering, naming, the no-`Async`-suffix
+rule, testing rules — live in `CLAUDE.md` at the repo root rather than in a skill.
 
-Prefix prompts with these for precise context:
-
-```
-#file:src/Thiccdal.Infrastructure/Remotes/IPlatformConnection.cs
-#file:src/Thiccdal.Data/ApplicationDbContext.cs
-#file:src/Thiccdal.Infrastructure/Bot/Models/PlatformEvent.cs
-#file:src/Remote/Thiccdal.Remote.Null/NullPlatformConnection.cs
-```
-
-### Reusable Prompt Templates
-
-#### Scaffold a new platform adapter
-```
-Using #file:src/Thiccdal.Infrastructure/Remotes/IPlatformConnection.cs,
-scaffold Thiccdal.Remote.<Platform> under src/Remote/ implementing IPlatformConnection,
-IChatService, IStreamTarget and IEventSource. Use IOptions<<Platform>Options> for
-configuration. Add an EventMapper class with a unit-test in
-src/Tests/Remote/Thiccdal.Remote.<Platform>.Tests covering at least one known event type
-and the unknown-event fallback.
-```
-
-#### Add a new domain event type
-```
-Using #file:src/Thiccdal.Infrastructure/Bot/Models/PlatformEvent.cs as the base,
-add a new record <Platform><Name>Event with these properties: <list>.
-Register the discriminator value in #file:src/Thiccdal.Data/ApplicationDbContext.cs.
-Add it to #file:src/Remote/Thiccdal.Remote.<Platform>/EventMapper.cs.
-Write a [Fact] test: given raw payload X, mapper returns correct typed event.
-```
-
-#### Add a new overlay component
-```
-Using #file:src/Modules/Thiccdal.Modules.Overlay/IOverlayComponent.cs,
-create <Name>OverlayComponent.razor and <Name>OverlayComponent.razor.css.
-Register it in OverlayComponentRegistry.
-Write a bUnit [Fact] test verifying the rendered markup when given a sample input model.
-```
-
-#### Add a new chatbot command handler
-```
-Using #file:src/Thiccdal.Infrastructure/Bot/ICommandHandler.cs as the contract,
-scaffold a new <Name>CommandHandler that can be wired to a BotCommand row via its HandlerType column.
-Inject any dependencies via DI constructor injection.
-Write two [Fact] tests: happy-path response and an error/edge-case path.
-```
-
-#### Generate EF migration
-```
-The following entities changed: <list changes>.
-Generate an EF Core migration named <MigrationName> using
-#file:src/Thiccdal.Data/ApplicationDbContext.cs.
-Verify the Up() method handles nullability and index correctness.
-```
-
-#### Debug a failing test
-```
-This test is failing: #file:<path to test file>
-The service under test is #file:<path to implementation>.
-Explain why it fails and suggest the minimal fix, following the conventions in
-#file:.github/copilot-instructions.md.
-```
-
-#### Review a PR for conventions
-```
-Review the changes in this PR against the conventions defined in
-#file:.github/copilot-instructions.md.
-Flag any: magic-string config access, missing CancellationToken, async void,
-Async suffix on method names, public members without justification,
-missing interface in Thiccdal.Infrastructure, concrete type injected instead of interface,
-unresolved warnings, or tests that mock internal code.
-```
+> An earlier revision of this document catalogued `github/awesome-copilot` skills, agents, and
+> prompt templates. That tooling was removed from the repo; the templates referenced
+> `.github/copilot-instructions.md`, bUnit, and per-platform adapters that no longer exist.
 
 ---
 
-## 8. Key Non-Functional Requirements
+## 9. Key Non-Functional Requirements
 
 | Concern | Decision |
 |---|---|
 | Latency | Chat and event display target < 500 ms end-to-end from platform to overlay |
 | Resilience | Each platform adapter failure is isolated; other platforms continue unaffected |
-| Security | Stream keys and OAuth tokens are never logged; stored only in env vars / secrets |
+| Security | OAuth tokens are never logged; stored in the database, user secrets, or env vars |
 | Portability | Cross-platform .NET; no Windows-specific APIs without a guard |
 | Offline dev | Null platform allows full UI/UX development without live credentials |
-| Data retention | All chat, events, and recordings are retained indefinitely by default; pruning is a future feature |
+| Data retention | Chat and events are retained indefinitely by default; pruning is a future feature |
+| Transport | Every surface stays reachable over plain HTTP — no HTTPS redirect, no HSTS (§3.6) |
+
+### Testing
+
+- Test project per source project, mirroring the source tree; a project missing from
+  `Thiccdal.slnx` never runs.
+- **Logic tests only — no bUnit, no `WebApplicationFactory`.** Component rendering and HTTP
+  transport tests were deliberately removed; do not reintroduce those dependencies.
+- Only mock external I/O (platform APIs, filesystem, clock). Never mock internal code.
+- `Thiccdal.Remote.Null` is the stand-in for a live platform.
 
 ---
 
-## 9. Open Questions & Future Considerations
+## 10. Open Questions & Future Considerations
 
-- **LinkedIn RTMP** — Adapter is built and disabled. Enabling requires LinkedIn Live API approval and adding credentials to config. No code changes needed.
-- **TikTok Live** — Same as LinkedIn: built and disabled. Requires TikTok Open API approval.
-- **X (Twitter) API tiers** — X API pricing and tier structure changes frequently. Verify write-access requirements at implementation time.
-- **Facebook App Review** — `live_video` and `pages_manage_posts` permissions require Meta App Review for production.
-- **AI chatbot** — Azure OpenAI or a local Ollama instance; feature-flagged via a `ICommandHandler` implementation; not in MVP.
+- **Second platform** — The adapter architecture supports one, but adding any platform is a
+  product decision that has not been made. Until it is, Twitch is the only platform (§1).
+- **AI chatbot** — Free-form responses run through `Thiccdal.AI` against an OpenAI-compatible
+  endpoint (LM Studio locally). Disabled by default via `ChatBot:AiResponder:Enabled`.
 - **Mobile control** — Phone subset requires breakpoint design work; deprioritised after Surface Pro.
-- **User identity matching** — Cross-platform heuristics deferred to stretch phase (see Phase 13).
+- **User identity matching** — `UserIdentity` and `UserIdentitySuggestion` are scaffolded but
+  dormant; with one platform there is nothing to correlate across (see Phase 13).
 - **Authentication** — Explicitly out of scope for v1. All operator sessions are trusted.
-- **Clip creation** — Triggering platform clip creation from the operator UI is a future feature.
-- **Moderation actions** — Ban/timeout from operator UI is a future feature.
-- **Trovo / Vimeo Livestream** — Legitimate platforms worth adding in a future iteration; not roadmapped yet.
-- **Command token extensibility** — New interpolation tokens (e.g. `{title}`, `{game}`) can be added to the token resolver without changing the DB schema.
+- **Clip creation** — Triggering Twitch clip creation from the operator UI is a future feature.
+- **Moderation actions** — Ban/timeout from the operator UI is a future feature.
+- **Settings migration** — Configuration is mid-move from `appsettings.json` to the
+  `AppConfiguration` store. Most `*Options` classes still bind from JSON (§5).
+- **`IStreamTarget`** — An empty marker interface left over from the removed restreaming
+  feature. Nothing implements behaviour for it; a candidate for deletion (§3.1).
+- **Setup wizard remnants** — `ISetupStateService`, `SetupStateService`, `SetupState`, and
+  `SetupLayout.razor` survive from the wizard that `/config` replaced. No route reaches them;
+  another candidate for deletion.
+- **Command token extensibility** — New interpolation tokens (e.g. `{title}`, `{game}`) can be
+  added to the token resolver without changing the DB schema.
 
 ---
 
-*Last updated: initial draft*
+*Last reviewed against the codebase: 2026-08-24.*

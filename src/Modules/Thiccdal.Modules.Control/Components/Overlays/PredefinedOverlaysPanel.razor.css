@@ -1,0 +1,115 @@
+.overlays {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.overlays__body {
+    flex: 1;
+    gap: var(--spacing-sm);
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.overlays__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-xs);
+}
+
+.overlays__card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-height: 96px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    border-top: 3px solid var(--card-color, rgba(255, 255, 255, 0.3));
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.overlays__card:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+.overlays__card--live {
+    background: rgba(255, 255, 255, 0.10);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--card-color, #ffffff) 45%, transparent);
+}
+
+.overlays__card-category {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--card-color, rgba(255, 255, 255, 0.5));
+}
+
+.overlays__card-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.overlays__card-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+    flex: 1;
+}
+
+.overlays__card-state {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.overlays__clear {
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-text);
+    font: inherit;
+    cursor: pointer;
+}
+
+.overlays__clear:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.overlays__empty,
+.overlays__error {
+    padding: 14px 16px;
+    border-radius: 14px;
+    line-height: 1.5;
+    border: 1px solid var(--glass-border);
+}
+
+.overlays__empty {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-text-muted);
+}
+
+.overlays__empty p {
+    margin: 0;
+}
+
+.overlays__error {
+    background: rgba(220, 60, 60, 0.12);
+    border-color: rgba(220, 60, 60, 0.30);
+    color: rgba(255, 110, 110, 0.90);
+}
+
+@media (max-width: 900px) {
+    .overlays__grid {
+        grid-template-columns: 1fr;
+    }
+}

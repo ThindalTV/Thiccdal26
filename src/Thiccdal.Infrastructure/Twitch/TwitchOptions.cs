@@ -20,7 +20,7 @@ public class TwitchOptions
         "moderator:read:followers",
         "channel:read:subscriptions",
         "bits:read",
-        "channel:read:raids",
+        // channel.raid EventSub carries no scope requirement, so none is requested for it.
         "channel:read:redemptions"
     };
 

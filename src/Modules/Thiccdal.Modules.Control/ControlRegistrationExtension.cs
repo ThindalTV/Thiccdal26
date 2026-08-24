@@ -1,4 +1,4 @@
-﻿namespace Thiccdal.Modules.Control;
+namespace Thiccdal.Modules.Control;
 
 public static class ControlRegistrationExtension
 {

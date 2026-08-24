@@ -86,6 +86,14 @@ public static class PlatformActivityFormatter
 
     private static string BuildSubscriptionContent(TwitchSubscribeEvent subscribeEvent)
     {
+        if (subscribeEvent.GiftCount is > 0)
+        {
+            string subjectLabel = subscribeEvent.GiftCount == 1 ? "sub" : "subs";
+            return string.IsNullOrWhiteSpace(subscribeEvent.Tier)
+                ? $"gifted {subscribeEvent.GiftCount} {subjectLabel}."
+                : $"gifted {subscribeEvent.GiftCount} Tier {subscribeEvent.Tier} {subjectLabel}.";
+        }
+
         string tierLabel = string.IsNullOrWhiteSpace(subscribeEvent.Tier)
             ? "subscribed."
             : $"subscribed at Tier {subscribeEvent.Tier}.";

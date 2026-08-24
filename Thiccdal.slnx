@@ -22,6 +22,7 @@
   <Folder Name="/src/Remote/">
     <Project Path="src/Remote/Thiccdal.Remote.LMStudio/Thiccdal.Remote.LMStudio.csproj" />
     <Project Path="src/Remote/Thiccdal.Remote.Null/Thiccdal.Remote.Null.csproj" Id="6122ec03-595d-4ab3-bdc0-95e88cdf540b" />
+    <Project Path="src/Remote/Thiccdal.Remote.Obs/Thiccdal.Remote.Obs.csproj" />
     <Project Path="src/Remote/Thiccdal.Remote.Twitch/Thiccdal.Remote.Twitch.csproj" Id="b784e543-ced0-4e0e-9ee8-fd351fb09c38" />
   </Folder>
   <Folder Name="/src/Shared/">
@@ -37,9 +38,8 @@
     <Project Path="src/Tests/Modules/Thiccdal.Modules.Teleprompter.Tests/Thiccdal.Modules.Teleprompter.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Tests/Remote/">
+    <Project Path="src/Tests/Remote/Thiccdal.Remote.Obs.Tests/Thiccdal.Remote.Obs.Tests.csproj" />
     <Project Path="src/Tests/Remote/Thiccdal.Remote.Twitch.Tests/Thiccdal.Remote.Twitch.Tests.csproj" Id="34ac27cc-0c68-40db-937e-66539374ef8e" />
   </Folder>
-  <!-- Teleprompter Display is excluded from main solution (Windows-only, built separately) -->
-  <!-- Build with: dotnet publish src/Tools/Thiccdal.Teleprompter.Display -c Release -->
   <Project Path="docs/docs.csproj" Id="4ee1e30f-b64c-4f8c-be08-dfe195c51340" />
 </Solution>

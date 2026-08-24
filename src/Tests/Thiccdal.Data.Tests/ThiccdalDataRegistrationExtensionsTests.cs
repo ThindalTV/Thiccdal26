@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Operators;
+using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Remotes;
 
 namespace Thiccdal.Data.Tests;
@@ -31,6 +32,7 @@ public class ThiccdalDataRegistrationExtensionsTests
         IEventPersistenceService persistenceService = provider.GetRequiredService<IEventPersistenceService>();
         IChecklistSessionService checklistSessionService = provider.GetRequiredService<IChecklistSessionService>();
         ICustomChecklistItemCatalog customChecklistItemCatalog = provider.GetRequiredService<ICustomChecklistItemCatalog>();
+        IOverlayCardManagementService overlayCardManagementService = provider.GetRequiredService<IOverlayCardManagementService>();
         ICustomChecklistItemManagementService customChecklistItemManagementService = provider.GetRequiredService<ICustomChecklistItemManagementService>();
         IUserIdentityService userIdentityService = provider.GetRequiredService<IUserIdentityService>();
         IBotCommandManagementService commandManagementService = provider.GetRequiredService<IBotCommandManagementService>();
@@ -47,6 +49,7 @@ public class ThiccdalDataRegistrationExtensionsTests
         Assert.NotNull(persistenceService);
         Assert.NotNull(checklistSessionService);
         Assert.NotNull(customChecklistItemCatalog);
+        Assert.NotNull(overlayCardManagementService);
         Assert.NotNull(customChecklistItemManagementService);
         Assert.NotNull(userIdentityService);
         Assert.NotNull(commandManagementService);

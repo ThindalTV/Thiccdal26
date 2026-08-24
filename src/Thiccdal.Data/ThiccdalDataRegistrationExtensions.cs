@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Operators;
+using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Setup;
 
@@ -64,6 +65,7 @@ public static class ThiccdalDataRegistrationExtensions
         services.AddSingleton<IUserIdentityService, UserIdentityService>();
         services.AddSingleton<IBotCommandManagementService, BotCommandManagementService>();
         services.AddSingleton<IChatterMemoryService, ChatterMemoryService>();
+        services.AddSingleton<IOverlayCardManagementService, OverlayCardManagementService>();
         services.AddSingleton<IProactiveMessageCatalog, ProactiveMessageCatalog>();
         services.AddSingleton<IProactiveMessageManagementService, ProactiveMessageManagementService>();
         services.AddSingleton<IEventBus, EventBus>();

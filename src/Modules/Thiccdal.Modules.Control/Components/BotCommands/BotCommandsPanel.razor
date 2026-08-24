@@ -4,32 +4,15 @@
 @inject ICommandDispatcher CommandDispatcher
 @implements IAsyncDisposable
 
-<div class="ctrl-panel bot-cmds-stretch">
-    <div class="ctrl-panel__header bot-cmds__header">
-        <div class="bot-cmds__header-copy">
-            <span class="ctrl-panel__title">Bot Commands</span>
-            <span class="bot-cmds__summary">@GetSummaryText()</span>
-        </div>
+<div class="ctrl-panel bot-cmds">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Bot Commands</span>
+        <span class="ctrl-panel__subtitle">@GetSummaryText()</span>
     </div>
     <div class="ctrl-panel__body bot-cmds__body">
-        <div class="bot-cmds__stats">
-            <div class="bot-cmds__stat">
-                <span class="bot-cmds__stat-label">Enabled</span>
-                <strong class="bot-cmds__stat-value">@_commands.Count(static command => command.IsEnabled)</strong>
-            </div>
-            <div class="bot-cmds__stat">
-                <span class="bot-cmds__stat-label">Disabled</span>
-                <strong class="bot-cmds__stat-value">@_commands.Count(static command => !command.IsEnabled)</strong>
-            </div>
-            <div class="bot-cmds__stat">
-                <span class="bot-cmds__stat-label">Most Used</span>
-                <strong class="bot-cmds__stat-value">@GetMostUsedCommand()</strong>
-            </div>
-        </div>
-
         @if (!string.IsNullOrWhiteSpace(_statusMessage))
         {
-            <div class="bot-cmds__success" role="status">@_statusMessage</div>
+            <div class="bot-cmds__status" role="status">@_statusMessage</div>
         }
 
         @if (!string.IsNullOrWhiteSpace(_errorMessage))
@@ -45,112 +28,62 @@
         }
         else
         {
-            <div class="bot-cmds__quick-actions">
-                <button type="button"
-                        class="bot-cmds__action bot-cmds__action--primary"
-                        disabled="@(!CanRunSelectedCommand() || _isBusy)"
-                        @onclick="RunSelectedCommand">
-                    @(_isBusy ? "Working..." : "Run Selected")
-                </button>
-            </div>
-
             <div class="bot-cmds__grid">
-                @foreach (BotCommandDefinition command in _commands.Take(8))
+                @foreach (BotCommandDefinition command in _commands)
                 {
-                    <BotCommandButton Command="@command.Trigger"
-                                      Description="@BuildButtonDescription(command)"
-                                      IsEnabled="@command.IsEnabled"
-                                      IsSelected="@(command.Id == _selectedCommandId)"
-                                      OnClick="@(() => SelectCommand(command.Id))" />
+                    <button type="button"
+                            class="bot-cmds__command @(command.IsEnabled ? string.Empty : "bot-cmds__command--disabled")"
+                            disabled="@(!command.IsEnabled || IsPending(command.Id))"
+                            title="@command.ResponseTemplate"
+                            @onclick="@(() => Run(command))">
+                        <span class="bot-cmds__command-trigger">@command.Trigger</span>
+                        <span class="bot-cmds__command-effects">@GetEffectText(command)</span>
+                        <span class="bot-cmds__command-uses">@(IsPending(command.Id) ? "Running…" : $"Used {command.UseCount}×")</span>
+                    </button>
                 }
             </div>
-
-            @if (GetSelectedCommand() is BotCommandDefinition selectedCommand)
-            {
-                <div class="bot-cmds__detail">
-                    <div class="bot-cmds__detail-header">
-                        <div>
-                            <div class="bot-cmds__detail-trigger">@selectedCommand.Trigger</div>
-                            <div class="bot-cmds__detail-meta">@BuildButtonDescription(selectedCommand)</div>
-                        </div>
-                        <span class="bot-cmds__detail-state @(selectedCommand.IsEnabled ? "bot-cmds__detail-state--enabled" : "bot-cmds__detail-state--disabled")">
-                            @(selectedCommand.IsEnabled ? "Ready to run" : "Paused")
-                        </span>
-                    </div>
-                    <p class="bot-cmds__detail-response">@selectedCommand.ResponseTemplate</p>
-                    <div class="bot-cmds__detail-footer">
-                        <span>@(string.IsNullOrWhiteSpace(selectedCommand.HandlerType) ? "Template only" : "Handler + fallback")</span>
-                        @if (!string.IsNullOrWhiteSpace(selectedCommand.HandlerType))
-                        {
-                            <code>@selectedCommand.HandlerType</code>
-                        }
-                    </div>
-                </div>
-            }
         }
 
-        <p class="bot-cmds__hint">Tap a command to select it, then run it in chat. Add or edit commands in configuration.</p>
+        <p class="bot-cmds__hint">Tap to run a command live. Add or edit commands in configuration.</p>
     </div>
 </div>
 
 @code {
     private readonly CancellationTokenSource _cancellationTokenSource = new();
-    private IReadOnlyList<BotCommandDefinition> _commands = Array.Empty<BotCommandDefinition>();
-    private long? _selectedCommandId;
-    private bool _isBusy;
-    private string? _errorMessage;
+    private readonly HashSet<long> _pendingCommandIds = [];
+    private IReadOnlyList<BotCommandDefinition> _commands = [];
     private string? _statusMessage;
+    private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        await RefreshCommands();
+        await Refresh();
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        _cancellationTokenSource.Cancel();
+        await _cancellationTokenSource.CancelAsync();
         _cancellationTokenSource.Dispose();
-        return ValueTask.CompletedTask;
     }
 
-    private Task SelectCommand(long commandId)
+    private async Task Run(BotCommandDefinition command)
     {
-        BotCommandDefinition? selectedCommand = _commands.FirstOrDefault(command => command.Id == commandId);
-        if (selectedCommand is null)
+        if (!command.IsEnabled || !_pendingCommandIds.Add(command.Id))
         {
-            return Task.CompletedTask;
-        }
-
-        _selectedCommandId = selectedCommand.Id;
-        _errorMessage = null;
-        _statusMessage = null;
-        return Task.CompletedTask;
-    }
-
-    private async Task RunSelectedCommand()
-    {
-        BotCommandDefinition? selectedCommand = GetSelectedCommand();
-        if (selectedCommand is null)
-        {
-            _errorMessage = "Choose a saved command first.";
             return;
         }
 
-        if (!selectedCommand.IsEnabled)
-        {
-            _errorMessage = $"{selectedCommand.Trigger} is paused. Enable it before running it live.";
-            return;
-        }
-
-        _isBusy = true;
-        _errorMessage = null;
         _statusMessage = null;
+        _errorMessage = null;
 
         try
         {
-            await CommandDispatcher.DispatchFromOperator(selectedCommand.Trigger, _cancellationTokenSource.Token);
-            await RefreshCommands(selectedCommand.Id);
-            _statusMessage = $"Sent {selectedCommand.Trigger} to connected chat.";
+            await CommandDispatcher.DispatchFromOperator(command.Trigger, _cancellationTokenSource.Token);
+            _statusMessage = $"Ran {command.Trigger} · {GetEffectText(command).ToLowerInvariant()}.";
+            await Refresh();
+        }
+        catch (OperationCanceledException) when (_cancellationTokenSource.IsCancellationRequested)
+        {
         }
         catch (Exception exception)
         {
@@ -158,81 +91,51 @@
         }
         finally
         {
-            _isBusy = false;
+            _pendingCommandIds.Remove(command.Id);
         }
     }
 
-    private async Task RefreshCommands(long? preferredCommandId = null)
+    private async Task Refresh()
     {
         try
         {
             _commands = await CommandManagementService.List(_cancellationTokenSource.Token);
-            BotCommandDefinition? selectedCommand = null;
-
-            if (preferredCommandId.HasValue)
-            {
-                selectedCommand = _commands.FirstOrDefault(command => command.Id == preferredCommandId.Value);
-            }
-
-            if (selectedCommand is null && _selectedCommandId.HasValue)
-            {
-                selectedCommand = _commands.FirstOrDefault(command => command.Id == _selectedCommandId.Value);
-            }
-
-            if (selectedCommand is null && _commands.Count > 0)
-            {
-                selectedCommand = _commands[0];
-            }
-
-            _selectedCommandId = selectedCommand?.Id;
+        }
+        catch (OperationCanceledException) when (_cancellationTokenSource.IsCancellationRequested)
+        {
         }
         catch (Exception exception)
         {
-            _commands = Array.Empty<BotCommandDefinition>();
-            _selectedCommandId = null;
+            _commands = [];
             _errorMessage = exception.Message;
         }
     }
 
-    private BotCommandDefinition? GetSelectedCommand()
+    private bool IsPending(long commandId)
     {
-        if (_selectedCommandId.HasValue)
-        {
-            return _commands.FirstOrDefault(command => command.Id == _selectedCommandId.Value);
-        }
-
-        return _commands.Count > 0 ? _commands[0] : null;
-    }
-
-    private bool CanRunSelectedCommand()
-    {
-        return GetSelectedCommand()?.IsEnabled == true;
+        return _pendingCommandIds.Contains(commandId);
     }
 
     private string GetSummaryText()
     {
-        if (_commands.Count == 0)
+        int enabled = _commands.Count(static command => command.IsEnabled);
+        return enabled == 1 ? "1 command ready" : $"{enabled} commands ready";
+    }
+
+    private static string GetEffectText(BotCommandDefinition command)
+    {
+        List<string> effects = [];
+
+        if (command.SendInChat)
         {
-            return "No commands configured";
+            effects.Add("Chat");
         }
 
-        return $"{_commands.Count(static command => command.IsEnabled)} live · {_commands.Count(static command => !command.IsEnabled)} paused";
+        if (command.ShowOnLowerThird)
+        {
+            effects.Add("Lower third");
+        }
+
+        return effects.Count == 0 ? "No effects" : string.Join(" + ", effects);
     }
-
-    private string GetMostUsedCommand()
-    {
-        BotCommandDefinition? mostUsedCommand = _commands
-            .OrderByDescending(command => command.UseCount)
-            .ThenBy(command => command.Trigger, StringComparer.Ordinal)
-            .FirstOrDefault();
-
-        return mostUsedCommand is null ? "—" : mostUsedCommand.Trigger;
-    }
-
-    private static string BuildButtonDescription(BotCommandDefinition command)
-    {
-        string status = command.IsEnabled ? "Live" : "Paused";
-        return $"{status} · Used {command.UseCount}×";
-    }
-
 }

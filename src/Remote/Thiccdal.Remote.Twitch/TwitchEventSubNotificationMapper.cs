@@ -39,6 +39,7 @@ public sealed class TwitchEventSubNotificationMapper
             "channel.follow" when eventElement.ValueKind == JsonValueKind.Object => MapFollowEvent(eventElement, rawPayload, root, subscriptionType),
             "channel.subscribe" when eventElement.ValueKind == JsonValueKind.Object => MapSubscribeEvent(eventElement, rawPayload, root, subscriptionType),
             "channel.subscription.message" when eventElement.ValueKind == JsonValueKind.Object => MapSubscribeEvent(eventElement, rawPayload, root, subscriptionType),
+            "channel.subscription.gift" when eventElement.ValueKind == JsonValueKind.Object => MapGiftSubscriptionEvent(eventElement, rawPayload, root, subscriptionType),
             "channel.cheer" when eventElement.ValueKind == JsonValueKind.Object => MapCheerEvent(eventElement, rawPayload, root, subscriptionType),
             "channel.raid" when eventElement.ValueKind == JsonValueKind.Object => MapRaidEvent(eventElement, rawPayload, root, subscriptionType),
             "channel.channel_points_custom_reward_redemption.add" when eventElement.ValueKind == JsonValueKind.Object => MapRedeemEvent(eventElement, rawPayload, root, subscriptionType),
@@ -133,6 +134,34 @@ public sealed class TwitchEventSubNotificationMapper
             IsGift = isGift,
             GifterUserId = GetString(eventElement, "gifter_user_id"),
             CumulativeMonths = cumulativeMonths
+        };
+    }
+
+    private TwitchSubscribeEvent MapGiftSubscriptionEvent(JsonElement eventElement, string rawPayload, JsonElement root, string subscriptionType)
+    {
+        bool isAnonymous = GetBoolean(eventElement, "is_anonymous");
+        string author = isAnonymous
+            ? "Anonymous"
+            : FirstNonEmpty(GetString(eventElement, "user_name"), GetString(eventElement, "user_login"), GetString(eventElement, "user_id"), "Anonymous");
+        string channel = FirstNonEmpty(GetString(eventElement, "broadcaster_user_login"), GetString(eventElement, "broadcaster_user_name"), GetString(eventElement, "broadcaster_user_id"), "twitch");
+        int giftCount = GetNullableInt(eventElement, "total") ?? 1;
+        string tier = GetString(eventElement, "tier");
+
+        return new TwitchSubscribeEvent
+        {
+            Source = PlatformEventSource.Twitch,
+            Type = PlatformEventType.Subscribe,
+            SourceEventType = subscriptionType,
+            Author = author,
+            Channel = channel,
+            ExternalId = FirstNonEmpty(GetString(root, "metadata", "message_id"), GetString(eventElement, "user_id")),
+            Summary = $"{author} gifted {giftCount} Tier {tier} sub{(giftCount == 1 ? string.Empty : "s")}",
+            OccurredAt = GetOccurredAt(root, eventElement),
+            RawData = rawPayload,
+            Tier = tier,
+            IsGift = true,
+            GifterUserId = isAnonymous ? string.Empty : GetString(eventElement, "user_id"),
+            GiftCount = giftCount
         };
     }
 

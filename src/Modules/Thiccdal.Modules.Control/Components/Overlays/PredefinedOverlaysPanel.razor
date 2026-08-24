@@ -1,0 +1,127 @@
+@using Thiccdal.Infrastructure.Overlay
+@inject IOverlayCardManagementService OverlayCardService
+@inject ILowerThirdService LowerThirdService
+@implements IAsyncDisposable
+
+<div class="ctrl-panel overlays">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Overlays</span>
+        <span class="ctrl-panel__subtitle">@GetSummaryText()</span>
+    </div>
+    <div class="ctrl-panel__body overlays__body">
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <div class="overlays__error" role="alert">@_errorMessage</div>
+        }
+
+        @if (_cards.Count == 0)
+        {
+            <div class="overlays__empty">
+                <p>No overlay cards are configured yet. Add them in configuration and they appear here, ready to push.</p>
+            </div>
+        }
+        else
+        {
+            <div class="overlays__grid">
+                @foreach (OverlayCardDefinition card in _cards)
+                {
+                    <button type="button"
+                            class="overlays__card @(IsShowing(card) ? "overlays__card--live" : string.Empty)"
+                            style="--card-color: @card.AccentColor"
+                            disabled="@(!card.IsEnabled)"
+                            @onclick="@(() => Push(card))">
+                        <span class="overlays__card-category">@card.Category</span>
+                        <span class="overlays__card-title">@card.Title</span>
+                        <span class="overlays__card-desc">@card.Description</span>
+                        <span class="overlays__card-state">@(IsShowing(card) ? "● On screen" : "Tap to push")</span>
+                    </button>
+                }
+            </div>
+        }
+
+        <button type="button"
+                class="overlays__clear"
+                disabled="@(LowerThirdService.GetCurrent() is null)"
+                @onclick="Clear">
+            Clear lower third
+        </button>
+    </div>
+</div>
+
+@code {
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private IReadOnlyList<OverlayCardDefinition> _cards = [];
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LowerThirdService.StateChanged += HandleLowerThirdChanged;
+
+        try
+        {
+            _cards = await OverlayCardService.List(_cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException) when (_cancellationTokenSource.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        LowerThirdService.StateChanged -= HandleLowerThirdChanged;
+        await _cancellationTokenSource.CancelAsync();
+        _cancellationTokenSource.Dispose();
+    }
+
+    private void HandleLowerThirdChanged(object? sender, EventArgs args)
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void Push(OverlayCardDefinition card)
+    {
+        if (!card.IsEnabled)
+        {
+            return;
+        }
+
+        if (IsShowing(card))
+        {
+            LowerThirdService.Clear();
+            return;
+        }
+
+        LowerThirdService.ShowMessage(card.Category, BuildOverlayText(card), card.AccentColor);
+    }
+
+    private void Clear()
+    {
+        LowerThirdService.Clear();
+    }
+
+    private bool IsShowing(OverlayCardDefinition card)
+    {
+        LowerThirdContent? current = LowerThirdService.GetCurrent();
+
+        return current is not null
+            && current.Kind == LowerThirdContentKind.Message
+            && string.Equals(current.Text, BuildOverlayText(card), StringComparison.Ordinal);
+    }
+
+    private string GetSummaryText()
+    {
+        int available = _cards.Count(static card => card.IsEnabled);
+        return available == 1 ? "1 card ready" : $"{available} cards ready";
+    }
+
+    private static string BuildOverlayText(OverlayCardDefinition card)
+    {
+        return string.IsNullOrWhiteSpace(card.Description)
+            ? card.Title
+            : $"{card.Title} — {card.Description}";
+    }
+}

@@ -18,6 +18,42 @@ public sealed class BotCommandManagementServiceTests : ApplicationDbContextTestF
     }
 
     [Fact]
+    public async Task WhenCommandDeclaresEffects_ThenTheyArePersisted()
+    {
+        BotCommandManagementService service = new(DbContextFactory);
+
+        BotCommandDefinition createdCommand = await service.Create(
+            new BotCommandDefinitionInput(
+                "brb",
+                "Be right back",
+                null,
+                true,
+                SendInChat: false,
+                ShowOnLowerThird: true,
+                LowerThirdTitle: "  BRB  ",
+                LowerThirdText: "Back in five"),
+            CancellationToken.None);
+
+        IReadOnlyList<BotCommandDefinition> commands = await service.List(CancellationToken.None);
+        BotCommandDefinition savedCommand = commands.Single(command => command.Id == createdCommand.Id);
+
+        Assert.False(savedCommand.SendInChat);
+        Assert.True(savedCommand.ShowOnLowerThird);
+        Assert.Equal("BRB", savedCommand.LowerThirdTitle);
+        Assert.Equal("Back in five", savedCommand.LowerThirdText);
+    }
+
+    [Fact]
+    public async Task WhenSeedCommandsAreCreated_ThenTheyReplyInChat()
+    {
+        BotCommandManagementService service = new(DbContextFactory);
+
+        IReadOnlyList<BotCommandDefinition> commands = await service.List(CancellationToken.None);
+
+        Assert.All(commands, command => Assert.True(command.SendInChat));
+    }
+
+    [Fact]
     public async Task WhenCreatingCommandWithoutBang_ThenTriggerIsNormalized()
     {
         BotCommandManagementService service = new(DbContextFactory);

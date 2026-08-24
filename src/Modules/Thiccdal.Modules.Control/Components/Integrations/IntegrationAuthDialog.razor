@@ -9,19 +9,20 @@
              @onclick:stopPropagation="true"
              role="dialog"
              aria-modal="true"
-             aria-label="Connect @PlatformName">
+             aria-label="@DialogLabel">
 
             <header class="auth-dialog__header">
                 <div class="auth-dialog__platform-pip" style="--plat-color: @Color" aria-hidden="true"></div>
-                <h2 class="auth-dialog__title">Connect @PlatformName</h2>
+                <h2 class="auth-dialog__title">@(IsConnected ? "Re-authorize" : "Connect") @PlatformName</h2>
                 <button type="button" class="auth-dialog__close" @onclick="Close" aria-label="Close">✕</button>
             </header>
 
             <div class="auth-dialog__body">
-                @if (IsConnected)
+                @if (IsConnected && !_awaitingReturn)
                 {
                     <p class="auth-dialog__desc">
-                        @PlatformName is connected and authorized. You can disconnect to revoke access or re-authorize with a different account.
+                        @AuthorizedAsText Re-authorize to sign in again or switch to a different account, or
+                        disconnect to revoke the stored access.
                     </p>
                 }
                 else if (!_awaitingReturn)
@@ -49,40 +50,36 @@
             </div>
 
             <footer class="auth-dialog__footer">
-                @if (IsConnected)
+                <button type="button" class="auth-dialog__btn auth-dialog__btn--cancel" @onclick="Close">
+                    @(IsConnected ? "Close" : "Cancel")
+                </button>
+
+                @if (IsConnected && !_awaitingReturn)
                 {
-                    <button type="button" class="auth-dialog__btn auth-dialog__btn--cancel" @onclick="Close">
-                        Close
-                    </button>
                     <button type="button"
                             class="auth-dialog__btn auth-dialog__btn--disconnect"
                             @onclick="Disconnect">
                         Disconnect
                     </button>
                 }
+
+                @if (!_awaitingReturn)
+                {
+                    <button type="button"
+                            class="auth-dialog__btn auth-dialog__btn--authorize"
+                            style="--plat-color: @Color"
+                            @onclick="OpenAuthTab">
+                        @(IsConnected ? $"Re-authorize with {PlatformName}" : $"Authorize with {PlatformName}")
+                    </button>
+                }
                 else
                 {
-                    <button type="button" class="auth-dialog__btn auth-dialog__btn--cancel" @onclick="Close">
-                        Cancel
+                    <button type="button"
+                            class="auth-dialog__btn auth-dialog__btn--done"
+                            style="--plat-color: @Color"
+                            @onclick="ConfirmConnected">
+                        Done — I'm Connected
                     </button>
-                    @if (!_awaitingReturn)
-                    {
-                        <button type="button"
-                                class="auth-dialog__btn auth-dialog__btn--authorize"
-                                style="--plat-color: @Color"
-                                @onclick="OpenAuthTab">
-                            Authorize with @PlatformName
-                        </button>
-                    }
-                    else
-                    {
-                        <button type="button"
-                                class="auth-dialog__btn auth-dialog__btn--done"
-                                style="--plat-color: @Color"
-                                @onclick="ConfirmConnected">
-                            Done — I'm Connected
-                        </button>
-                    }
                 }
             </footer>
 
@@ -96,12 +93,22 @@
     [Parameter] public string AuthorizationUrl { get; set; } = string.Empty;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public bool IsConnected { get; set; }
+    [Parameter] public string? AccountName { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnConnected { get; set; }
     [Parameter] public EventCallback OnDisconnect { get; set; }
 
     private bool _awaitingReturn;
+
+    // A stored token can outlive the lookup that names its account, so only claim an identity we have.
+    private string AuthorizedAsText => string.IsNullOrWhiteSpace(AccountName)
+        ? $"{PlatformName} is already authorized."
+        : $"{PlatformName} is authorized as @{AccountName}.";
+
+    private string DialogLabel => IsConnected
+        ? $"Re-authorize {PlatformName}"
+        : $"Connect {PlatformName}";
 
     protected override void OnParametersSet()
     {

@@ -2,6 +2,13 @@
 
 This guide walks you through Thiccdal's **Pre-Live mode**, a structured preparation checklist that ensures your stream is ready to go live before you press the **Go Live** button.
 
+> **Current status:** The dashboard is live-only — there is no pre-live mode and no checklist
+> panel on it. The dashboard now shows teleprompter controls and predefined overlay cards on the
+> left, the question queue with a lower-third preview in the middle, and clickable bot commands on
+> the right. Pre-live items still have homes in configuration: personal prep and overlay tests
+> under **Pre-live checklist**, and the sponsor read under **Sponsorship**. The rest of this guide
+> describes the checklist as it will return.
+
 ---
 
 ## Overview
@@ -111,8 +118,14 @@ Review these reminders, then tap **Confirm** to check off this item. These are i
 | Item | Notes |
 |---|---|
 | OBS scene configured and active | Confirm the correct OBS scene is live before starting the real stream |
+| OBS connected | Automatic — appears only when the obs-websocket integration is enabled |
 | Audio levels checked | |
 | Test stream completed | Optional dry-run confirmation |
+
+**How do I connect Thiccdal to OBS?**
+Enable the WebSocket server in OBS and set `Obs:Enabled` in Thiccdal — see
+[Showing the teleprompter](./teleprompter-display.md). The **OBS connected** item then checks
+itself and blocks going live while the connection is down.
 
 **How do I configure OBS?**
 Point OBS at each platform you're broadcasting to, using that platform's own server URL and stream
@@ -137,10 +150,10 @@ Each registered overlay component appears here. You'll see items like:
    - Verify it appears in the correct position and with the correct content
    - If it looks good, tap the checkbox to confirm
 
-2. **For Prompter**: Press **[Open Prompter]**
-   - A new window/tab opens to the Teleprompter view
-   - Verify the teleprompter page displays correctly and is responsive
-   - Close the window, then check off this item in the checklist
+2. **For Prompter**: Check the Teleprompter dock in OBS
+   - The teleprompter runs as a custom browser dock — see [Showing the teleprompter](./teleprompter-display.md)
+   - Verify the dock displays correctly and reacts to the scroll buttons
+   - Check off this item in the checklist
 
 ### ✔ Personal Prep *(manual, optional)*
 

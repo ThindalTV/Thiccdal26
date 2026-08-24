@@ -60,4 +60,24 @@ public sealed class BotCommandDefinition
     /// Gets or sets how many times the command has been used.
     /// </summary>
     public int UseCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether running the command sends its response to chat.
+    /// </summary>
+    public bool SendInChat { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the operator running the command puts copy on the lower third.
+    /// </summary>
+    public bool ShowOnLowerThird { get; set; }
+
+    /// <summary>
+    /// Gets or sets the lower-third heading. Falls back to the trigger when empty.
+    /// </summary>
+    public string? LowerThirdTitle { get; set; }
+
+    /// <summary>
+    /// Gets or sets the lower-third body copy. Falls back to the resolved chat response when empty.
+    /// </summary>
+    public string? LowerThirdText { get; set; }
 }

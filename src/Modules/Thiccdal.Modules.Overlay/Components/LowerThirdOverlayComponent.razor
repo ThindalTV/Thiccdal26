@@ -1,16 +1,17 @@
-@using Thiccdal.Infrastructure.Questions
+@using Thiccdal.Infrastructure.Overlay
 
 @inherits TestableOverlayComponentBase
 @implements IDisposable
+@inject ILowerThirdService LowerThirdService
 
-@if (_renderedQuestion is not null || IsTestFlashing)
+@if (_renderedContent is not null || IsTestFlashing)
 {
     <div class="lower-third-overlay-host">
-        @if (_renderedQuestion is LiveQuestion question)
+        @if (_renderedContent is LowerThirdContent content)
         {
-            <div class="lower-third-overlay @GetPlatformClass(question.Platform) @_animationClass">
-                <div class="lower-third-overlay__meta">@question.Username via @question.Platform</div>
-                <div class="lower-third-overlay__text">@TruncateQuestion(question.Text)</div>
+            <div class="lower-third-overlay @GetAccentClass(content) @_animationClass" style="@GetAccentStyle(content)">
+                <div class="lower-third-overlay__meta">@content.Eyebrow</div>
+                <div class="lower-third-overlay__text">@Truncate(content.Text)</div>
             </div>
         }
 
@@ -25,7 +26,7 @@
 
 @code {
     private CancellationTokenSource? _transitionCancellationTokenSource;
-    private LiveQuestion? _renderedQuestion;
+    private LowerThirdContent? _renderedContent;
     private string _animationClass = string.Empty;
 
     public override string ComponentName => "Lower Third";
@@ -33,47 +34,47 @@
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        _renderedQuestion = GetFeaturedQuestion();
-        _animationClass = _renderedQuestion is null ? string.Empty : "lower-third-overlay--enter";
-        OperatorStateService.StateChanged += HandleOperatorStateChanged;
+        _renderedContent = LowerThirdService.GetCurrent();
+        _animationClass = _renderedContent is null ? string.Empty : "lower-third-overlay--enter";
+        LowerThirdService.StateChanged += HandleLowerThirdChanged;
     }
 
     public override void Dispose()
     {
-        OperatorStateService.StateChanged -= HandleOperatorStateChanged;
+        LowerThirdService.StateChanged -= HandleLowerThirdChanged;
         _transitionCancellationTokenSource?.Cancel();
         _transitionCancellationTokenSource?.Dispose();
         base.Dispose();
     }
 
-    private void HandleOperatorStateChanged(object? sender, EventArgs args)
+    private void HandleLowerThirdChanged(object? sender, EventArgs args)
     {
         _transitionCancellationTokenSource?.Cancel();
         _transitionCancellationTokenSource?.Dispose();
         _transitionCancellationTokenSource = new CancellationTokenSource();
-        _ = InvokeAsync(() => SynchronizeQuestionState(_transitionCancellationTokenSource.Token));
+        _ = InvokeAsync(() => SynchronizeContent(_transitionCancellationTokenSource.Token));
     }
 
-    private async Task SynchronizeQuestionState(CancellationToken cancellationToken)
+    private async Task SynchronizeContent(CancellationToken cancellationToken)
     {
         try
         {
-            LiveQuestion? nextQuestion = GetFeaturedQuestion();
+            LowerThirdContent? nextContent = LowerThirdService.GetCurrent();
 
-            if (Matches(_renderedQuestion, nextQuestion))
+            if (Matches(_renderedContent, nextContent))
             {
                 return;
             }
 
-            if (_renderedQuestion is not null)
+            if (_renderedContent is not null)
             {
                 _animationClass = "lower-third-overlay--exit";
                 await InvokeAsync(StateHasChanged);
                 await Task.Delay(300, cancellationToken);
             }
 
-            _renderedQuestion = nextQuestion;
-            _animationClass = _renderedQuestion is null ? string.Empty : "lower-third-overlay--enter";
+            _renderedContent = nextContent;
+            _animationClass = _renderedContent is null ? string.Empty : "lower-third-overlay--enter";
             await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -81,56 +82,46 @@
         }
     }
 
-    private static bool Matches(LiveQuestion? currentQuestion, LiveQuestion? nextQuestion)
+    private static bool Matches(LowerThirdContent? current, LowerThirdContent? next)
     {
-        if (currentQuestion is null && nextQuestion is null)
+        if (current is null || next is null)
         {
-            return true;
+            return current is null && next is null;
         }
 
-        if (currentQuestion is null || nextQuestion is null)
-        {
-            return false;
-        }
-
-        return currentQuestion.SourceQuestionId == nextQuestion.SourceQuestionId &&
-               string.Equals(currentQuestion.Text, nextQuestion.Text, StringComparison.Ordinal);
+        return current.QuestionId == next.QuestionId
+            && string.Equals(current.Text, next.Text, StringComparison.Ordinal)
+            && string.Equals(current.Eyebrow, next.Eyebrow, StringComparison.Ordinal);
     }
 
-    private static string TruncateQuestion(string questionText)
+    private static string Truncate(string text)
     {
-        if (string.IsNullOrWhiteSpace(questionText) || questionText.Length <= 120)
+        if (string.IsNullOrWhiteSpace(text) || text.Length <= 120)
         {
-            return questionText;
+            return text;
         }
 
-        return $"{questionText[..119].TrimEnd()}…";
+        return $"{text[..119].TrimEnd()}…";
     }
 
-    private static string GetPlatformClass(string platform)
+    private static string GetAccentClass(LowerThirdContent content)
     {
-        return platform.Trim().ToUpperInvariant() switch
+        // Card accents arrive as CSS colours and are applied inline instead of through a class.
+        if (content.Accent.StartsWith('#'))
         {
-            "TWITCH" => "lower-third-overlay--twitch",
+            return "lower-third-overlay--card";
+        }
+
+        return content.Accent.Trim().ToUpperInvariant() switch
+        {
+            "PENDING" or "TWITCH" => "lower-third-overlay--twitch",
             "MANUAL" => "lower-third-overlay--manual",
             _ => "lower-third-overlay--default"
         };
     }
 
-    private LiveQuestion? GetFeaturedQuestion()
+    private static string? GetAccentStyle(LowerThirdContent content)
     {
-        QueuedQuestion? featuredQuestion = OperatorStateService.QuestionQueue
-            .FirstOrDefault(static question => question.State == QuestionState.Featured);
-
-        return featuredQuestion is null
-            ? null
-            : new LiveQuestion(
-                featuredQuestion.Id,
-                featuredQuestion.Platform,
-                featuredQuestion.PlatformColor,
-                featuredQuestion.Username,
-                featuredQuestion.Text,
-                featuredQuestion.ReceivedAt,
-                featuredQuestion.FeaturedAt ?? featuredQuestion.ReceivedAt);
+        return content.Accent.StartsWith('#') ? $"--platform-accent: {content.Accent}" : null;
     }
 }

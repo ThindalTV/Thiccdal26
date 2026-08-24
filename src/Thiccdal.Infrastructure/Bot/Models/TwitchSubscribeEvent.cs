@@ -24,4 +24,9 @@ public sealed record TwitchSubscribeEvent : PlatformEvent
     /// Gets the cumulative subscription month count when provided by Twitch.
     /// </summary>
     public int? CumulativeMonths { get; init; }
+
+    /// <summary>
+    /// Gets the number of subscriptions handed out when the event is a gift batch.
+    /// </summary>
+    public int? GiftCount { get; init; }
 }

@@ -12,4 +12,5 @@ public record Line(
     string? AccentColor = null,
     string? SenderColor = null,
     IReadOnlyList<ChatBadge>? Badges = null,
-    IReadOnlyList<ChatMessagePart>? Parts = null);
+    IReadOnlyList<ChatMessagePart>? Parts = null,
+    bool IsStatus = false);
