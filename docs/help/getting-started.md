@@ -108,7 +108,6 @@ Thiccdal is configured through `appsettings.json`. All settings use the `IOption
       "moderator:read:followers",
       "channel:read:subscriptions",
       "bits:read",
-      "channel:read:raids",
       "channel:read:redemptions"
     ]
   }
@@ -533,8 +532,9 @@ Once Thiccdal is running and connected to your platforms:
 2. **Configure the Chatbot**: Set up AI responses and memory settings (see [Chatbot Settings](./chatbot-settings.md))
 3. **Configure Chat**: Set up chat integration and filters (see [Configuring Chat Settings](./configuring-chat.md) if available)
 4. **Set Up the Overlay**: Add the browser source to OBS/Streamlabs (see [Using Overlays](./using-overlays.md) if available)
-5. **Create Bot Commands**: Define commands that respond to chat (see [Bot Commands](./bot-commands.md) if available)
-6. **Configure Event Tracking**: Set up alerts for follows, subs, and redeems (see dashboard settings)
+5. **Set Up the Teleprompter**: Add the prompter as a custom browser dock in OBS (see [Showing the teleprompter](./teleprompter-display.md))
+6. **Create Bot Commands**: Define commands that respond to chat (see [Bot Commands](./bot-commands.md) if available)
+7. **Configure Event Tracking**: Set up alerts for follows, subs, and redeems (see dashboard settings)
 
 ### Ready to Stream?
 

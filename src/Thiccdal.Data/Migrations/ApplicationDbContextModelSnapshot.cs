@@ -55,9 +55,21 @@ namespace Thiccdal.Data.Migrations
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("LowerThirdText")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LowerThirdTitle")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ResponseTemplate")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("SendInChat")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ShowOnLowerThird")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Trigger")
                         .IsRequired()
@@ -221,6 +233,39 @@ namespace Thiccdal.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("CustomChecklistItems");
+                });
+
+            modelBuilder.Entity("Thiccdal.Data.Models.OverlayCard", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AccentColor")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("OverlayCards");
                 });
 
             modelBuilder.Entity("Thiccdal.Data.Models.PlatformEvent", b =>

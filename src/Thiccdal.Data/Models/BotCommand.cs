@@ -13,4 +13,12 @@ public sealed class BotCommand
     public bool IsEnabled { get; set; } = true;
 
     public int UseCount { get; set; }
+
+    public bool SendInChat { get; set; } = true;
+
+    public bool ShowOnLowerThird { get; set; }
+
+    public string? LowerThirdTitle { get; set; }
+
+    public string? LowerThirdText { get; set; }
 }

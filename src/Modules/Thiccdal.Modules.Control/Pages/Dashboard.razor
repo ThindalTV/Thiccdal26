@@ -1,67 +1,42 @@
 @page "/dashboard"
 @using Thiccdal.Modules.Control.Components
 @using Thiccdal.Modules.Control.Components.BotCommands
-@using Thiccdal.Modules.Control.Components.PreLive
 @using Thiccdal.Modules.Control.Components.LowerThird
-@using Thiccdal.Modules.Control.Components.OverlayGallery
+@using Thiccdal.Modules.Control.Components.Overlays
+@using Thiccdal.Modules.Control.Components.PreLive
 @using Thiccdal.Modules.Control.Components.Prompter
 @using Thiccdal.Modules.Control.Components.Questions
 @using Thiccdal.Modules.Control.Components.TopBar
 @using Thiccdal.Shared.Components.Components.Readiness
-@using Thiccdal.Infrastructure.Operators
+
 @layout Thiccdal.Modules.Control.Layout.DashboardLayout
-@inject IOperatorStateService OperatorStateService
-@implements IDisposable
 
 <ReadinessGate SurfaceName="The streamer dashboard" Requires="ReadinessRequirement.TwitchAuthorized">
     <div class="dashboard">
-        <TopBar OnStreamInfoClicked="OpenStreamInfoDialog" />
-        <div class="dashboard__body @(IsPreLive ? "dashboard__body--prelive" : "dashboard__body--live")">
-            @if (IsPreLive)
-            {
-                <section class="dashboard__col dashboard__col--prelive">
-                    <StreamInfoPanel />
-                    <SponsorSetupPanel />
-                </section>
-                <section class="dashboard__col dashboard__col--prelive">
-                    <OverlayTestPanel />
-                </section>
-                <section class="dashboard__col dashboard__col--prelive dashboard__col--right">
-                    <PreLiveChecklistPanel OnOpenStreamInfoRequested="OpenStreamInfoDialog"
-                                           OnOpenFullChecklistRequested="OpenChecklistDialog" />
-                </section>
-            }
-            else
-            {
-                <aside class="dashboard__col dashboard__col--left">
-                    <PrompterPanel />
-                    <BotCommandsPanel />
-                </aside>
-                <section class="dashboard__col dashboard__col--middle">
-                    <QuestionQueuePanel />
-                </section>
-                <section class="dashboard__col dashboard__col--right">
-                    <LowerThirdPanel />
-                    <div class="wip-wrap">
-                        <OverlayGalleryPanel />
-                        <div class="wip-overlay"></div>
-                    </div>
-                </section>
-            }
+        <TopBar />
+        <div class="dashboard__body">
+            <aside class="dashboard__col dashboard__col--left">
+                <PrompterPanel />
+                <PredefinedOverlaysPanel />
+            </aside>
+            <section class="dashboard__col dashboard__col--middle">
+                <QuestionQueuePanel />
+                <LowerThirdPreviewPanel />
+            </section>
+            <section class="dashboard__col dashboard__col--right">
+                <BotCommandsPanel />
+            </section>
         </div>
 
-        @if (!IsPreLive)
-        {
-            <section class="dashboard__live-bottom-bar" role="toolbar" aria-label="Live mode controls">
-                <div class="dashboard__live-bottom-bar-copy">
-                    <span class="dashboard__live-bottom-bar-title">Live Controls</span>
-                    <span class="dashboard__live-bottom-bar-hint">Open deliberate mid-stream tools without turning the main live view into an edit surface.</span>
-                </div>
-                <div class="dashboard__live-bottom-bar-actions">
-                    <button type="button" class="dashboard__live-bottom-bar-button" @onclick="OpenLiveStreamInfoDialog">Stream Info</button>
-                </div>
-            </section>
-        }
+        <section class="dashboard__bottom-bar" role="toolbar" aria-label="Live controls">
+            <div class="dashboard__bottom-bar-copy">
+                <span class="dashboard__bottom-bar-title">Live Controls</span>
+                <span class="dashboard__bottom-bar-hint">Open deliberate mid-stream tools without turning the live view into an edit surface.</span>
+            </div>
+            <div class="dashboard__bottom-bar-actions">
+                <button type="button" class="dashboard__bottom-bar-button" @onclick="OpenStreamInfoDialog">Stream Info</button>
+            </div>
+        </section>
     </div>
 
     @if (_showStreamInfoDialog)
@@ -70,28 +45,10 @@
             <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Stream Info">
                 <div class="dashboard-dialog__header">
                     <div>
-                        <h2 class="dashboard-dialog__title">Stream Settings Checklist</h2>
-                        <p class="dashboard-dialog__subtitle">Confirm the Twitch settings you have to change in the Creator Dashboard yourself.</p>
-                    </div>
-                    <button type="button" class="dashboard-dialog__close" @onclick="CloseStreamInfoDialog" aria-label="Close">✕</button>
-                </div>
-                <div class="dashboard-dialog__body">
-                    <StreamInfoDialog />
-                </div>
-            </div>
-        </div>
-    }
-
-    @if (_showLiveStreamInfoDialog && !IsPreLive)
-    {
-        <div class="dashboard-dialog-backdrop" @onclick="CloseLiveStreamInfoDialog" role="presentation">
-            <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Live Stream Info">
-                <div class="dashboard-dialog__header">
-                    <div>
                         <h2 class="dashboard-dialog__title">Stream Info</h2>
                         <p class="dashboard-dialog__subtitle">Update the live title, category, or tags without leaving the operator view.</p>
                     </div>
-                    <button type="button" class="dashboard-dialog__close" @onclick="CloseLiveStreamInfoDialog" aria-label="Close">✕</button>
+                    <button type="button" class="dashboard-dialog__close" @onclick="CloseStreamInfoDialog" aria-label="Close">✕</button>
                 </div>
                 <div class="dashboard-dialog__body">
                     <StreamInfoPanel />
@@ -99,45 +56,10 @@
             </div>
         </div>
     }
-
-    @if (_showChecklistDialog && IsPreLive)
-    {
-        <div class="dashboard-dialog-backdrop" @onclick="CloseChecklistDialog" role="presentation">
-            <div class="dashboard-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Full checklist">
-                <div class="dashboard-dialog__header">
-                    <div>
-                        <h2 class="dashboard-dialog__title">Pre-Live Checklist</h2>
-                        <p class="dashboard-dialog__subtitle">Review every readiness item when you need the full checklist on a compact screen.</p>
-                    </div>
-                    <button type="button" class="dashboard-dialog__close" @onclick="CloseChecklistDialog" aria-label="Close">✕</button>
-                </div>
-                <div class="dashboard-dialog__body">
-                    <PreLiveChecklistPanel OnOpenStreamInfoRequested="OpenStreamInfoDialog"
-                                           OnOpenFullChecklistRequested="CloseChecklistDialog" />
-                </div>
-            </div>
-        </div>
-    }
 </ReadinessGate>
 
 @code {
-    private OperatorMode _mode;
     private bool _showStreamInfoDialog;
-    private bool _showLiveStreamInfoDialog;
-    private bool _showChecklistDialog;
-
-    private bool IsPreLive => _mode == OperatorMode.PreLive;
-
-    protected override void OnInitialized()
-    {
-        _mode = OperatorStateService.Mode;
-        OperatorStateService.StateChanged += HandleOperatorStateChanged;
-    }
-
-    public void Dispose()
-    {
-        OperatorStateService.StateChanged -= HandleOperatorStateChanged;
-    }
 
     private Task OpenStreamInfoDialog()
     {
@@ -149,35 +71,5 @@
     {
         _showStreamInfoDialog = false;
         return Task.CompletedTask;
-    }
-
-    private Task OpenLiveStreamInfoDialog()
-    {
-        _showLiveStreamInfoDialog = true;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseLiveStreamInfoDialog()
-    {
-        _showLiveStreamInfoDialog = false;
-        return Task.CompletedTask;
-    }
-
-    private Task OpenChecklistDialog()
-    {
-        _showChecklistDialog = true;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseChecklistDialog()
-    {
-        _showChecklistDialog = false;
-        return Task.CompletedTask;
-    }
-
-    private void HandleOperatorStateChanged(object? sender, EventArgs args)
-    {
-        _mode = OperatorStateService.Mode;
-        _ = InvokeAsync(StateHasChanged);
     }
 }

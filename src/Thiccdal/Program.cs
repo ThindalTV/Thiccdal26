@@ -1,4 +1,4 @@
-using Thiccdal;
+﻿using Thiccdal;
 using Thiccdal.API.Status;
 using Thiccdal.API.StreamDeck;
 using Thiccdal.Infrastructure.Sponsors;
@@ -7,12 +7,14 @@ using Thiccdal.Components;
 using Thiccdal.Data;
 using Thiccdal.HealthChecks;
 using Thiccdal.Infrastructure.Operators;
+using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Questions;
 using Thiccdal.Infrastructure.Readiness;
 using Thiccdal.Infrastructure.Teleprompter;
 using Thiccdal.Modules.ChatBot;
 using Thiccdal.Modules.Overlay;
 using Thiccdal.Modules.Teleprompter;
+using Thiccdal.Remote.Obs;
 using Thiccdal.Remote.Twitch;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,6 +31,7 @@ builder.Services.AddHttpClient();
 // Add services to the container.
 builder.Services.AddChatBotServices(builder.Configuration);
 builder.Services.AddTwitchIntegration(builder.Configuration);
+builder.Services.AddObsIntegration(builder.Configuration);
 builder.Services.Configure<PrompterOptions>(builder.Configuration.GetSection(PrompterOptions.SectionName));
 builder.Services.AddTeleprompterServices();
 builder.Services.AddOverlay();
@@ -42,6 +45,8 @@ builder.Services.AddSingleton<IPreLiveChecklistService>(static serviceProvider =
 builder.Services.AddSingleton<IGoLiveActionService, GoLiveActionService>();
 builder.Services.AddHostedService(static serviceProvider => serviceProvider.GetRequiredService<PreLiveChecklistService>());
 builder.Services.AddSingleton<ISponsorshipService, SponsorshipService>();
+builder.Services.AddSingleton<LowerThirdService>();
+builder.Services.AddSingleton<ILowerThirdService>(static serviceProvider => serviceProvider.GetRequiredService<LowerThirdService>());
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -58,11 +63,13 @@ app.MapTwitchEndpoints();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
 }
+
+// Every surface is served over both HTTP and HTTPS. Thiccdal runs on the stream PC and its
+// surfaces are consumed from the local network — the OBS browser dock hosting /prompter has no
+// trust store for the development certificate, so neither an HTTPS redirect nor HSTS may be
+// applied. Adding either one breaks the teleprompter dock.
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
 app.UseCors();
 
 app.UseAntiforgery();

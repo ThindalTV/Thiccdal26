@@ -164,6 +164,72 @@ public class TwitchEventSubNotificationMapperTests
     }
 
     [Fact]
+    public void WhenGiftSubscriptionNotificationArrives_ThenMapsGiftCountAndGifter()
+    {
+        var mapper = CreateMapper();
+
+        PlatformEvent platformEvent = mapper.Map(
+            """
+            {
+              "metadata": {
+                "message_id": "gift-meta",
+                "message_type": "notification",
+                "message_timestamp": "2026-05-29T12:00:00Z",
+                "subscription_type": "channel.subscription.gift"
+              },
+              "payload": {
+                "event": {
+                  "user_id": "g1",
+                  "user_name": "Gifter",
+                  "broadcaster_user_login": "thindal",
+                  "tier": "1000",
+                  "total": 5,
+                  "is_anonymous": false
+                }
+              }
+            }
+            """);
+
+        TwitchSubscribeEvent subscribeEvent = Assert.IsType<TwitchSubscribeEvent>(platformEvent);
+        Assert.True(subscribeEvent.IsGift);
+        Assert.Equal(5, subscribeEvent.GiftCount);
+        Assert.Equal("Gifter", subscribeEvent.Author);
+        Assert.Contains("5", subscribeEvent.Summary);
+    }
+
+    [Fact]
+    public void WhenAnonymousGiftSubscriptionNotificationArrives_ThenAuthorIsAnonymous()
+    {
+        var mapper = CreateMapper();
+
+        PlatformEvent platformEvent = mapper.Map(
+            """
+            {
+              "metadata": {
+                "message_id": "gift-anon-meta",
+                "message_type": "notification",
+                "message_timestamp": "2026-05-29T12:00:00Z",
+                "subscription_type": "channel.subscription.gift"
+              },
+              "payload": {
+                "event": {
+                  "user_id": "g2",
+                  "user_name": "Hidden",
+                  "broadcaster_user_login": "thindal",
+                  "tier": "1000",
+                  "total": 1,
+                  "is_anonymous": true
+                }
+              }
+            }
+            """);
+
+        TwitchSubscribeEvent subscribeEvent = Assert.IsType<TwitchSubscribeEvent>(platformEvent);
+        Assert.Equal("Anonymous", subscribeEvent.Author);
+        Assert.Equal(string.Empty, subscribeEvent.GifterUserId);
+    }
+
+    [Fact]
     public void WhenCheerNotificationArrives_ThenMapsTwitchCheerEvent()
     {
         var mapper = CreateMapper();

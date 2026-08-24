@@ -81,9 +81,10 @@ In the second section of the dialog:
 2. A new browser tab opens showing Twitch's OAuth login page
 3. Log in with the **bot account** (if not already logged in)
 4. Review the requested permissions:
-   - `user:read:chat` — Read chat messages
-   - `chat:read chat:edit` — Read and send chat
+   - `user:read:chat` and `user:write:chat` — Read and send chat messages
+   - `user:bot` and `channel:bot` — Act as a bot in the channel
    - `moderator:read:followers` — Read follower events (requires moderator status)
+   - `channel:read:subscriptions`, `bits:read`, and `channel:read:redemptions` — Read sub, cheer, and channel point events
 5. Click **Authorize** on the Twitch page
 6. You'll be redirected back to Thiccdal
 7. The dialog shows "Authorized" status once complete
@@ -253,10 +254,17 @@ After removing authorization:
 
 | Scope | What It Does | Why Thiccdal Needs It |
 |-------|--------------|----------------------|
-| `user:read:chat` | Read your chat messages | Monitor chat for bot commands and context |
-| `chat:read` | Read chat in your channel | Receive chat messages from viewers |
-| `chat:edit` | Send chat messages | Reply to chat on your behalf (if configured) |
+| `user:read:chat` | Read chat messages | Receive chat from viewers and monitor it for bot commands |
+| `user:write:chat` | Send chat messages | Reply to chat on your behalf |
+| `user:bot` | Act as a bot user | Required alongside `user:read:chat` for chat events |
+| `channel:bot` | Act as a bot in the channel | Lets the bot account operate in the broadcaster's channel |
 | `moderator:read:followers` | Read follower events | Display follows in overlays and event trackers (requires moderator status) |
+| `channel:read:subscriptions` | Read subscription events | Display subs and gift subs |
+| `bits:read` | Read cheer events | Display bits and cheers |
+| `channel:read:redemptions` | Read channel point redemptions | Trigger overlays and bot responses from redeems |
+
+Raid events (`channel.raid`) need no scope — Twitch delivers them on the strength of the
+broadcaster condition alone.
 
 ## Security & Privacy
 

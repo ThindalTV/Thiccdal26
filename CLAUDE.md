@@ -12,19 +12,34 @@ to YouTube, Discord, Facebook, X, or any other platform.
 Video is out of scope: Thiccdal never ingests, restreams, or records video — OBS publishes to
 Twitch directly. Do not reintroduce RTMP ingest, fanout, relay, or disk recording.
 
+Every surface is a web page — there is no companion desktop application. The teleprompter is
+displayed as an OBS custom browser dock pointed at `http://<host>/prompter`. Because the OBS
+browser engine cannot be taught to trust the dev certificate, the host applies **no HTTPS
+redirect and no HSTS**; every surface must stay reachable over plain HTTP. Do not add
+`UseHttpsRedirection` or `UseHsts` back to `Program.cs`, and do not reintroduce a downloadable
+prompter executable.
+
 ## Surfaces
 
 Four separate surfaces, each with its own layout and input model:
 
 | Surface | Route | Input | Purpose |
 |---|---|---|---|
-| Streamer dashboard | `/dashboard` | Touch | Instant control while live. **No setup lives here.** |
+| Streamer dashboard | `/dashboard` | Touch | Instant control while live, single mode. **No setup lives here.** |
 | Teleprompter | `/prompter` | Touch / read-only | On-camera script and chat |
 | Overlay | `/overlay` | — | OBS browser source |
 | Configuration | `/config` | Keyboard + mouse, large screen | Everything else |
 
 `/config` has two sections: **Bot** (commands, autoresponses, identity and greetings) and
-**System** (Twitch, AI keys, AI memory, viewer identities, pre-live checklist, appearance).
+**System** (Twitch, AI keys, AI memory, viewer identities, overlay cards, sponsorship, pre-live
+checklist, appearance).
+
+The dashboard is three columns: teleprompter controls and predefined overlay cards on the left,
+the question queue over a lower-third preview in the middle, and one-tap bot commands on the
+right. Bot commands carry effects — send in chat, show on lower third, or both — and the
+lower-third slot is owned by `ILowerThirdService`, so a promoted question and operator copy never
+share the screen.
+
 There is no setup wizard — `/config` is the single configuration surface, and `/` redirects to it.
 
 Adding an editing affordance to the dashboard or teleprompter is a mistake; it belongs in
@@ -81,10 +96,9 @@ src/Thiccdal.Data/                  DbContext, entity models, migrations
 src/Thiccdal.API/                   Minimal API endpoint extensions
 src/Thiccdal.AI/                    AI/LLM services
 src/Modules/Thiccdal.Modules.*/     ChatBot, Control, Overlay, Teleprompter
-src/Remote/Thiccdal.Remote.*/       Per-platform adapters (Twitch, LMStudio, Null)
+src/Remote/Thiccdal.Remote.*/       Per-platform adapters (Twitch, Obs, LMStudio, Null)
 src/Shared/Thiccdal.Shared.Components/
 src/Aspire/                         AppHost, ServiceDefaults
-src/Tools/                          Teleprompter.Display (Windows-only, built separately)
 src/Tests/                          Mirrors the source tree: Tests/, Tests/Modules/, Tests/Remote/
 docs/architecture/                  Architecture docs
 docs/help/                          End-user documentation
@@ -96,6 +110,7 @@ Interfaces live in `Thiccdal.Infrastructure/<Domain>/` — grouped by domain (`R
 
 Key contracts:
 - `src/Thiccdal.Infrastructure/Remotes/IPlatformConnection.cs`
+- `src/Thiccdal.Infrastructure/Streaming/IObsConnection.cs`
 - `src/Thiccdal.Infrastructure/Remotes/IChatSource.cs`
 - `src/Thiccdal.Infrastructure/Bot/ICommandDispatcher.cs`
 - `src/Thiccdal.Infrastructure/Overlay/IOverlayComponent.cs`

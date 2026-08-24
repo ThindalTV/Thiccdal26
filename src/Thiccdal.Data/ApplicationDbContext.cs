@@ -39,6 +39,8 @@ public sealed class ApplicationDbContext : DbContext
 
     public DbSet<AppConfiguration> AppConfigurations { get; set; }
 
+    public DbSet<OverlayCard> OverlayCards { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -102,6 +104,15 @@ public sealed class ApplicationDbContext : DbContext
                 .IsRequired();
 
             customChecklistItem.Property(item => item.IsEnabled)
+                .IsRequired();
+        });
+
+        modelBuilder.Entity<OverlayCard>(overlayCard =>
+        {
+            overlayCard.Property(card => card.Title)
+                .IsRequired();
+
+            overlayCard.Property(card => card.AccentColor)
                 .IsRequired();
         });
 

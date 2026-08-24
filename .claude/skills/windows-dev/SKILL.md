@@ -5,8 +5,8 @@ description: Windows and PowerShell gotchas for this repo — path handling, git
 
 # Windows development gotchas
 
-The primary dev machine for this repo is Windows, and CI builds the Teleprompter Display on
-`windows-latest`. These are failure modes that have actually cost time here.
+The primary dev machine for this repo is Windows. These are failure modes that have actually cost
+time here.
 
 ## Filenames and timestamps
 

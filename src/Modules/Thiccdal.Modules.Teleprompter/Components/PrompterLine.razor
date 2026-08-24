@@ -3,19 +3,26 @@
 
 <div class="@GetLineCssClass()" style="@GetAccentStyle()">
     <div class="platform">
-        @switch (Line.Platform)
+        @if (!Line.IsStatus)
         {
-            case "Twitch":
-                <img src="/img/platforms/twitch.svg" />
-                break;
-            default:
-                <span class="bi bi-question-circle"></span>
-                break;
+            @switch (Line.Platform)
+            {
+                case "Twitch":
+                    <img src="/img/platforms/twitch.svg" />
+                    break;
+                default:
+                    <span class="bi bi-question-circle"></span>
+                    break;
+            }
         }
     </div>
     <time>@Line.Timestamp.ToLocalTime().ToString("HH:mm:ss")</time>
     <div class="sender">
-        @if (Line.Type != PlatformEventType.ChatMessage && Line.Type != PlatformEventType.Raw)
+        @if (Line.IsStatus)
+        {
+            <span class="event-pill">STATUS</span>
+        }
+        else if (Line.Type != PlatformEventType.ChatMessage && Line.Type != PlatformEventType.Raw)
         {
             <span class="event-pill">@Line.Type.ToString().ToUpperInvariant()</span>
         }
@@ -31,7 +38,7 @@
         <span class="sender__name" style="@GetSenderStyle()">@Line.Sender</span>
     </div>
     <div class="promptContent">
-        @if (Line.Type == PlatformEventType.ChatMessage)
+        @if (!Line.IsStatus && Line.Type == PlatformEventType.ChatMessage)
         {
             <ChatLine Line="@Line" />
         }
@@ -47,6 +54,11 @@
 
     private string GetLineCssClass()
     {
+        if (Line.IsStatus)
+        {
+            return "line line--activity line--status";
+        }
+
         return Line.Type == PlatformEventType.ChatMessage
             ? "line"
             : "line line--activity";

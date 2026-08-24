@@ -105,6 +105,42 @@
                         </span>
                     </label>
 
+                    <label class="bot-command-dialog__toggle">
+                        <input type="checkbox" checked="@Draft.SendInChat" @onchange="HandleSendInChatChanged" />
+                        <span>
+                            <strong>Send in chat</strong>
+                            <small>Posts the response template to chat, whether a viewer or the operator runs it.</small>
+                        </span>
+                    </label>
+
+                    <label class="bot-command-dialog__toggle">
+                        <input type="checkbox" checked="@Draft.ShowOnLowerThird" @onchange="HandleShowOnLowerThirdChanged" />
+                        <span>
+                            <strong>Show on lower third</strong>
+                            <small>Puts copy on the overlay when the operator taps the command on the dashboard. Viewers typing the trigger never take the overlay.</small>
+                        </span>
+                    </label>
+
+                    @if (Draft.ShowOnLowerThird)
+                    {
+                        <label class="bot-command-dialog__field">
+                            <span class="bot-command-dialog__label">Lower-third heading (optional)</span>
+                            <input type="text"
+                                   class="bot-command-dialog__input"
+                                   value="@Draft.LowerThirdTitle"
+                                   placeholder="@Draft.Trigger"
+                                   @oninput="HandleLowerThirdTitleChanged" />
+                        </label>
+
+                        <label class="bot-command-dialog__field">
+                            <span class="bot-command-dialog__label">Lower-third copy (optional)</span>
+                            <textarea class="bot-command-dialog__input bot-command-dialog__input--textarea"
+                                      rows="3"
+                                      placeholder="Falls back to the response template."
+                                      @oninput="HandleLowerThirdTextChanged">@Draft.LowerThirdText</textarea>
+                        </label>
+                    }
+
                     @if (!string.IsNullOrWhiteSpace(StatusMessage))
                     {
                         <div class="bot-command-dialog__success" role="status">@StatusMessage</div>
@@ -216,7 +252,31 @@
 
     private Task HandleEnabledChanged(ChangeEventArgs args)
     {
-        bool isEnabled = args.Value is bool boolValue && boolValue;
-        return OnDraftChanged.InvokeAsync(Draft with { IsEnabled = isEnabled });
+        return OnDraftChanged.InvokeAsync(Draft with { IsEnabled = IsChecked(args) });
+    }
+
+    private Task HandleSendInChatChanged(ChangeEventArgs args)
+    {
+        return OnDraftChanged.InvokeAsync(Draft with { SendInChat = IsChecked(args) });
+    }
+
+    private Task HandleShowOnLowerThirdChanged(ChangeEventArgs args)
+    {
+        return OnDraftChanged.InvokeAsync(Draft with { ShowOnLowerThird = IsChecked(args) });
+    }
+
+    private Task HandleLowerThirdTitleChanged(ChangeEventArgs args)
+    {
+        return OnDraftChanged.InvokeAsync(Draft with { LowerThirdTitle = args.Value?.ToString() });
+    }
+
+    private Task HandleLowerThirdTextChanged(ChangeEventArgs args)
+    {
+        return OnDraftChanged.InvokeAsync(Draft with { LowerThirdText = args.Value?.ToString() });
+    }
+
+    private static bool IsChecked(ChangeEventArgs args)
+    {
+        return args.Value is bool boolValue && boolValue;
     }
 }

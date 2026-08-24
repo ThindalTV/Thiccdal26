@@ -4,6 +4,7 @@ using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Operators;
 using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Remotes;
+using Thiccdal.Infrastructure.Streaming;
 using Thiccdal.Infrastructure.Twitch;
 
 namespace Thiccdal.Tests;
@@ -208,6 +209,7 @@ public sealed class PreLiveChecklistServiceTests
             new FakeOverlayService(new FakeOverlayComponent("Static Card")),
             new FakePlatformManualReminderProvider(),
             new FakeCustomChecklistItemCatalog([]),
+            new FakeObsConnection(),
             TimeProvider.System,
             TimeSpan.FromMilliseconds(10));
 
@@ -251,6 +253,7 @@ public sealed class PreLiveChecklistServiceTests
             new FakeOverlayService(),
             new FakePlatformManualReminderProvider(),
             customChecklistItemCatalog,
+            new FakeObsConnection(),
             TimeProvider.System,
             TimeSpan.FromMilliseconds(10));
 
@@ -291,6 +294,7 @@ public sealed class PreLiveChecklistServiceTests
             new FakeOverlayService(),
             new FakePlatformManualReminderProvider(),
             customChecklistItemCatalog,
+            new FakeObsConnection(),
             TimeProvider.System);
         int stateChangedCount = 0;
 
@@ -350,6 +354,71 @@ public sealed class PreLiveChecklistServiceTests
         Assert.False(checklistService.AllRequiredChecked);
     }
 
+    [Fact]
+    public void WhenObsIntegrationIsDisabled_ThenTheObsConnectionItemIsNotListed()
+    {
+        using OperatorStateService operatorStateService = new();
+        FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
+        FakeObsConnection obsConnection = new(new ObsState { IsEnabled = false });
+        using PreLiveChecklistService checklistService = CreateService(
+            operatorStateService,
+            obsConnection,
+            TimeSpan.FromMilliseconds(3200),
+            twitchService);
+
+        AssertNoItem(checklistService.GetState(), "obs.connected");
+    }
+
+    [Fact]
+    public void WhenObsIntegrationIsEnabledButDisconnected_ThenTheObsConnectionItemBlocksGoingLive()
+    {
+        using OperatorStateService operatorStateService = new();
+        FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
+        FakeObsConnection obsConnection = new(new ObsState
+        {
+            IsEnabled = true,
+            IsConnected = false,
+            LastError = "Connection refused"
+        });
+        using PreLiveChecklistService checklistService = CreateService(
+            operatorStateService,
+            obsConnection,
+            TimeSpan.FromMilliseconds(3200),
+            twitchService);
+
+        ChecklistItemState item = GetItem(checklistService.GetState(), "obs.connected");
+
+        Assert.True(item.Definition.IsRequired);
+        Assert.False(item.IsChecked);
+        Assert.True(item.IsBlocked);
+        Assert.Equal("Connection refused", item.WarningMessage);
+    }
+
+    [Fact]
+    public void WhenObsConnects_ThenTheObsConnectionItemAutoChecksAndRaisesStateChanged()
+    {
+        using OperatorStateService operatorStateService = new();
+        FakeTwitchService twitchService = new(PlatformConnectionState.Connected);
+        FakeObsConnection obsConnection = new(new ObsState { IsEnabled = true, IsConnected = false });
+        using PreLiveChecklistService checklistService = CreateService(
+            operatorStateService,
+            obsConnection,
+            TimeSpan.FromMilliseconds(3200),
+            twitchService);
+        int stateChangedCount = 0;
+        checklistService.StateChanged += (_, _) => stateChangedCount++;
+
+        obsConnection.SetState(new ObsState { IsEnabled = true, IsConnected = true });
+
+        ChecklistItemState item = GetItem(checklistService.GetState(), "obs.connected");
+
+        Assert.Equal(1, stateChangedCount);
+        Assert.True(item.IsChecked);
+        Assert.True(item.IsAutoChecked);
+        Assert.False(item.IsBlocked);
+        Assert.Null(item.WarningMessage);
+    }
+
     private static ChecklistItemState GetItem(PreLiveChecklistState state, string itemId)
     {
         return Assert.Single(state.Items, item => item.Definition.Id == itemId);
@@ -377,11 +446,25 @@ public sealed class PreLiveChecklistServiceTests
             new FakeOverlayService(),
             new FakePlatformManualReminderProvider(),
             new FakeCustomChecklistItemCatalog([]),
+            new FakeObsConnection(),
             TimeProvider.System);
     }
 
     private static PreLiveChecklistService CreateService(
         OperatorStateService operatorStateService,
+        TimeSpan overlayActionCompletionDelay,
+        params IPlatformConnection[] platformConnections)
+    {
+        return CreateService(
+            operatorStateService,
+            new FakeObsConnection(),
+            overlayActionCompletionDelay,
+            platformConnections);
+    }
+
+    private static PreLiveChecklistService CreateService(
+        OperatorStateService operatorStateService,
+        FakeObsConnection obsConnection,
         TimeSpan overlayActionCompletionDelay,
         params IPlatformConnection[] platformConnections)
     {
@@ -391,6 +474,7 @@ public sealed class PreLiveChecklistServiceTests
             new FakeOverlayService(new FakeTestableOverlayComponent("Chat Feed"), new FakeOverlayComponent("Static Card")),
             new FakePlatformManualReminderProvider(),
             new FakeCustomChecklistItemCatalog([]),
+            obsConnection,
             TimeProvider.System,
             overlayActionCompletionDelay);
     }
@@ -410,6 +494,35 @@ public sealed class PreLiveChecklistServiceTests
         }
 
         return condition();
+    }
+
+    private sealed class FakeObsConnection : IObsConnection
+    {
+        private ObsState _state;
+
+        public FakeObsConnection()
+            : this(new ObsState())
+        {
+        }
+
+        public FakeObsConnection(ObsState state)
+        {
+            _state = state;
+        }
+
+        public event EventHandler? StateChanged;
+
+        public ObsState GetState() => _state;
+
+        public void SetState(ObsState state)
+        {
+            _state = state;
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public Task Connect(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task Disconnect(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FakeOverlayService : IOverlayService

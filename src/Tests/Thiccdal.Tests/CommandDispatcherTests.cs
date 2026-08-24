@@ -7,6 +7,7 @@ using Thiccdal.Infrastructure.AI;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Operators;
+using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Questions;
 using Thiccdal.Infrastructure.Remotes;
 using Thiccdal.Infrastructure.Teleprompter;
@@ -300,6 +301,81 @@ public sealed class CommandDispatcherTests
         Assert.Equal(["!clip"], managementService.IncrementedTriggers);
     }
 
+    [Fact]
+    public async Task WhenOperatorRunsLowerThirdCommand_ThenCopyGoesToTheOverlay()
+    {
+        RecordingLowerThirdService lowerThirdService = new();
+        BotCommandDefinition command = CreateCommand("!discord", "Join the Discord!");
+        command.ShowOnLowerThird = true;
+        command.LowerThirdTitle = "DISCORD";
+        command.LowerThirdText = "discord.gg/thiccdal";
+        CommandDispatcher dispatcher = CreateDispatcher(
+            [command],
+            platformConnections: [new RecordingPlatformConnection("Twitch")],
+            lowerThirdService: lowerThirdService);
+
+        await dispatcher.DispatchFromOperator("discord");
+
+        LowerThirdContent shownContent = Assert.Single(lowerThirdService.ShownMessages);
+        Assert.Equal("DISCORD", shownContent.Eyebrow);
+        Assert.Equal("discord.gg/thiccdal", shownContent.Text);
+    }
+
+    [Fact]
+    public async Task WhenLowerThirdCommandHasNoOwnCopy_ThenTheChatResponseIsShown()
+    {
+        RecordingLowerThirdService lowerThirdService = new();
+        BotCommandDefinition command = CreateCommand("!discord", "Join the Discord!");
+        command.ShowOnLowerThird = true;
+        CommandDispatcher dispatcher = CreateDispatcher(
+            [command],
+            platformConnections: [new RecordingPlatformConnection("Twitch")],
+            lowerThirdService: lowerThirdService);
+
+        await dispatcher.DispatchFromOperator("discord");
+
+        LowerThirdContent shownContent = Assert.Single(lowerThirdService.ShownMessages);
+        Assert.Equal("!discord", shownContent.Eyebrow);
+        Assert.Equal("Join the Discord!", shownContent.Text);
+    }
+
+    [Fact]
+    public async Task WhenCommandDoesNotSendInChat_ThenOperatorRunSkipsThePlatforms()
+    {
+        RecordingPlatformConnection twitchConnection = new("Twitch");
+        RecordingLowerThirdService lowerThirdService = new();
+        BotCommandDefinition command = CreateCommand("!brb", "Be right back");
+        command.SendInChat = false;
+        command.ShowOnLowerThird = true;
+        CommandDispatcher dispatcher = CreateDispatcher(
+            [command],
+            platformConnections: [twitchConnection],
+            lowerThirdService: lowerThirdService);
+
+        await dispatcher.DispatchFromOperator("brb");
+
+        Assert.Empty(twitchConnection.SentMessages);
+        Assert.Single(lowerThirdService.ShownMessages);
+    }
+
+    [Fact]
+    public async Task WhenViewerRunsLowerThirdCommand_ThenTheOverlayIsUntouched()
+    {
+        RecordingCommandResponseSink responseSink = new();
+        RecordingLowerThirdService lowerThirdService = new();
+        BotCommandDefinition command = CreateCommand("!discord", "Join the Discord!");
+        command.ShowOnLowerThird = true;
+        CommandDispatcher dispatcher = CreateDispatcher(
+            [command],
+            responseSink: responseSink,
+            lowerThirdService: lowerThirdService);
+
+        await dispatcher.Dispatch(CreateChatEvent("!discord"));
+
+        Assert.Empty(lowerThirdService.ShownMessages);
+        Assert.Single(responseSink.Messages);
+    }
+
     private static CommandDispatcher CreateDispatcher(
         IReadOnlyList<BotCommandDefinition> commands,
         IReadOnlyList<ICommandHandler>? handlers = null,
@@ -308,7 +384,8 @@ public sealed class CommandDispatcherTests
         RecordingLogger<CommandDispatcher>? logger = null,
         StubBotCommandManagementService? managementService = null,
         IChatBotAiResponder? aiResponder = null,
-        IReadOnlyList<IPlatformConnection>? platformConnections = null)
+        IReadOnlyList<IPlatformConnection>? platformConnections = null,
+        RecordingLowerThirdService? lowerThirdService = null)
     {
         ServiceCollection services = new();
         services.AddSingleton<IOperatorStateService>(new StubOperatorStateService(
@@ -338,6 +415,7 @@ public sealed class CommandDispatcherTests
             new TokenInterpolator(new FixedTimeProvider(DateTimeOffset.UtcNow)),
             provider.GetRequiredService<IOperatorStateService>(),
             aiResponder ?? new StubChatBotAiResponder(null),
+            lowerThirdService ?? new RecordingLowerThirdService(),
             provider,
             platformConnections ?? Array.Empty<IPlatformConnection>(),
             logger ?? new RecordingLogger<CommandDispatcher>());
@@ -359,6 +437,42 @@ public sealed class CommandDispatcherTests
                     }
                 }),
             NullLogger<ChatBotAiResponder>.Instance);
+    }
+
+    private sealed class RecordingLowerThirdService : ILowerThirdService
+    {
+        private LowerThirdContent? _current;
+
+        public event EventHandler? StateChanged;
+
+        public List<LowerThirdContent> ShownMessages { get; } = [];
+
+        public int ClearCount { get; private set; }
+
+        public LowerThirdContent? GetCurrent()
+        {
+            return _current;
+        }
+
+        public void ShowMessage(string eyebrow, string text, string? accent = null)
+        {
+            _current = new LowerThirdContent(
+                LowerThirdContentKind.Message,
+                eyebrow,
+                text,
+                accent ?? "default",
+                DateTimeOffset.UnixEpoch,
+                null);
+            ShownMessages.Add(_current);
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void Clear()
+        {
+            _current = null;
+            ClearCount++;
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private static BotCommandDefinition CreateCommand(

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Thiccdal.Data;
 using Thiccdal.Data.Models;
 using Thiccdal.Infrastructure.Twitch;
@@ -118,10 +119,66 @@ public class TwitchTargetChannelServiceTests
             service.UpdateTargetChannel(new TwitchTargetChannelSettings("guest-channel", "98765")));
     }
 
-    private static TwitchTargetChannelService CreateService(string databaseName)
+    [Fact]
+    public async Task WhenBroadcasterIdIsMissing_ThenUpdateResolvesItFromTheChannelName()
     {
+        var dbName = nameof(WhenBroadcasterIdIsMissing_ThenUpdateResolvesItFromTheChannelName);
+        var service = CreateService(dbName, resolvedBroadcasterId: "13579");
+
+        TwitchChatConnectionProfile profile = await service.UpdateTargetChannel(
+            new TwitchTargetChannelSettings("guestcaster", string.Empty));
+
+        Assert.Equal("13579", profile.BroadcasterId);
+    }
+
+    [Fact]
+    public async Task WhenStoredBroadcasterIdIsNotNumeric_ThenProfileResolvesAndPersistsTheNumericId()
+    {
+        var dbName = nameof(WhenStoredBroadcasterIdIsNotNumeric_ThenProfileResolvesAndPersistsTheNumericId);
+        var factory = new TestDbContextFactory(dbName);
+
+        await using (var context = factory.CreateDbContext())
+        {
+            context.TwitchTargetChannels.Add(new TwitchTargetChannelConfiguration
+            {
+                Id = 1,
+                TargetChannel = "guestcaster",
+                BroadcasterId = "guestcaster",
+                UpdatedAt = DateTime.UtcNow
+            });
+            await context.SaveChangesAsync();
+        }
+
+        var service = CreateService(dbName, resolvedBroadcasterId: "13579");
+
+        TwitchChatConnectionProfile profile = await service.GetConnectionProfile();
+
+        Assert.Equal("13579", profile.BroadcasterId);
+
+        await using (var context = factory.CreateDbContext())
+        {
+            TwitchTargetChannelConfiguration stored = await context.TwitchTargetChannels.SingleAsync();
+            Assert.Equal("13579", stored.BroadcasterId);
+        }
+    }
+
+    private static TwitchTargetChannelService CreateService(string databaseName, string? resolvedBroadcasterId = null)
+    {
+        var helixClient = new Mock<ITwitchHelixClient>();
+        helixClient
+            .Setup(client => client.GetUserByLogin(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string login, CancellationToken _) => resolvedBroadcasterId is null
+                ? null
+                : new TwitchUser
+                {
+                    Id = resolvedBroadcasterId,
+                    Login = login,
+                    DisplayName = login
+                });
+
         return new TwitchTargetChannelService(
             new TestDbContextFactory(databaseName),
+            helixClient.Object,
             NullLogger<TwitchTargetChannelService>.Instance);
     }
 

@@ -59,7 +59,11 @@ public sealed class BotCommandManagementService : IBotCommandManagementService
             ResponseTemplate = NormalizeResponseTemplate(command.ResponseTemplate),
             HandlerType = NormalizeHandlerType(command.HandlerType),
             IsEnabled = command.IsEnabled,
-            UseCount = 0
+            UseCount = 0,
+            SendInChat = command.SendInChat,
+            ShowOnLowerThird = command.ShowOnLowerThird,
+            LowerThirdTitle = NormalizeOptionalText(command.LowerThirdTitle),
+            LowerThirdText = NormalizeOptionalText(command.LowerThirdText)
         };
 
         dbContext.BotCommands.Add(entity);
@@ -91,6 +95,10 @@ public sealed class BotCommandManagementService : IBotCommandManagementService
         entity.ResponseTemplate = NormalizeResponseTemplate(command.ResponseTemplate);
         entity.HandlerType = NormalizeHandlerType(command.HandlerType);
         entity.IsEnabled = command.IsEnabled;
+        entity.SendInChat = command.SendInChat;
+        entity.ShowOnLowerThird = command.ShowOnLowerThird;
+        entity.LowerThirdTitle = NormalizeOptionalText(command.LowerThirdTitle);
+        entity.LowerThirdText = NormalizeOptionalText(command.LowerThirdText);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -142,7 +150,11 @@ public sealed class BotCommandManagementService : IBotCommandManagementService
             ResponseTemplate = command.ResponseTemplate,
             HandlerType = command.HandlerType,
             IsEnabled = command.IsEnabled,
-            UseCount = command.UseCount
+            UseCount = command.UseCount,
+            SendInChat = command.SendInChat,
+            ShowOnLowerThird = command.ShowOnLowerThird,
+            LowerThirdTitle = command.LowerThirdTitle,
+            LowerThirdText = command.LowerThirdText
         };
     }
 
@@ -173,6 +185,11 @@ public sealed class BotCommandManagementService : IBotCommandManagementService
         }
 
         return responseTemplate.Trim();
+    }
+
+    private static string? NormalizeOptionalText(string? text)
+    {
+        return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
     }
 
     private static string? NormalizeHandlerType(string? handlerType)

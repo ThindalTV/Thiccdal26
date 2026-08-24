@@ -78,7 +78,14 @@
                                 <h4 class="integrations-panel__section-title">Target channel</h4>
                                 <div class="integrations-panel__form-grid">
                                     <label class="integrations-panel__field">
-                                        <span class="integrations-panel__field-label">Channel name</span>
+                                        <span class="integrations-panel__field-label">
+                                            <span>Channel name</span>
+                                            <span class="integrations-panel__info"
+                                                  tabindex="0"
+                                                  role="note"
+                                                  aria-label="The Twitch channel the bot joins and reads chat from. Use the name from twitch.tv/yourname — no # and no URL."
+                                                  data-info="The Twitch channel the bot joins and reads chat from. Use the name from twitch.tv/yourname — no # and no URL.">i</span>
+                                        </span>
                                         <input class="form-control"
                                                autocomplete="off"
                                                autocapitalize="none"
@@ -87,7 +94,14 @@
                                     </label>
 
                                     <label class="integrations-panel__field">
-                                        <span class="integrations-panel__field-label">Broadcaster user ID</span>
+                                        <span class="integrations-panel__field-label">
+                                            <span>Broadcaster user ID (optional)</span>
+                                            <span class="integrations-panel__info"
+                                                  tabindex="0"
+                                                  role="note"
+                                                  aria-label="The numeric Twitch user ID of that channel. Leave it blank and it is looked up from the channel name when you save."
+                                                  data-info="The numeric Twitch user ID of that channel. Leave it blank and it is looked up from the channel name when you save.">i</span>
+                                        </span>
                                         <input class="form-control"
                                                autocomplete="off"
                                                @bind="_twitchBroadcasterId" />
@@ -107,6 +121,10 @@
 
                             <div class="integrations-panel__section">
                                 <h4 class="integrations-panel__section-title">Authorization and chat session</h4>
+                                <p class="integrations-panel__auth-identity">
+                                    <span class="integrations-panel__auth-dot integrations-panel__auth-dot--@(IsTwitchAuthorized ? "on" : "off")" aria-hidden="true"></span>
+                                    @GetTwitchAuthorizationDisplay()
+                                </p>
                                 <div class="integrations-panel__actions-row">
                                     <button type="button"
                                             class="integrations-panel__primary-action"
@@ -167,6 +185,7 @@
                            AuthorizationUrl="@authPlatform.AuthorizationUrl"
                            IsOpen="@_showAuthorizationDialog"
                            IsConnected="@IsAuthorizationConnected(authPlatform.PlatformName)"
+                           AccountName="@GetAuthorizationAccountName(authPlatform.PlatformName)"
                            ErrorMessage="@_authorizationErrorMessage"
                            OnClose="CloseAuthorizationDialog"
                            OnConnected="ConfirmSelectedAuthorization"
@@ -205,12 +224,13 @@
     private bool _isLoading = true;
     private bool _isWorking;
     private bool _showAuthorizationDialog;
+    private bool _hasTwitchToken;
 
     private PlatformViewModel? SelectedPlatform => _platforms.FirstOrDefault(
         platform => string.Equals(platform.PlatformName, _selectedPlatformName, StringComparison.OrdinalIgnoreCase));
 
     private bool IsTwitchSelected => string.Equals(_selectedPlatformName, "Twitch", StringComparison.OrdinalIgnoreCase);
-    private bool IsTwitchAuthorized => _twitchService?.ConnectionState != TwitchConnectionState.NotAuthorized;
+    private bool IsTwitchAuthorized => _hasTwitchToken;
     private bool IsTwitchTargetDirty => !string.Equals(Normalize(_twitchTargetChannel), Normalize(_twitchProfile.TargetChannel), StringComparison.Ordinal) ||
                                         !string.Equals(Normalize(_twitchBroadcasterId), Normalize(_twitchProfile.BroadcasterId), StringComparison.Ordinal);
     private bool CanConnectTwitch => !_isWorking &&
@@ -274,6 +294,8 @@
             {
                 await monitor.RefreshConnectionState();
             }
+
+            _hasTwitchToken = _twitchTokenManager is not null && await _twitchTokenManager.HasToken();
 
             if (_twitchService is not null)
             {
@@ -414,7 +436,10 @@
             "Twitch" when _twitchTokenManager is not null => RunAction(
                 async () =>
                 {
-                    if (_twitchService?.Connected == true)
+                    // Always drop the chat session first: the service reports Connected == false while the
+                    // EventSub socket is down even though its state is still Connected, which would leave
+                    // RefreshConnectionState short-circuiting on a stale state after the tokens are gone.
+                    if (_twitchService is not null)
                     {
                         await _twitchService.Disconnect();
                     }
@@ -475,6 +500,15 @@
         };
     }
 
+    private string GetAuthorizationAccountName(string platformName)
+    {
+        return platformName switch
+        {
+            "Twitch" => _twitchProfile.BotUsername,
+            _ => string.Empty
+        };
+    }
+
     private string GetSelectedPlatformSubtitle(PlatformViewModel platform)
     {
         return platform.PlatformName switch
@@ -503,6 +537,19 @@
         {
             _ => "This integration does not expose additional in-app connection controls yet."
         };
+    }
+
+    private string GetTwitchAuthorizationDisplay()
+    {
+        if (!IsTwitchAuthorized)
+        {
+            return "Not authorized — no Twitch account is connected.";
+        }
+
+        // A token can outlive the Helix lookup that names it, so never claim an identity we do not have.
+        return string.IsNullOrWhiteSpace(_twitchProfile.BotUsername)
+            ? "Authorized — account name unavailable."
+            : $"Authorized as @{_twitchProfile.BotUsername}";
     }
 
     private string GetTwitchBotDisplay()

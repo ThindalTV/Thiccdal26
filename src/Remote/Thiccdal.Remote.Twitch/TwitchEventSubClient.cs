@@ -302,7 +302,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogWarning(ex, "Failed to create Twitch EventSub subscription {SubscriptionType}", request.Type);
+                _logger.LogError(ex, "Failed to create Twitch EventSub subscription {SubscriptionType}. No events of this kind will arrive.", request.Type);
             }
         }
     }
@@ -341,6 +341,25 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
 
         yield return CreateRequest(
             "channel.subscribe",
+            "1",
+            sessionId,
+            new Dictionary<string, string>
+            {
+                ["broadcaster_user_id"] = profile.BroadcasterId
+            });
+
+        // channel.subscribe only fires for new subscriptions, so resubs and gift batches need their own topics.
+        yield return CreateRequest(
+            "channel.subscription.message",
+            "1",
+            sessionId,
+            new Dictionary<string, string>
+            {
+                ["broadcaster_user_id"] = profile.BroadcasterId
+            });
+
+        yield return CreateRequest(
+            "channel.subscription.gift",
             "1",
             sessionId,
             new Dictionary<string, string>

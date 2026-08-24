@@ -190,11 +190,90 @@
 }
 
 .integrations-panel__field-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+}
+
+.integrations-panel__info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    font-style: italic;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: help;
+}
+
+.integrations-panel__info::after {
+    content: attr(data-info);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    z-index: 20;
+    width: max-content;
+    max-width: 260px;
+    padding: 8px 10px;
+    transform: translateX(-50%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-panel);
+    background: var(--color-bg-popup);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    font-style: normal;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease;
+}
+
+.integrations-panel__info:hover::after,
+.integrations-panel__info:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+.integrations-panel__auth-identity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+}
+
+.integrations-panel__auth-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.integrations-panel__auth-dot--on {
+    background: rgba(60, 220, 100, 0.9);
+    box-shadow: var(--glow-ready);
+}
+
+.integrations-panel__auth-dot--off {
+    background: var(--color-text-placeholder);
 }
 
 .integrations-panel__actions-row {

@@ -1,0 +1,71 @@
+@using Thiccdal.Infrastructure.Overlay
+@using Thiccdal.Shared.Components.Components.Primitives
+@inject ILowerThirdService LowerThirdService
+@implements IDisposable
+
+<div class="ctrl-panel lt-preview">
+    <div class="ctrl-panel__header">
+        <span class="ctrl-panel__title">Lower Third</span>
+        <span class="ctrl-panel__spacer"></span>
+        <Badge Color="@(_content is null ? "default" : "success")">@(_content is null ? "STANDBY" : "● LIVE")</Badge>
+    </div>
+    <div class="ctrl-panel__body lt-preview__body">
+        @if (_content is LowerThirdContent content)
+        {
+            <div class="lt-preview__stage">
+                <div class="lt-preview__bar">
+                    <span class="lt-preview__eyebrow">@content.Eyebrow</span>
+                    <span class="lt-preview__text">@content.Text</span>
+                </div>
+            </div>
+            <div class="lt-preview__meta">
+                <span>@GetSourceLabel(content)</span>
+                <span>@FormatElapsed(content.StartedAt)</span>
+            </div>
+            <DangerButton OnClick="Clear">Clear lower third</DangerButton>
+        }
+        else
+        {
+            <div class="lt-preview__stage lt-preview__stage--empty">
+                <span class="lt-preview__empty-copy">Nothing is on screen. Show a question or push an overlay card.</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private LowerThirdContent? _content;
+
+    protected override void OnInitialized()
+    {
+        _content = LowerThirdService.GetCurrent();
+        LowerThirdService.StateChanged += HandleStateChanged;
+    }
+
+    public void Dispose()
+    {
+        LowerThirdService.StateChanged -= HandleStateChanged;
+    }
+
+    private void HandleStateChanged(object? sender, EventArgs args)
+    {
+        _content = LowerThirdService.GetCurrent();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void Clear()
+    {
+        LowerThirdService.Clear();
+    }
+
+    private static string GetSourceLabel(LowerThirdContent content)
+    {
+        return content.Kind == LowerThirdContentKind.Question ? "Viewer question" : "Operator card";
+    }
+
+    private static string FormatElapsed(DateTimeOffset startedAt)
+    {
+        TimeSpan elapsed = DateTimeOffset.UtcNow - startedAt;
+        return $"{Math.Max(0, (int)elapsed.TotalMinutes):00}:{Math.Max(0, elapsed.Seconds):00} on screen";
+    }
+}

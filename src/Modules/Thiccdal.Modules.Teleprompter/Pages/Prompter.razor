@@ -5,6 +5,7 @@
 @using Thiccdal.Infrastructure.Questions
 @using Thiccdal.Infrastructure.Remotes
 @using Thiccdal.Infrastructure.Sponsors
+@using Thiccdal.Infrastructure.Twitch
 @using Microsoft.JSInterop
 @using Thiccdal.Modules.Teleprompter.Components
 @using Thiccdal.Modules.Teleprompter.Models
@@ -19,6 +20,8 @@
 @inject IJSRuntime JS
 @inject IOperatorStateService OperatorStateService
 @inject IQuestionOverlayService QuestionOverlayService
+@inject IEnumerable<IPlatformConnection> PlatformConnections
+@inject ITwitchTargetChannelService TargetChannelService
 
 <ReadinessGate SurfaceName="The teleprompter" Requires="ReadinessRequirement.ChannelConfigured">
     <div id="prompterBackground">
@@ -37,11 +40,6 @@
         }
 
         <SponsorBar />
-
-        <header class="prompter-heading">
-            <span class="prompter-heading__label">Staged Stream Title</span>
-            <h1 class="prompter-heading__title">@GetPrompterTitle()</h1>
-        </header>
 
         <div class="prompter-content">
             <div id="chatList">
@@ -65,6 +63,9 @@
     private int _questionFlashVersion;
     private long _lastQuestionAttentionSequence;
     private Task? _significantEventSubscriptionTask;
+    private Task? _connectionPollTask;
+    private string _channelName = string.Empty;
+    private PlatformConnectionState _connectionState = PlatformConnectionState.Disconnected;
 
     protected override async Task OnInitializedAsync()
     {
@@ -81,8 +82,15 @@
             ShowQuestionFlash();
         }
 
+        TargetChannelService.ConnectionProfileChanged += HandleConnectionProfileChanged;
+        TwitchChatConnectionProfile profile = await TargetChannelService.GetConnectionProfile(_cts.Token);
+        _channelName = profile.TargetChannel;
+        _connectionState = GetPlatformConnectionState();
+        AddStatusLine(_connectionState);
+
         await ChatService.Connect(_cts.Token);
         _significantEventSubscriptionTask = ListenForSignificantEvents(_cts.Token);
+        _connectionPollTask = PollConnectionState(_cts.Token);
 
         await base.OnInitializedAsync();
     }
@@ -98,13 +106,19 @@
     {
         ActivityFeedService.EntryAdded -= HandleEntryAdded;
         OperatorStateService.StateChanged -= HandleOperatorStateChanged;
+        TargetChannelService.ConnectionProfileChanged -= HandleConnectionProfileChanged;
         _cts.Cancel();
 
-        if (_significantEventSubscriptionTask is not null)
+        foreach (Task? backgroundTask in new[] { _significantEventSubscriptionTask, _connectionPollTask })
         {
+            if (backgroundTask is null)
+            {
+                continue;
+            }
+
             try
             {
-                await _significantEventSubscriptionTask;
+                await backgroundTask;
             }
             catch (OperationCanceledException) when (_cts.IsCancellationRequested)
             {
@@ -173,9 +187,9 @@
 
     private static bool ShouldTriggerEventFlash(PlatformEvent platformEvent) => platformEvent.Type switch
     {
-        PlatformEventType.Subscribe => true,
-        PlatformEventType.Raid => true,
-        _ => false
+        PlatformEventType.ChatMessage => false,
+        PlatformEventType.Raw => false,
+        _ => true
     };
 
     private void ShowQuestionFlash()
@@ -211,7 +225,8 @@
             _showEventFlash = true;
             await InvokeAsync(StateHasChanged);
 
-            await Task.Delay(600, _cts.Token);
+            // Matches the 1s in-and-out prompter-flash-event animation.
+            await Task.Delay(1000, _cts.Token);
 
             if (flashVersion == _eventFlashVersion && !_cts.IsCancellationRequested)
             {
@@ -234,11 +249,86 @@
         await base.OnAfterRenderAsync(firstRender);
     }
 
-    private string GetPrompterTitle()
+    private void HandleConnectionProfileChanged(object? sender, TwitchChatConnectionProfile profile)
     {
-        return string.IsNullOrWhiteSpace(OperatorStateService.StreamTitle)
-            ? "Waiting for staged stream title"
-            : OperatorStateService.StreamTitle;
+        _channelName = profile.TargetChannel;
+    }
+
+    private void AddStatusLine(PlatformConnectionState state)
+    {
+        string channel = string.IsNullOrWhiteSpace(_channelName) ? "Twitch" : _channelName;
+        string content = state switch
+        {
+            PlatformConnectionState.Connected => $"Connected to {channel}",
+            PlatformConnectionState.Connecting => $"Connecting to {channel}",
+            _ => $"Not connected to {channel}"
+        };
+        string accentColor = state switch
+        {
+            PlatformConnectionState.Connected => "#3CC864",
+            PlatformConnectionState.Connecting => "#F59E0B",
+            _ => "#F87171"
+        };
+
+        _lines.Insert(
+            0,
+            new Line(
+                "Thiccdal",
+                content,
+                content,
+                "Thiccdal",
+                DateTime.UtcNow,
+                PlatformEventType.Raw,
+                AccentColor: accentColor,
+                IsStatus: true));
+        TrimLines();
+    }
+
+    // Platform adapters expose connection state as a property, not as an event, so the on-camera
+    // status indicator is refreshed on a slow poll rather than pushed.
+    private async Task PollConnectionState(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using PeriodicTimer timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                PlatformConnectionState state = GetPlatformConnectionState();
+                if (state == _connectionState)
+                {
+                    continue;
+                }
+
+                _connectionState = state;
+                AddStatusLine(state);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private PlatformConnectionState GetPlatformConnectionState()
+    {
+        PlatformConnectionState[] states = PlatformConnections
+            .Select(connection => connection.State)
+            .ToArray();
+
+        if (states.Contains(PlatformConnectionState.Connected))
+        {
+            return PlatformConnectionState.Connected;
+        }
+
+        if (states.Contains(PlatformConnectionState.Connecting))
+        {
+            return PlatformConnectionState.Connecting;
+        }
+
+        return states.Contains(PlatformConnectionState.Error)
+            ? PlatformConnectionState.Error
+            : PlatformConnectionState.Disconnected;
     }
 
     private async Task ApplyScrollPosition()

@@ -12,15 +12,18 @@ public sealed class TwitchTargetChannelService : ITwitchTargetChannelService
     private const int ConfigurationId = 1;
 
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
+    private readonly ITwitchHelixClient _helixClient;
     private readonly ILogger<TwitchTargetChannelService> _logger;
 
     public event EventHandler<TwitchChatConnectionProfile>? ConnectionProfileChanged;
 
     public TwitchTargetChannelService(
         IDbContextFactory<ApplicationDbContext> dbContextFactory,
+        ITwitchHelixClient helixClient,
         ILogger<TwitchTargetChannelService> logger)
     {
         _dbContextFactory = dbContextFactory;
+        _helixClient = helixClient;
         _logger = logger;
     }
 
@@ -31,7 +34,22 @@ public sealed class TwitchTargetChannelService : ITwitchTargetChannelService
             .AsNoTracking()
             .SingleOrDefaultAsync(target => target.Id == ConfigurationId, cancellationToken);
 
-        return await BuildProfile(configuration, cancellationToken);
+        TwitchChatConnectionProfile profile = await BuildProfile(configuration, cancellationToken);
+        if (IsBroadcasterIdUsable(profile.BroadcasterId) || string.IsNullOrWhiteSpace(profile.TargetChannel))
+        {
+            return profile;
+        }
+
+        // EventSub conditions only accept the numeric user id, so a channel saved with a login name
+        // (or with the field left blank) silently receives nothing until the id is resolved.
+        string resolvedBroadcasterId = await ResolveBroadcasterId(profile.TargetChannel, cancellationToken);
+        if (string.IsNullOrWhiteSpace(resolvedBroadcasterId))
+        {
+            return profile;
+        }
+
+        await PersistBroadcasterId(resolvedBroadcasterId, cancellationToken);
+        return profile with { BroadcasterId = resolvedBroadcasterId };
     }
 
     public async Task<TwitchChatConnectionProfile> UpdateTargetChannel(
@@ -56,6 +74,11 @@ public sealed class TwitchTargetChannelService : ITwitchTargetChannelService
             };
 
             context.TwitchTargetChannels.Add(configuration);
+        }
+
+        if (!IsBroadcasterIdUsable(normalizedBroadcasterId))
+        {
+            normalizedBroadcasterId = await ResolveBroadcasterId(normalizedChannel, cancellationToken);
         }
 
         configuration.TargetChannel = normalizedChannel;
@@ -99,6 +122,52 @@ public sealed class TwitchTargetChannelService : ITwitchTargetChannelService
             TargetChannel = targetChannel,
             BroadcasterId = broadcasterId
         };
+    }
+
+    private async Task<string> ResolveBroadcasterId(string targetChannel, CancellationToken cancellationToken)
+    {
+        try
+        {
+            TwitchUser? user = await _helixClient.GetUserByLogin(targetChannel, cancellationToken);
+            if (user == null)
+            {
+                _logger.LogWarning("Twitch returned no user for channel {TargetChannel}", targetChannel);
+                return string.Empty;
+            }
+
+            _logger.LogInformation(
+                "Resolved Twitch broadcaster id {BroadcasterId} for channel {TargetChannel}",
+                user.Id,
+                targetChannel);
+
+            return user.Id;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to resolve the Twitch broadcaster id for channel {TargetChannel}", targetChannel);
+            return string.Empty;
+        }
+    }
+
+    private async Task PersistBroadcasterId(string broadcasterId, CancellationToken cancellationToken)
+    {
+        await using ApplicationDbContext context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        TwitchTargetChannelConfiguration? configuration = await context.TwitchTargetChannels
+            .SingleOrDefaultAsync(current => current.Id == ConfigurationId, cancellationToken);
+
+        if (configuration == null)
+        {
+            return;
+        }
+
+        configuration.BroadcasterId = broadcasterId;
+        configuration.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static bool IsBroadcasterIdUsable(string? broadcasterId)
+    {
+        return !string.IsNullOrWhiteSpace(broadcasterId) && broadcasterId.All(char.IsAsciiDigit);
     }
 
     private static string NormalizeRequiredChannel(string channel)

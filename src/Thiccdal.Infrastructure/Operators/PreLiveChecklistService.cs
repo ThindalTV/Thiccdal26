@@ -1,5 +1,6 @@
 using Thiccdal.Infrastructure.Overlay;
 using Thiccdal.Infrastructure.Remotes;
+using Thiccdal.Infrastructure.Streaming;
 using Thiccdal.Infrastructure.Twitch;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +23,7 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
     private readonly IOverlayService _overlayService;
     private readonly IPlatformManualReminderProvider _manualReminderProvider;
     private readonly ICustomChecklistItemCatalog _customChecklistItemCatalog;
+    private readonly IObsConnection _obsConnection;
     private readonly IReadOnlyList<IPlatformConnection> _platformConnections;
     private readonly Lock _checkedItemsLock = new();
     private readonly Lock _personalPrepDefinitionsLock = new();
@@ -38,6 +40,7 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
         IOverlayService overlayService,
         IPlatformManualReminderProvider manualReminderProvider,
         ICustomChecklistItemCatalog customChecklistItemCatalog,
+        IObsConnection obsConnection,
         TimeProvider timeProvider)
         : this(
             operatorStateService,
@@ -45,6 +48,7 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
             overlayService,
             manualReminderProvider,
             customChecklistItemCatalog,
+            obsConnection,
             timeProvider,
             DefaultOverlayActionCompletionDelay)
     {
@@ -56,10 +60,12 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
         IOverlayService overlayService,
         IPlatformManualReminderProvider manualReminderProvider,
         ICustomChecklistItemCatalog customChecklistItemCatalog,
+        IObsConnection obsConnection,
         TimeProvider timeProvider,
         TimeSpan overlayActionCompletionDelay)
     {
         ArgumentNullException.ThrowIfNull(customChecklistItemCatalog);
+        ArgumentNullException.ThrowIfNull(obsConnection);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(overlayActionCompletionDelay, TimeSpan.Zero);
 
@@ -67,11 +73,15 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
         _overlayService = overlayService;
         _manualReminderProvider = manualReminderProvider;
         _customChecklistItemCatalog = customChecklistItemCatalog;
+        _obsConnection = obsConnection;
         _platformConnections = platformConnections.ToArray();
         _overlayActionCompletionDelay = overlayActionCompletionDelay;
 
         _operatorStateService.StateChanged += HandleDependencyStateChanged;
         _unsubscribeActions.Add(() => _operatorStateService.StateChanged -= HandleDependencyStateChanged);
+
+        _obsConnection.StateChanged += HandleDependencyStateChanged;
+        _unsubscribeActions.Add(() => _obsConnection.StateChanged -= HandleDependencyStateChanged);
 
         SubscribeToPlatformEvents(_platformConnections);
     }
@@ -249,6 +259,7 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
                 hint: "Checks when a staged pre-live category is present."),
             CreateManualReminderItem(),
             CreateManualItem("obs-scene-ready", "OBS scene configured and active", true, ObsTechnicalCategory, 200, "Confirm the correct scene collection is live in OBS."),
+            .. BuildObsConnectionItems(),
             CreateManualItem("audio-levels-set", "Audio levels checked", true, ObsTechnicalCategory, 202, null),
             CreateManualItem("test-stream-done", "Test stream completed", false, ObsTechnicalCategory, 203, null),
             .. BuildOverlayItems(),
@@ -256,6 +267,39 @@ public sealed class PreLiveChecklistService : IPreLiveChecklistService, IHostedS
         ];
 
         return [.. items.OrderBy(static item => item.Definition.SortOrder)];
+    }
+
+    /// <summary>
+    /// Emits the live obs-websocket item only when the integration is switched on, so operators who
+    /// never enable it do not carry a permanently unchecked row.
+    /// </summary>
+    private IEnumerable<ChecklistItemState> BuildObsConnectionItems()
+    {
+        ObsState obsState = _obsConnection.GetState();
+
+        if (!obsState.IsEnabled)
+        {
+            yield break;
+        }
+
+        yield return new ChecklistItemState
+        {
+            Definition = new ChecklistItemDefinition
+            {
+                Id = "obs.connected",
+                Category = ObsTechnicalCategory,
+                Label = "OBS connected",
+                Type = ChecklistItemType.Auto,
+                IsRequired = true,
+                Hint = "Checks when Thiccdal has an obs-websocket session with OBS.",
+                SortOrder = 201
+            },
+            IsChecked = obsState.IsConnected,
+            IsAutoChecked = obsState.IsConnected,
+            IsBlocked = !obsState.IsConnected,
+            IsWarning = !obsState.IsConnected && !string.IsNullOrWhiteSpace(obsState.LastError),
+            WarningMessage = obsState.IsConnected ? null : obsState.LastError
+        };
     }
 
     private IEnumerable<ChecklistItemState> BuildOverlayItems()

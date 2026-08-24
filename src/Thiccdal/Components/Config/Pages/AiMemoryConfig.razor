@@ -3,11 +3,11 @@
 @inject IChatterMemoryService ChatterMemoryService
 @inject IOptions<ChatBotOptions> ChatBotOptionsAccessor
 @inject NavigationManager NavigationManager
-@inject IJSRuntime JS
+@inject IServer Server
 
+@using Microsoft.AspNetCore.Hosting.Server
+@using Microsoft.AspNetCore.Hosting.Server.Features
 @using Microsoft.Extensions.Options
-@using Microsoft.JSInterop
-@using System.Text.Json
 @using Thiccdal.Infrastructure.Bot
 @using Thiccdal.Infrastructure.Bot.Models
 @using Thiccdal.Components.Config
@@ -97,47 +97,33 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    <h2 class="h4">Teleprompter Display</h2>
+                    <h2 class="h4">Teleprompter display</h2>
                     <p class="text-muted">
-                        A standalone Windows application that displays the teleprompter in fullscreen on a secondary monitor.
-                        Features include mouse blocking, global hotkeys, and OBS integration for auto-start/stop with your stream.
+                        The teleprompter is a web page. Add it to OBS as a custom browser dock, then float
+                        the dock onto the monitor you read from — there is nothing to download or install.
                     </p>
 
-                    <div class="row g-3 align-items-end">
-                        <div class="col-auto">
-                            <a href="/downloads/Thiccdal.Teleprompter.Display.exe" class="btn btn-primary" download>
-                                <i class="bi bi-download me-1"></i> Download Application
-                            </a>
-                        </div>
-                        <div class="col-auto">
-                            <button class="btn btn-outline-secondary" @onclick="DownloadConfiguration">
-                                <i class="bi bi-file-earmark-code me-1"></i> Download Configuration
-                            </button>
-                        </div>
+                    <ol class="small">
+                        <li>In OBS, select <strong>Docks</strong> &rarr; <strong>Custom Browser Docks</strong>.</li>
+                        <li>Enter a dock name of <code>Teleprompter</code>.</li>
+                        <li>Enter the URL below, then select <strong>Apply</strong>.</li>
+                        <li>Drag the dock off the OBS window and move it to your reading monitor.</li>
+                    </ol>
+
+                    <div class="input-group">
+                        <input class="form-control font-monospace" readonly value="@GetPrompterUrl()" aria-label="Teleprompter dock URL" />
                     </div>
 
-                    <div class="mt-3">
-                        <div class="alert alert-warning mb-2" role="alert">
-                            <strong>Security Note:</strong> The application is unsigned. Windows SmartScreen will show 
-                            "Windows protected your PC" on first run. Click <em>More info</em> → <em>Run anyway</em> to proceed.
-                        </div>
-                        <small class="text-muted">
-                            <strong>Setup:</strong> Download the EXE and configuration file to the same folder. 
-                            The configuration points to this server (<code>@GetServerUrl()</code>).
-                            Edit <code>displayconfig.json</code> to customize monitor index, hotkeys, or OBS settings.
-                        </small>
+                    <div class="alert alert-warning mt-3 mb-0" role="alert">
+                        Use the <code>http://</code> address. The browser engine inside OBS cannot accept the
+                        development certificate, so an <code>https://</code> dock shows a certificate error you
+                        cannot dismiss.
                     </div>
 
-                    <details class="mt-3">
-                        <summary class="text-muted" style="cursor: pointer;">Requirements &amp; Features</summary>
-                        <ul class="mt-2 mb-0 small text-muted">
-                            <li><strong>Windows 10/11 (x64)</strong> with multiple monitors</li>
-                            <li><strong>WebView2 Runtime</strong> (pre-installed on Windows 10/11)</li>
-                            <li><strong>Toggle hotkey:</strong> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> (configurable)</li>
-                            <li><strong>OBS integration:</strong> Auto-starts when you go live (requires OBS WebSocket)</li>
-                            <li><strong>Mouse blocking:</strong> Cursor cannot enter teleprompter screen while active</li>
-                        </ul>
-                    </details>
+                    <small class="text-muted d-block mt-3">
+                        To have the pre-live checklist track OBS itself, enable the WebSocket server in OBS and
+                        set <code>Obs:Enabled</code> in <code>appsettings.json</code>.
+                    </small>
                 </div>
             </div>
         </div>
@@ -234,44 +220,38 @@
         return string.IsNullOrWhiteSpace(Environment.UserName) ? "operator" : Environment.UserName;
     }
 
-    private string GetServerUrl()
+    /// <summary>
+    /// Builds the URL the operator pastes into the OBS custom browser dock. The dock must use
+    /// plain HTTP because the OBS browser engine cannot accept the development certificate, and
+    /// the HTTP listener is on a different port than the HTTPS one this page may be served over.
+    /// </summary>
+    private string GetPrompterUrl()
     {
-        return NavigationManager.BaseUri.TrimEnd('/');
-    }
+        Uri baseUri = new Uri(NavigationManager.BaseUri);
 
-    private async Task DownloadConfiguration()
-    {
-        var config = new
+        if (baseUri.Scheme == Uri.UriSchemeHttp)
         {
-            serverUrl = GetServerUrl(),
-            viewPath = "/prompter",
-            monitorIndex = 1,
-            blockMouse = true,
-            hotkeys = new
-            {
-                toggleDisplay = "Ctrl+Shift+T"
-            },
-            obs = new
-            {
-                enabled = true,
-                host = "localhost",
-                port = 4455,
-                password = "",
-                autoStartOnStream = true,
-                autoStopOnStreamEnd = true
-            }
+            return new Uri(baseUri, "/prompter").ToString();
+        }
+
+        string? httpAddress = Server.Features
+            .Get<IServerAddressesFeature>()?
+            .Addresses
+            .FirstOrDefault(static address => address.StartsWith(Uri.UriSchemeHttp + "://", StringComparison.OrdinalIgnoreCase));
+
+        if (httpAddress is null)
+        {
+            return new Uri(baseUri, "/prompter").ToString();
+        }
+
+        // Listener addresses use wildcard hosts such as http://+:5000; show the host the operator reached us on.
+        UriBuilder builder = new UriBuilder(httpAddress.Replace("+", baseUri.Host, StringComparison.Ordinal))
+        {
+            Host = baseUri.Host,
+            Path = "/prompter"
         };
 
-        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
-        var base64 = Convert.ToBase64String(bytes);
-
-        await JS.InvokeVoidAsync("eval", $@"
-            const link = document.createElement('a');
-            link.href = 'data:application/json;base64,{base64}';
-            link.download = 'displayconfig.json';
-            link.click();
-        ");
+        return builder.Uri.ToString();
     }
 
     private sealed class ResetScopeModel

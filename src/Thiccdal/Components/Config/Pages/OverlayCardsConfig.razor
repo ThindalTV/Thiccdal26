@@ -1,0 +1,207 @@
+@page "/config/system/overlay-cards"
+@layout Thiccdal.Components.Layout.ConfigLayout
+@using Thiccdal.Components.Config
+@using Thiccdal.Infrastructure.Overlay
+@inject IOverlayCardManagementService OverlayCardService
+@implements IDisposable
+
+<PageTitle>Overlay cards — Configuration</PageTitle>
+
+<ConfigPage Title="Overlay cards"
+            Description="Predefined copy you push onto the lower third from the dashboard with one tap.">
+
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <p class="overlay-cards__error" role="alert">@_errorMessage</p>
+    }
+
+    <div class="overlay-cards">
+        <section class="overlay-cards__list" aria-label="Saved overlay cards">
+            @if (_cards.Count == 0)
+            {
+                <p class="overlay-cards__empty">No cards yet. Add one on the right.</p>
+            }
+            else
+            {
+                @foreach (OverlayCardDefinition card in _cards)
+                {
+                    <article class="overlay-cards__row @(_editingId == card.Id ? "overlay-cards__row--active" : "")"
+                             style="--card-color: @card.AccentColor">
+                        <button type="button" class="overlay-cards__row-main" @onclick="() => Edit(card)">
+                            <span class="overlay-cards__row-category">@card.Category</span>
+                            <span class="overlay-cards__row-title">@card.Title</span>
+                            <span class="overlay-cards__row-meta">
+                                @card.Description
+                                @if (!card.IsEnabled)
+                                {
+                                    <span class="overlay-cards__badge">disabled</span>
+                                }
+                            </span>
+                        </button>
+                        <button type="button" class="overlay-cards__delete" disabled="@_isBusy" @onclick="() => Delete(card.Id)" aria-label="Delete card">✕</button>
+                    </article>
+                }
+            }
+        </section>
+
+        <section class="overlay-cards__editor" aria-label="Overlay card editor">
+            <h2 class="overlay-cards__editor-title">@(_editingId is null ? "New card" : "Edit card")</h2>
+
+            <label class="overlay-cards__label" for="overlay-card-category">Category</label>
+            <input id="overlay-card-category" class="overlay-cards__input" @bind="_draftCategory" placeholder="DISCORD" />
+
+            <label class="overlay-cards__label" for="overlay-card-title">Title</label>
+            <input id="overlay-card-title" class="overlay-cards__input" @bind="_draftTitle" placeholder="Join the community!" />
+
+            <label class="overlay-cards__label" for="overlay-card-description">Description</label>
+            <textarea id="overlay-card-description" class="overlay-cards__input" rows="2" @bind="_draftDescription"
+                      placeholder="discord.gg/thiccdal"></textarea>
+
+            <label class="overlay-cards__label" for="overlay-card-color">Accent colour</label>
+            <input id="overlay-card-color" class="overlay-cards__input" type="color" @bind="_draftAccentColor" />
+
+            <label class="overlay-cards__label" for="overlay-card-order">Sort order</label>
+            <input id="overlay-card-order" class="overlay-cards__input" type="number" @bind="_draftSortOrder" />
+
+            <label class="overlay-cards__check">
+                <input type="checkbox" @bind="_draftEnabled" />
+                Enabled
+            </label>
+
+            <div class="overlay-cards__actions">
+                <button type="button" class="overlay-cards__save" disabled="@_isBusy" @onclick="Save">Save</button>
+                @if (_editingId is not null)
+                {
+                    <button type="button" class="overlay-cards__cancel" disabled="@_isBusy" @onclick="ResetDraft">Cancel</button>
+                }
+            </div>
+        </section>
+    </div>
+</ConfigPage>
+
+@code {
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private IReadOnlyList<OverlayCardDefinition> _cards = [];
+    private long? _editingId;
+    private string _draftCategory = string.Empty;
+    private string _draftTitle = string.Empty;
+    private string _draftDescription = string.Empty;
+    private string _draftAccentColor = "#9146ff";
+    private int _draftSortOrder;
+    private bool _draftEnabled = true;
+    private bool _isBusy;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Reload();
+    }
+
+    public void Dispose()
+    {
+        _cancellationTokenSource.Cancel();
+        _cancellationTokenSource.Dispose();
+    }
+
+    private void Edit(OverlayCardDefinition card)
+    {
+        _editingId = card.Id;
+        _draftCategory = card.Category;
+        _draftTitle = card.Title;
+        _draftDescription = card.Description;
+        _draftAccentColor = card.AccentColor;
+        _draftSortOrder = card.SortOrder;
+        _draftEnabled = card.IsEnabled;
+        _errorMessage = null;
+    }
+
+    private void ResetDraft()
+    {
+        _editingId = null;
+        _draftCategory = string.Empty;
+        _draftTitle = string.Empty;
+        _draftDescription = string.Empty;
+        _draftAccentColor = "#9146ff";
+        _draftSortOrder = _cards.Count;
+        _draftEnabled = true;
+        _errorMessage = null;
+    }
+
+    private async Task Save()
+    {
+        _isBusy = true;
+        _errorMessage = null;
+
+        try
+        {
+            OverlayCardInput input = new()
+            {
+                Category = _draftCategory,
+                Title = _draftTitle,
+                Description = _draftDescription,
+                AccentColor = _draftAccentColor,
+                SortOrder = _draftSortOrder,
+                IsEnabled = _draftEnabled
+            };
+
+            if (_editingId is long editingId)
+            {
+                await OverlayCardService.Update(editingId, input, _cancellationTokenSource.Token);
+            }
+            else
+            {
+                await OverlayCardService.Create(input, _cancellationTokenSource.Token);
+            }
+
+            ResetDraft();
+            await Reload();
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task Delete(long id)
+    {
+        _isBusy = true;
+        _errorMessage = null;
+
+        try
+        {
+            await OverlayCardService.Delete(id, _cancellationTokenSource.Token);
+
+            if (_editingId == id)
+            {
+                ResetDraft();
+            }
+
+            await Reload();
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task Reload()
+    {
+        try
+        {
+            _cards = await OverlayCardService.List(_cancellationTokenSource.Token);
+        }
+        catch (Exception exception)
+        {
+            _cards = [];
+            _errorMessage = exception.Message;
+        }
+    }
+}

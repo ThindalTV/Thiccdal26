@@ -263,7 +263,13 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
         ApplyAuthentication(httpRequest, token);
 
         using HttpResponseMessage response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            // Twitch explains rejected conditions and missing scopes in the body; without it the failure is undiagnosable.
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new PlatformOperationException(
+                $"Twitch rejected the {request.Type} EventSub subscription with {(int)response.StatusCode}: {body}");
+        }
     }
 
     public async Task DeleteEventSubscription(string subscriptionId, CancellationToken cancellationToken = default)
@@ -305,6 +311,43 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
         HelixUsersResponse? payload = await response.Content.ReadFromJsonAsync<HelixUsersResponse>(cancellationToken: cancellationToken);
         HelixUserData? userData = payload?.Data?.FirstOrDefault();
         
+        if (userData == null)
+        {
+            return null;
+        }
+
+        return new TwitchUser
+        {
+            Id = userData.Id,
+            Login = userData.Login,
+            DisplayName = userData.DisplayName
+        };
+    }
+
+    public async Task<TwitchUser?> GetUserByLogin(string login, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(login))
+        {
+            return null;
+        }
+
+        string? token = await _tokenManager.GetToken(cancellationToken);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"users?login={Uri.EscapeDataString(login)}");
+        ApplyAuthentication(request, token);
+
+        using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        HelixUsersResponse? payload = await response.Content.ReadFromJsonAsync<HelixUsersResponse>(cancellationToken: cancellationToken);
+        HelixUserData? userData = payload?.Data?.FirstOrDefault();
+
         if (userData == null)
         {
             return null;

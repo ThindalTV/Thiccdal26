@@ -10,39 +10,25 @@
 
 .dashboard__body {
     display: grid;
+    grid-template-columns: 3fr 4fr 3fr;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm);
     overflow: hidden;
     min-height: 0;
 }
 
-.dashboard__body--prelive {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1.3fr);
-}
-
-.dashboard__body--live {
-    grid-template-columns: 3fr 4fr 3fr;
-}
-
 .dashboard__col {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    overflow-y: auto;
     min-height: 0;
-    padding-bottom: var(--spacing-sm);
+    overflow: hidden;
 }
 
+/* The queue owns three quarters of the centre column; the lower-third preview takes the rest. */
 .dashboard__col--middle {
-    overflow: hidden;
-}
-
-.dashboard__col--prelive {
-    overflow: hidden;
-}
-
-.dashboard__col--right {
-    overflow: hidden;
+    display: grid;
+    grid-template-rows: 3fr 1fr;
 }
 
 /* ── Shared section-panel shell (applied via ::deep into all child components) ── */
@@ -115,27 +101,32 @@
     color: var(--color-text-placeholder);
 }
 
-/* ── Middle column: QuestionQueuePanel fills full height ── */
+/* ── Panels stretch to fill their column slot and scroll internally ── */
 
-.dashboard__body--live .dashboard__col--middle ::deep .ctrl-panel {
+.dashboard__col ::deep .ctrl-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.dashboard__col--middle ::deep .qq-ctrl-panel,
+.dashboard__col--right ::deep .ctrl-panel {
     height: 100%;
-    display: flex;
-    flex-direction: column;
 }
 
-/* ── Right column: OverlayGalleryPanel fills remaining space ── */
+.dashboard__col--left ::deep .ctrl-panel {
+    flex: 1;
+}
 
-.dashboard__body--live .dashboard__col--right ::deep .overlay-gallery-panel {
+.dashboard__col--left ::deep .ctrl-panel__body {
     flex: 1;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.dashboard__body--live .dashboard__col--right ::deep .og-body {
-    flex: 1;
     overflow-y: auto;
-    min-height: 0;
+}
+
+/* Teleprompter controls stay thumb-sized rather than stretching with the column. */
+.dashboard__col--left ::deep .prompter__body {
+    flex: 0 0 auto;
 }
 
 /* ── Touch-friendly buttons throughout the dashboard ── */
@@ -144,67 +135,6 @@
     min-height: 44px;
     padding: 10px var(--spacing-md);
     font-size: var(--font-size-md);
-}
-
-/* ── Left column: PrompterPanel and BotCommandsPanel each take 50% ── */
-
-.dashboard__body--live .dashboard__col--left {
-    overflow: hidden;
-}
-
-.dashboard__body--live .dashboard__col--left ::deep .ctrl-panel {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.dashboard__body--live .dashboard__col--left ::deep .ctrl-panel__body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-}
-
-/* ── WIP overlay: absolutely positioned over each panel ── */
-
-.wip-wrap {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-}
-
-.dashboard__col--left .wip-wrap,
-.dashboard__col--middle .wip-wrap {
-    flex: 1;
-    min-height: 0;
-}
-
-.dashboard__col--right .wip-wrap:last-child {
-    flex: 1;
-    min-height: 0;
-}
-
-.wip-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(128, 128, 128, 0.5);
-    border-radius: var(--radius-panel);
-    cursor: not-allowed;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.wip-overlay::after {
-    content: 'DISABLED';
-    font-size: var(--font-size-sm);
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: rgba(255, 255, 255, 0.75);
 }
 
 .dashboard-dialog-backdrop {
@@ -259,7 +189,7 @@
     padding: 0 24px 24px;
 }
 
-.dashboard__live-bottom-bar {
+.dashboard__bottom-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -270,14 +200,14 @@
     backdrop-filter: var(--glass-blur);
 }
 
-.dashboard__live-bottom-bar-copy {
+.dashboard__bottom-bar-copy {
     display: flex;
     flex-direction: column;
     gap: 4px;
     min-width: 0;
 }
 
-.dashboard__live-bottom-bar-title {
+.dashboard__bottom-bar-title {
     font-size: var(--font-size-sm);
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -285,20 +215,20 @@
     color: var(--color-text);
 }
 
-.dashboard__live-bottom-bar-hint {
+.dashboard__bottom-bar-hint {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     line-height: 1.4;
 }
 
-.dashboard__live-bottom-bar-actions {
+.dashboard__bottom-bar-actions {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: var(--spacing-sm);
 }
 
-.dashboard__live-bottom-bar-button {
+.dashboard__bottom-bar-button {
     min-height: 44px;
     padding: 10px 18px;
     border-radius: 14px;
@@ -311,41 +241,29 @@
     cursor: pointer;
 }
 
-.dashboard__live-bottom-bar-button--secondary {
-    border-color: rgba(96, 165, 250, 0.32);
-    background: rgba(59, 130, 246, 0.14);
-    color: #dbeafe;
-}
-
 @media (max-width: 1180px) {
-    .dashboard__body--prelive,
-    .dashboard__body--live {
+    .dashboard__body {
         grid-template-columns: 1fr;
     }
 
-    .dashboard__live-bottom-bar {
+    .dashboard__bottom-bar {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .dashboard__live-bottom-bar-actions {
+    .dashboard__bottom-bar-actions {
         justify-content: flex-start;
     }
 }
 
 @media (max-width: 767px) {
-    .dashboard__body--prelive > .dashboard__col:not(.dashboard__col--right),
-    .dashboard__body--live > .dashboard__col:not(.dashboard__col--middle),
-    .dashboard__live-bottom-bar {
+    .dashboard__body > .dashboard__col:not(.dashboard__col--middle),
+    .dashboard__bottom-bar {
         display: none;
     }
 
     .dashboard__body {
         padding: var(--spacing-xs);
-    }
-
-    .dashboard__col {
-        padding-bottom: 0;
     }
 
     .dashboard-dialog-backdrop {
@@ -360,17 +278,5 @@
     .dashboard-dialog__body {
         padding-left: 16px;
         padding-right: 16px;
-    }
-
-    .dashboard-dialog ::deep .prelive-checklist-panel__category {
-        display: flex;
-    }
-
-    .dashboard-dialog ::deep .prelive-checklist-panel__body {
-        overflow-y: auto;
-    }
-
-    .dashboard-dialog ::deep .prelive-checklist-panel__phone-link {
-        display: none;
     }
 }
