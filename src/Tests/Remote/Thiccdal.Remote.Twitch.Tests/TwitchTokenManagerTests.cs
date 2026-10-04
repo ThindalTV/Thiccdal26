@@ -58,7 +58,7 @@ public class TwitchTokenManagerTests : IDisposable
         });
         await ctx.SaveChangesAsync();
 
-        var result = await BuildManager().GetToken();
+        var result = await BuildManager().GetToken(TwitchTokenRole.Bot);
 
         Assert.Equal("valid-token", result);
     }
@@ -66,7 +66,7 @@ public class TwitchTokenManagerTests : IDisposable
     [Fact]
     public async Task WhenNoTokenExists_ThenGetTokenReturnsNull()
     {
-        var result = await BuildManager().GetToken();
+        var result = await BuildManager().GetToken(TwitchTokenRole.Bot);
 
         Assert.Null(result);
     }
@@ -84,7 +84,7 @@ public class TwitchTokenManagerTests : IDisposable
         await ctx.SaveChangesAsync();
         _httpHandler = new FakeHttpMessageHandler(HttpStatusCode.OK, BuildTokenJson("new-token", "new-refresh", 3600));
 
-        var result = await BuildManager().GetToken();
+        var result = await BuildManager().GetToken(TwitchTokenRole.Bot);
 
         Assert.Equal("new-token", result);
     }
@@ -102,7 +102,7 @@ public class TwitchTokenManagerTests : IDisposable
         await ctx.SaveChangesAsync();
         _httpHandler = new FakeHttpMessageHandler(HttpStatusCode.Unauthorized, "Unauthorized");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => BuildManager().GetToken());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => BuildManager().GetToken(TwitchTokenRole.Bot));
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public class TwitchTokenManagerTests : IDisposable
     {
         _httpHandler = new FakeHttpMessageHandler(HttpStatusCode.OK, BuildTokenJson("stored-token", "stored-refresh", 3600));
 
-        await BuildManager().StoreToken("auth-code");
+        await BuildManager().StoreToken("auth-code", TwitchTokenRole.Bot);
 
         await using var ctx = CreateSeedContext();
         var token = await ctx.TwitchTokens.FirstOrDefaultAsync();
@@ -120,17 +120,96 @@ public class TwitchTokenManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task WhenBroadcasterTokenIsStored_ThenTheBotTokenIsKept()
+    {
+        await using (var seedContext = CreateSeedContext())
+        {
+            seedContext.TwitchTokens.Add(new TwitchToken
+            {
+                Role = TwitchTokenRole.Bot,
+                AccessToken = "bot-token",
+                RefreshToken = "bot-refresh",
+                ExpiresAt = DateTime.UtcNow.AddHours(1)
+            });
+            await seedContext.SaveChangesAsync();
+        }
+
+        _httpHandler = new FakeHttpMessageHandler(HttpStatusCode.OK, BuildTokenJson("caster-token", "caster-refresh", 3600));
+
+        await BuildManager().StoreToken("auth-code", TwitchTokenRole.Broadcaster);
+
+        await using var ctx = CreateSeedContext();
+        Assert.Equal("bot-token", await ctx.TwitchTokens
+            .Where(token => token.Role == TwitchTokenRole.Bot)
+            .Select(token => token.AccessToken)
+            .SingleAsync());
+        Assert.Equal("caster-token", await ctx.TwitchTokens
+            .Where(token => token.Role == TwitchTokenRole.Broadcaster)
+            .Select(token => token.AccessToken)
+            .SingleAsync());
+    }
+
+    [Fact]
+    public async Task WhenOnlyTheBotIsAuthorized_ThenTheBroadcasterAccountReportsNoToken()
+    {
+        await using (var seedContext = CreateSeedContext())
+        {
+            seedContext.TwitchTokens.Add(new TwitchToken
+            {
+                Role = TwitchTokenRole.Bot,
+                AccessToken = "bot-token",
+                RefreshToken = "bot-refresh",
+                ExpiresAt = DateTime.UtcNow.AddHours(1)
+            });
+            await seedContext.SaveChangesAsync();
+        }
+
+        TwitchTokenManager manager = BuildManager();
+
+        Assert.True(await manager.HasToken(TwitchTokenRole.Bot));
+        Assert.False(await manager.HasToken(TwitchTokenRole.Broadcaster));
+        Assert.Null(await manager.GetToken(TwitchTokenRole.Broadcaster));
+    }
+
+    [Fact]
+    public void WhenAuthorizationUrlIsBuilt_ThenEachAccountAsksOnlyForTheScopesItCanGrant()
+    {
+        TwitchTokenManager manager = BuildManager();
+
+        string botUrl = manager.GetAuthorizationUrl(TwitchTokenRole.Bot);
+        string broadcasterUrl = manager.GetAuthorizationUrl(TwitchTokenRole.Broadcaster);
+
+        Assert.Contains(Uri.EscapeDataString("user:read:chat"), botUrl);
+        Assert.DoesNotContain(Uri.EscapeDataString("channel:read:subscriptions"), botUrl);
+        Assert.Contains(Uri.EscapeDataString("channel:read:subscriptions"), broadcasterUrl);
+
+        // The broadcaster owns the EventSub session when connected, so it reads chat as well.
+        Assert.Contains(Uri.EscapeDataString("user:read:chat"), broadcasterUrl);
+    }
+
+    [Fact]
+    public void WhenStateIsConsumed_ThenTheAccountItWasStartedForIsReported()
+    {
+        TwitchTokenManager manager = BuildManager();
+        string url = manager.GetAuthorizationUrl(TwitchTokenRole.Broadcaster);
+        string state = Uri.UnescapeDataString(url.Split("&state=")[1]);
+
+        Assert.True(manager.ValidateAndConsumeState(state, out TwitchTokenRole role));
+        Assert.Equal(TwitchTokenRole.Broadcaster, role);
+    }
+
+    [Fact]
     public async Task WhenStoreTokenHttpFails_ThenThrowsInvalidOperationException()
     {
         _httpHandler = new FakeHttpMessageHandler(HttpStatusCode.BadRequest, "bad request");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => BuildManager().StoreToken("bad-code"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => BuildManager().StoreToken("bad-code", TwitchTokenRole.Bot));
     }
 
     [Fact]
     public void WhenGetAuthorizationUrl_ThenUrlContainsClientId()
     {
-        var url = BuildManager().GetAuthorizationUrl();
+        var url = BuildManager().GetAuthorizationUrl(TwitchTokenRole.Bot);
 
         Assert.Contains("test-client-id", url);
     }
@@ -138,7 +217,7 @@ public class TwitchTokenManagerTests : IDisposable
     [Fact]
     public void WhenGetAuthorizationUrl_ThenUrlContainsEncodedRedirectUri()
     {
-        var url = BuildManager().GetAuthorizationUrl();
+        var url = BuildManager().GetAuthorizationUrl(TwitchTokenRole.Bot);
 
         Assert.Contains(Uri.EscapeDataString("https://localhost/callback"), url);
     }
@@ -146,7 +225,7 @@ public class TwitchTokenManagerTests : IDisposable
     [Fact]
     public async Task WhenRefreshToken_ThenNoExceptionWhenNoTokenExists()
     {
-        var exception = await Record.ExceptionAsync(() => BuildManager().RefreshToken());
+        var exception = await Record.ExceptionAsync(() => BuildManager().RefreshToken(TwitchTokenRole.Bot));
 
         Assert.Null(exception);
     }

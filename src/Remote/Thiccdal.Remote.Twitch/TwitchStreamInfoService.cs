@@ -41,7 +41,7 @@ public sealed class TwitchStreamInfoService : BackgroundService, ITwitchStreamIn
 
             try
             {
-                string? token = await _tokenManager.GetToken(stoppingToken);
+                string? token = await _tokenManager.GetToken(TwitchTokenRole.Bot, stoppingToken);
                 if (string.IsNullOrWhiteSpace(token))
                 {
                     continue;

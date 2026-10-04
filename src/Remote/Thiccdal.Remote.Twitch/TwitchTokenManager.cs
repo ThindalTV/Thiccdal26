@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
@@ -19,9 +19,9 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
     private readonly HttpClient _helixHttpClient;
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
 
-    // Pending OAuth state tokens: value is the expiry time.
+    // Pending OAuth state tokens: value carries the expiry and the account the flow was started for.
     // Concurrent because the singleton may be accessed from multiple circuits.
-    private readonly ConcurrentDictionary<string, DateTime> _pendingStates = new();
+    private readonly ConcurrentDictionary<string, PendingAuthorization> _pendingStates = new();
 
     public TwitchTokenManager(
         IOptions<TwitchOptions> options,
@@ -36,17 +36,15 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
         _dbContextFactory = dbContextFactory;
     }
 
-    public async Task<string?> GetToken(CancellationToken cancellationToken = default)
+    public async Task<string?> GetToken(TwitchTokenRole role, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var storedToken = await context.TwitchTokens
-            .OrderByDescending(t => t.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+        var storedToken = await FindToken(context, role, cancellationToken);
 
         if (storedToken == null)
         {
-            _logger.LogInformation("No Twitch token found; treating Twitch as not authorized");
+            _logger.LogInformation("No Twitch {Role} token found; treating that account as not authorized", role);
             return null;
         }
 
@@ -60,27 +58,51 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
         return await RefreshStoredToken(context, storedToken, cancellationToken);
     }
 
-    public async Task<bool> HasToken(CancellationToken cancellationToken = default)
+    public async Task<bool> HasToken(TwitchTokenRole role, CancellationToken cancellationToken = default)
     {
         try
         {
             await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-            return await context.TwitchTokens.AnyAsync(cancellationToken);
+            return await context.TwitchTokens.AnyAsync(token => token.Role == role, cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Unable to check token existence");
+            _logger.LogWarning(ex, "Unable to check token existence for the Twitch {Role} account", role);
             return false;
         }
     }
 
-    public async Task RefreshToken(CancellationToken cancellationToken = default)
+    public async Task<TwitchUser?> GetIdentity(TwitchTokenRole role, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var storedToken = await FindToken(context, role, cancellationToken);
+
+            if (storedToken == null || string.IsNullOrWhiteSpace(storedToken.UserId))
+            {
+                return null;
+            }
+
+            return new TwitchUser
+            {
+                Id = storedToken.UserId,
+                Login = storedToken.Username,
+                DisplayName = storedToken.Username
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Unable to read the stored Twitch identity for the {Role} account", role);
+            return null;
+        }
+    }
+
+    public async Task RefreshToken(TwitchTokenRole role, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var storedToken = await context.TwitchTokens
-            .OrderByDescending(t => t.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+        var storedToken = await FindToken(context, role, cancellationToken);
 
         if (storedToken != null)
         {
@@ -88,7 +110,7 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
         }
     }
 
-    public async Task StoreToken(string code, CancellationToken cancellationToken = default)
+    public async Task StoreToken(string code, TwitchTokenRole role, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Exchanging authorization code for tokens");
 
@@ -118,6 +140,7 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
 
         var token = new TwitchToken
         {
+            Role = role,
             AccessToken = tokenResponse.AccessToken,
             RefreshToken = tokenResponse.RefreshToken,
             ExpiresAt = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn - 300)
@@ -127,25 +150,29 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        // Replace any existing tokens — only one valid token per application at a time.
-        var existing = await context.TwitchTokens.ToListAsync(cancellationToken);
+        // Replace the existing token for this account — one valid token per role at a time.
+        var existing = await context.TwitchTokens.Where(stored => stored.Role == role).ToListAsync(cancellationToken);
         context.TwitchTokens.RemoveRange(existing);
         context.TwitchTokens.Add(token);
         await context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Twitch token stored successfully for user {Username} (ID: {UserId})", token.Username, token.UserId);
+        _logger.LogInformation(
+            "Twitch {Role} token stored successfully for user {Username} (ID: {UserId})",
+            role,
+            token.Username,
+            token.UserId);
     }
 
-    public async Task Revoke(CancellationToken cancellationToken = default)
+    public async Task Revoke(TwitchTokenRole role, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Revoking stored Twitch tokens");
+        _logger.LogInformation("Revoking stored Twitch tokens for the {Role} account", role);
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var tokens = await context.TwitchTokens.ToListAsync(cancellationToken);
+        var tokens = await context.TwitchTokens.Where(token => token.Role == role).ToListAsync(cancellationToken);
 
         if (tokens.Count == 0)
         {
-            _logger.LogDebug("No Twitch tokens to revoke");
+            _logger.LogDebug("No Twitch {Role} tokens to revoke", role);
             return;
         }
 
@@ -182,22 +209,22 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
         context.TwitchTokens.RemoveRange(tokens);
         await context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Revoked {Count} Twitch token(s)", tokens.Count);
+        _logger.LogInformation("Revoked {Count} Twitch {Role} token(s)", tokens.Count, role);
     }
 
-    public string GetAuthorizationUrl()
+    public string GetAuthorizationUrl(TwitchTokenRole role)
     {
         var now = DateTime.UtcNow;
 
         // Prune expired states to prevent unbounded growth.
-        foreach (var (key, expiry) in _pendingStates)
-            if (expiry < now) _pendingStates.TryRemove(key, out _);
+        foreach (var (key, pending) in _pendingStates)
+            if (pending.ExpiresAt < now) _pendingStates.TryRemove(key, out _);
 
         // URL-safe Base64 state token (256 bits of entropy).
         var state = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             .Replace('+', '-').Replace('/', '_').TrimEnd('=');
 
-        _pendingStates[state] = now.AddMinutes(10);
+        _pendingStates[state] = new PendingAuthorization(now.AddMinutes(10), role);
 
         string authorizeUrl = BuildOAuthEndpointUri("authorize").ToString();
 
@@ -205,16 +232,32 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
                $"?client_id={_options.ClientId}" +
                $"&redirect_uri={Uri.EscapeDataString(_options.RedirectUri)}" +
                $"&response_type=code" +
-               $"&scope={Uri.EscapeDataString(BuildRequiredScopes())}" +
+               $"&scope={Uri.EscapeDataString(BuildRequiredScopes(role))}" +
                $"&state={Uri.EscapeDataString(state)}";
     }
 
-    public bool ValidateAndConsumeState(string state)
+    public bool ValidateAndConsumeState(string state, out TwitchTokenRole role)
     {
-        if (_pendingStates.TryRemove(state, out var expiry))
-            return expiry >= DateTime.UtcNow;
+        role = TwitchTokenRole.Bot;
 
-        return false;
+        if (!_pendingStates.TryRemove(state, out var pending))
+        {
+            return false;
+        }
+
+        role = pending.Role;
+        return pending.ExpiresAt >= DateTime.UtcNow;
+    }
+
+    private static Task<TwitchToken?> FindToken(
+        ApplicationDbContext context,
+        TwitchTokenRole role,
+        CancellationToken cancellationToken)
+    {
+        return context.TwitchTokens
+            .Where(token => token.Role == role)
+            .OrderByDescending(token => token.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     private async Task<string> RefreshStoredToken(ApplicationDbContext context, TwitchToken token, CancellationToken cancellationToken)
@@ -268,15 +311,21 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
         return new Uri(new Uri(oauthBaseAddress, UriKind.Absolute), relativePath);
     }
 
-    private string BuildRequiredScopes()
+    private string BuildRequiredScopes(TwitchTokenRole role)
     {
-        var scopes = _options.Scopes
+        var configuredScopes = role == TwitchTokenRole.Broadcaster
+            ? _options.BroadcasterScopes
+            : _options.BotScopes;
+
+        var scopes = configuredScopes
             .Where(static scope => !string.IsNullOrWhiteSpace(scope))
             .Select(static scope => scope.Trim())
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        if (_options.EventSub.RequireModeratorAccess &&
+        // Follower reads are a moderator permission, and the broadcaster moderates their own channel.
+        if (role == TwitchTokenRole.Broadcaster &&
+            _options.EventSub.RequireModeratorAccess &&
             !scopes.Any(scope => string.Equals(scope, "moderator:read:followers", StringComparison.Ordinal)))
         {
             scopes.Add("moderator:read:followers");
@@ -284,6 +333,8 @@ internal sealed class TwitchTokenManager : ITwitchTokenManager
 
         return string.Join(' ', scopes);
     }
+
+    private sealed record PendingAuthorization(DateTime ExpiresAt, TwitchTokenRole Role);
 
     private async Task PopulateUserInfo(TwitchToken token, CancellationToken cancellationToken)
     {

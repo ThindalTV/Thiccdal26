@@ -32,14 +32,14 @@ public sealed class TwitchConnectionMonitor : ITwitchConnectionMonitor
         _logger = logger;
     }
 
-    public string GetAuthorizationUrl() => _tokenManager.GetAuthorizationUrl();
+    public string GetAuthorizationUrl() => _tokenManager.GetAuthorizationUrl(TwitchTokenRole.Bot);
 
     public async Task RefreshConnectionState(CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var hasValidToken = await context.TwitchTokens
-            .AnyAsync(t => t.ExpiresAt > DateTime.UtcNow, cancellationToken);
+            .AnyAsync(t => t.Role == TwitchTokenRole.Bot && t.ExpiresAt > DateTime.UtcNow, cancellationToken);
 
         var wasConnected = IsConnected;
         IsConnected = hasValidToken;

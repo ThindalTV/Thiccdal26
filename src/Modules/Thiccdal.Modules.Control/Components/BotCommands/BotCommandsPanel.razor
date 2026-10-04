@@ -2,6 +2,7 @@
 @using Thiccdal.Infrastructure.Bot.Models
 @inject IBotCommandManagementService CommandManagementService
 @inject ICommandDispatcher CommandDispatcher
+@inject ICommandUsageTracker CommandUsageTracker
 @implements IAsyncDisposable
 
 <div class="ctrl-panel bot-cmds">
@@ -57,13 +58,26 @@
 
     protected override async Task OnInitializedAsync()
     {
+        CommandUsageTracker.UsageRecorded += HandleUsageRecorded;
         await Refresh();
     }
 
     public async ValueTask DisposeAsync()
     {
+        CommandUsageTracker.UsageRecorded -= HandleUsageRecorded;
         await _cancellationTokenSource.CancelAsync();
         _cancellationTokenSource.Dispose();
+    }
+
+    // Viewers trigger commands from chat on a background connection, so the counters only stay
+    // truthful if the panel reloads when usage is recorded rather than only after an operator tap.
+    private void HandleUsageRecorded(object? sender, EventArgs args)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await Refresh();
+            StateHasChanged();
+        });
     }
 
     private async Task Run(BotCommandDefinition command)

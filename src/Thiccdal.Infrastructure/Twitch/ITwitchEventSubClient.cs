@@ -20,6 +20,13 @@ public interface ITwitchEventSubClient : IAsyncDisposable
     Task Connect(TwitchChatConnectionProfile profile, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Re-runs subscription creation against the live session, picking up topics that were skipped
+    /// because the account they need had not been authorized yet.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the refresh workflow.</param>
+    Task RefreshSubscriptions(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Disconnects the EventSub session if one is active.
     /// </summary>
     /// <param name="cancellationToken">Cancels the disconnect workflow.</param>

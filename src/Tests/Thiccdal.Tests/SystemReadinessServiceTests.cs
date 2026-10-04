@@ -83,11 +83,38 @@ public sealed class SystemReadinessServiceTests
         Assert.Equal(1, changedCount);
     }
 
-    private static SystemReadinessService CreateService(string targetChannel, bool hasToken)
+    [Fact]
+    public async Task WhenOnlyTheBotIsAuthorized_ThenBroadcasterAuthIsReportedMissing()
+    {
+        using SystemReadinessService service = CreateService(targetChannel: "thindaltv", hasToken: true);
+
+        SystemReadiness readiness = await service.GetReadiness();
+
+        Assert.True(readiness.HasTwitchAuth);
+        Assert.False(readiness.HasBroadcasterAuth);
+    }
+
+    [Fact]
+    public async Task WhenBothAccountsAreAuthorized_ThenBroadcasterAuthIsReported()
+    {
+        using SystemReadinessService service = CreateService(
+            targetChannel: "thindaltv",
+            hasToken: true,
+            hasBroadcasterToken: true);
+
+        SystemReadiness readiness = await service.GetReadiness();
+
+        Assert.True(readiness.HasBroadcasterAuth);
+    }
+
+    private static SystemReadinessService CreateService(
+        string targetChannel,
+        bool hasToken,
+        bool hasBroadcasterToken = false)
     {
         return new SystemReadinessService(
             new FakeTargetChannelService(targetChannel),
-            new FakeTokenManager(hasToken),
+            new FakeTokenManager(hasToken, hasBroadcasterToken),
             NullLogger<SystemReadinessService>.Instance);
     }
 
@@ -140,26 +167,40 @@ public sealed class SystemReadinessServiceTests
 
     private sealed class FakeTokenManager : ITwitchTokenManager
     {
-        private readonly bool _hasToken;
+        private readonly bool _hasBotToken;
+        private readonly bool _hasBroadcasterToken;
 
-        public FakeTokenManager(bool hasToken)
+        public FakeTokenManager(bool hasToken, bool hasBroadcasterToken = false)
         {
-            _hasToken = hasToken;
+            _hasBotToken = hasToken;
+            _hasBroadcasterToken = hasBroadcasterToken;
         }
 
-        public Task<string?> GetToken(CancellationToken cancellationToken = default) =>
-            Task.FromResult<string?>(_hasToken ? "token" : null);
+        public Task<string?> GetToken(TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>(HasRole(role) ? "token" : null);
 
-        public Task<bool> HasToken(CancellationToken cancellationToken = default) => Task.FromResult(_hasToken);
+        public Task<bool> HasToken(TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.FromResult(HasRole(role));
 
-        public Task RefreshToken(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<TwitchUser?> GetIdentity(TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.FromResult<TwitchUser?>(null);
 
-        public Task StoreToken(string code, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RefreshToken(TwitchTokenRole role, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task Revoke(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StoreToken(string code, TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public string GetAuthorizationUrl() => string.Empty;
+        public Task Revoke(TwitchTokenRole role, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public bool ValidateAndConsumeState(string state) => true;
+        public string GetAuthorizationUrl(TwitchTokenRole role) => string.Empty;
+
+        public bool ValidateAndConsumeState(string state, out TwitchTokenRole role)
+        {
+            role = TwitchTokenRole.Bot;
+            return true;
+        }
+
+        private bool HasRole(TwitchTokenRole role) =>
+            role == TwitchTokenRole.Broadcaster ? _hasBroadcasterToken : _hasBotToken;
     }
 }

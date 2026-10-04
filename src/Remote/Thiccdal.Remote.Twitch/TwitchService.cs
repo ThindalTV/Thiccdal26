@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Remotes;
@@ -60,7 +60,7 @@ internal sealed class TwitchService : ITwitchService, IStreamInfoProvider, IChat
             return;
         }
 
-        bool hasToken = await _tokenManager.HasToken(cancellationToken);
+        bool hasToken = await _tokenManager.HasToken(TwitchTokenRole.Bot, cancellationToken);
         SetState(hasToken ? TwitchConnectionState.Authorized : TwitchConnectionState.NotAuthorized);
     }
 
@@ -73,7 +73,7 @@ internal sealed class TwitchService : ITwitchService, IStreamInfoProvider, IChat
             return;
         }
 
-        if (!await _tokenManager.HasToken(cancellationToken))
+        if (!await _tokenManager.HasToken(TwitchTokenRole.Bot, cancellationToken))
         {
             SetStreamState(new TwitchStreamState());
             SetState(TwitchConnectionState.NotAuthorized);
@@ -82,7 +82,7 @@ internal sealed class TwitchService : ITwitchService, IStreamInfoProvider, IChat
 
         try
         {
-            string? token = await _tokenManager.GetToken(cancellationToken);
+            string? token = await _tokenManager.GetToken(TwitchTokenRole.Bot, cancellationToken);
             if (string.IsNullOrWhiteSpace(token))
             {
                 _logger.LogInformation("Skipping Twitch stream state refresh because no token is stored yet");
@@ -112,7 +112,7 @@ internal sealed class TwitchService : ITwitchService, IStreamInfoProvider, IChat
 
         try
         {
-            if (!await _tokenManager.HasToken(cancellationToken))
+            if (!await _tokenManager.HasToken(TwitchTokenRole.Bot, cancellationToken))
             {
                 _logger.LogInformation("Twitch is not authorized yet; skipping EventSub connection");
                 SetState(TwitchConnectionState.NotAuthorized);
@@ -133,7 +133,7 @@ internal sealed class TwitchService : ITwitchService, IStreamInfoProvider, IChat
                 return;
             }
 
-            string? token = await _tokenManager.GetToken(cancellationToken);
+            string? token = await _tokenManager.GetToken(TwitchTokenRole.Bot, cancellationToken);
             if (string.IsNullOrWhiteSpace(token))
             {
                 SetState(TwitchConnectionState.NotAuthorized);
@@ -150,6 +150,17 @@ internal sealed class TwitchService : ITwitchService, IStreamInfoProvider, IChat
             SetState(TwitchConnectionState.Error);
             throw;
         }
+    }
+
+    public async Task RefreshSubscriptions(CancellationToken cancellationToken = default)
+    {
+        if (!_eventSubClient.Connected)
+        {
+            // Nothing to refresh yet; the next connect subscribes with whatever is authorized by then.
+            return;
+        }
+
+        await _eventSubClient.RefreshSubscriptions(cancellationToken);
     }
 
     public async Task Disconnect(CancellationToken cancellationToken = default)

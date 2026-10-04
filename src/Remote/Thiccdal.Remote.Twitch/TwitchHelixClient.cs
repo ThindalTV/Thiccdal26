@@ -58,7 +58,7 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
             };
         }
 
-        string? token = await _tokenManager.GetToken(cancellationToken);
+        string? token = await _tokenManager.GetToken(TwitchTokenRole.Bot, cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return new TwitchSendMessageResult
@@ -117,7 +117,9 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
             return new TwitchStreamState();
         }
 
-        string? token = await _tokenManager.GetToken(cancellationToken);
+        // Stream state is a public read, so the bot token serves when the broadcaster has not connected.
+        string? token = await _tokenManager.GetToken(TwitchTokenRole.Broadcaster, cancellationToken)
+            ?? await _tokenManager.GetToken(TwitchTokenRole.Bot, cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return new TwitchStreamState();
@@ -160,7 +162,7 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
             throw new PlatformOperationException("Twitch broadcaster ID is required to update channel info.");
         }
 
-        string? token = await _tokenManager.GetToken(cancellationToken);
+        string? token = await _tokenManager.GetToken(TwitchTokenRole.Broadcaster, cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             throw new PlatformOperationException("Twitch is not authorized.");
@@ -201,9 +203,11 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<IReadOnlyList<TwitchEventSubSubscription>> GetEventSubscriptions(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<TwitchEventSubSubscription>> GetEventSubscriptions(
+        TwitchTokenRole role,
+        CancellationToken cancellationToken = default)
     {
-        string? token = await _tokenManager.GetToken(cancellationToken);
+        string? token = await _tokenManager.GetToken(role, cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return [];
@@ -240,10 +244,10 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        string? token = await _tokenManager.GetToken(cancellationToken);
+        string? token = await _tokenManager.GetToken(request.Role, cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
-            throw new InvalidOperationException("Twitch is not authorized.");
+            throw new InvalidOperationException($"The Twitch {request.Role} account is not authorized.");
         }
 
         var condition = request.Condition.ToDictionary(
@@ -272,14 +276,17 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
         }
     }
 
-    public async Task DeleteEventSubscription(string subscriptionId, CancellationToken cancellationToken = default)
+    public async Task DeleteEventSubscription(
+        string subscriptionId,
+        TwitchTokenRole role,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(subscriptionId))
         {
             return;
         }
 
-        string? token = await _tokenManager.GetToken(cancellationToken);
+        string? token = await _tokenManager.GetToken(role, cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             throw new InvalidOperationException("Twitch is not authorized.");
@@ -296,7 +303,7 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
 
     public async Task<TwitchUser?> GetAuthenticatedUser(CancellationToken cancellationToken = default)
     {
-        string? token = await _tokenManager.GetToken(cancellationToken);
+        string? token = await _tokenManager.GetToken(TwitchTokenRole.Bot, cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return null;
@@ -331,7 +338,8 @@ public sealed class TwitchHelixClient : ITwitchHelixClient
             return null;
         }
 
-        string? token = await _tokenManager.GetToken(cancellationToken);
+        string? token = await _tokenManager.GetToken(TwitchTokenRole.Bot, cancellationToken)
+            ?? await _tokenManager.GetToken(TwitchTokenRole.Broadcaster, cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return null;

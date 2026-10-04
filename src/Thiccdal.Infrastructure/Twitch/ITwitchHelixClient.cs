@@ -17,13 +17,18 @@ public interface ITwitchHelixClient
         string? category,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<TwitchEventSubSubscription>> GetEventSubscriptions(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TwitchEventSubSubscription>> GetEventSubscriptions(
+        TwitchTokenRole role,
+        CancellationToken cancellationToken = default);
 
     Task CreateEventSubscription(
         TwitchEventSubSubscriptionRequest request,
         CancellationToken cancellationToken = default);
 
-    Task DeleteEventSubscription(string subscriptionId, CancellationToken cancellationToken = default);
+    Task DeleteEventSubscription(
+        string subscriptionId,
+        TwitchTokenRole role,
+        CancellationToken cancellationToken = default);
 
     Task<TwitchUser?> GetAuthenticatedUser(CancellationToken cancellationToken = default);
 

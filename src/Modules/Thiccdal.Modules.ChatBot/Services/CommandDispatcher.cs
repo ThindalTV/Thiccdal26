@@ -90,8 +90,9 @@ public sealed class CommandDispatcher : ICommandDispatcher
             return;
         }
 
-        int useCount = await _commandUsageTracker.RecordUse(trigger, cancellationToken);
+        // Persist first: recording the use notifies live surfaces, which re-read the stored count.
         await IncrementPersistedUseCount(trigger, cancellationToken);
+        int useCount = await _commandUsageTracker.RecordUse(trigger, cancellationToken);
         CommandContext context = CreateContext(chatEvent, trigger, messageParts.Skip(1).ToArray(), useCount);
         string? response = await ResolveResponse(command, context, cancellationToken);
 
@@ -117,8 +118,8 @@ public sealed class CommandDispatcher : ICommandDispatcher
             throw new InvalidOperationException($"The {normalizedTrigger} command is not available to run live.");
         }
 
-        int useCount = await _commandUsageTracker.RecordUse(normalizedTrigger, cancellationToken);
         await IncrementPersistedUseCount(normalizedTrigger, cancellationToken);
+        int useCount = await _commandUsageTracker.RecordUse(normalizedTrigger, cancellationToken);
         CommandContext context = CreateOperatorContext(normalizedTrigger, useCount);
         string? response = await ResolveResponse(command, context, cancellationToken);
 

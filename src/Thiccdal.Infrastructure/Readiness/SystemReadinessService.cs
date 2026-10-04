@@ -34,6 +34,7 @@ public sealed class SystemReadinessService : ISystemReadinessService, IDisposabl
     {
         bool hasChannel = false;
         bool hasTwitchAuth = false;
+        bool hasBroadcasterAuth = false;
 
         try
         {
@@ -48,7 +49,8 @@ public sealed class SystemReadinessService : ISystemReadinessService, IDisposabl
 
         try
         {
-            hasTwitchAuth = await _tokenManager.HasToken(cancellationToken);
+            hasTwitchAuth = await _tokenManager.HasToken(TwitchTokenRole.Bot, cancellationToken);
+            hasBroadcasterAuth = await _tokenManager.HasToken(TwitchTokenRole.Broadcaster, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -58,7 +60,8 @@ public sealed class SystemReadinessService : ISystemReadinessService, IDisposabl
         return new SystemReadiness
         {
             HasChannel = hasChannel,
-            HasTwitchAuth = hasTwitchAuth
+            HasTwitchAuth = hasTwitchAuth,
+            HasBroadcasterAuth = hasBroadcasterAuth
         };
     }
 

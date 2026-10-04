@@ -24,4 +24,9 @@ public sealed record TwitchEventSubSubscriptionRequest
     /// Gets the EventSub WebSocket session identifier.
     /// </summary>
     public required string SessionId { get; init; }
+
+    /// <summary>
+    /// Gets the account whose authorization Twitch requires for this subscription type.
+    /// </summary>
+    public TwitchTokenRole Role { get; init; } = TwitchTokenRole.Bot;
 }

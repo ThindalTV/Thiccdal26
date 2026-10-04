@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Thiccdal.API.Status;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Operators;
@@ -161,6 +161,8 @@ public sealed class StreamStatusServiceTests
         public Task RefreshConnectionState(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task RefreshStreamState(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task RefreshSubscriptions(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task Connect(CancellationToken cancellationToken = default) => Task.CompletedTask;
 

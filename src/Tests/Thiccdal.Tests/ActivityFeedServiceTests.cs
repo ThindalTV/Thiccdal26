@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot;
 using Thiccdal.Infrastructure.Bot.Models;
@@ -61,7 +61,9 @@ public sealed class ActivityFeedServiceTests
 
         Assert.Equal("Kaylee", entry.Sender);
         Assert.Equal("#a970ff", entry.SenderColor);
-        Assert.Contains("chat-badge", entry.HtmlContent);
+        // Badges ride alongside the entry so surfaces can place them; the message markup stays message-only.
+        Assert.DoesNotContain("chat-badge", entry.HtmlContent);
+        Assert.Single(entry.Badges!);
         Assert.Contains("chat-inline-emote", entry.HtmlContent);
         Assert.Contains("chat-inline-cheer", entry.HtmlContent);
     }

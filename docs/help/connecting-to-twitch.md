@@ -73,21 +73,53 @@ In the first section of the dialog:
 
 **Note**: The bot account and target channel can be different. For example, the bot might sign in as `my_bot_account` but join the chat of `my_main_channel`.
 
-### Step 3: Authorize Bot Account
+### Step 3: Authorize Both Accounts
 
-In the second section of the dialog:
+Thiccdal needs two separate Twitch authorizations, because Twitch grants channel-level reads only
+to the channel owner. The bot account can never read subscriptions, cheers, or channel point
+redemptions on your behalf, no matter which permissions you approve.
 
-1. Click **Authorize with Twitch**
-2. A new browser tab opens showing Twitch's OAuth login page
-3. Log in with the **bot account** (if not already logged in)
+| Account | What it covers |
+|---|---|
+| Bot | Reading and sending chat |
+| Broadcaster | Follows, subscriptions, cheers, raids, and channel point redemptions |
+
+Twitch requires every event subscription on one connection to come from the same account, so
+Thiccdal opens one connection per authorized account: the bot carries chat, and the broadcaster
+carries the channel events. Authorize only the bot and you get chat and raids; authorize only the
+broadcaster and it reads chat itself.
+
+Authorize the bot account first:
+
+1. Select **Authorize bot account**
+2. A new browser tab opens showing the Twitch sign-in page
+3. Sign in as the **bot account**, not your channel account
+
+   Twitch reuses whatever account the browser is already signed in to. Open the authorization in a
+   private or separate browser window so you don't connect your main account by mistake. Browsers
+   don't let a page open a private window for you, so start one yourself: right-click the button and
+   choose **Open in InPrivate window** (Edge) or **Open link in incognito window** (Chrome).
 4. Review the requested permissions:
    - `user:read:chat` and `user:write:chat` — Read and send chat messages
-   - `user:bot` and `channel:bot` — Act as a bot in the channel
-   - `moderator:read:followers` — Read follower events (requires moderator status)
-   - `channel:read:subscriptions`, `bits:read`, and `channel:read:redemptions` — Read sub, cheer, and channel point events
-5. Click **Authorize** on the Twitch page
-6. You'll be redirected back to Thiccdal
-7. The dialog shows "Authorized" status once complete
+   - `user:bot` — Act as a bot account
+5. Select **Authorize** on the Twitch page
+6. You return to Thiccdal, and the section shows the account it connected
+
+Then authorize the broadcaster account:
+
+1. Select **Authorize broadcaster account**
+2. Sign in as the **channel owner**
+3. Review the requested permissions:
+   - `user:read:chat` — Read chat messages
+   - `channel:bot` — Let the bot account speak in your channel
+   - `moderator:read:followers` — Read follower events
+   - `channel:read:subscriptions`, `bits:read`, and `channel:read:redemptions` — Read subscription,
+     cheer, and channel point events
+   - `channel:manage:broadcast` — Update the stream title and category
+4. Select **Authorize**
+
+If you skip the broadcaster authorization, chat and raids still work, and Thiccdal logs a warning
+for each event type it cannot subscribe to.
 
 ### Step 4: Connect to IRC
 

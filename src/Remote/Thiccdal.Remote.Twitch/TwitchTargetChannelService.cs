@@ -107,6 +107,7 @@ public sealed class TwitchTargetChannelService : ITwitchTargetChannelService
         await using ApplicationDbContext context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         TwitchToken? token = await context.TwitchTokens
             .AsNoTracking()
+            .Where(static stored => stored.Role == TwitchTokenRole.Bot)
             .OrderByDescending(static t => t.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 

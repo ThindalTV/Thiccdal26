@@ -2,17 +2,24 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    height: 100%;
 }
 
 .lt-preview__body {
     gap: var(--spacing-sm);
+    flex: 1;
     min-height: 0;
+    overflow-y: auto;
 }
 
+/* The panel slot is short, so the stage keeps its 16/5 shape only while the copy still fits;
+   below that it grows to its content and the body scrolls instead of clipping the bar. */
 .lt-preview__stage {
     display: flex;
     align-items: flex-end;
+    flex: 0 0 auto;
     aspect-ratio: 16 / 5;
+    min-height: min-content;
     padding: var(--spacing-sm);
     border-radius: 10px;
     border: 1px solid var(--glass-border);

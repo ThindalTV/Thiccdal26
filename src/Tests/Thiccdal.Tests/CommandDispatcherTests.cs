@@ -578,6 +578,8 @@ public sealed class CommandDispatcherTests
     {
         private readonly Dictionary<string, int> _counts = new(StringComparer.OrdinalIgnoreCase);
 
+        public event EventHandler? UsageRecorded;
+
         public List<string> RecordedTriggers { get; } = [];
 
         public Task<int> RecordUse(string trigger, CancellationToken cancellationToken = default)
@@ -585,6 +587,7 @@ public sealed class CommandDispatcherTests
             cancellationToken.ThrowIfCancellationRequested();
 
             RecordedTriggers.Add(trigger);
+            UsageRecorded?.Invoke(this, EventArgs.Empty);
             int currentCount = _counts.GetValueOrDefault(trigger, 0) + 1;
             _counts[trigger] = currentCount;
             return Task.FromResult(currentCount);

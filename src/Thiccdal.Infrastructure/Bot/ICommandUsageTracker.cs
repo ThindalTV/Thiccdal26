@@ -6,6 +6,11 @@ namespace Thiccdal.Infrastructure.Bot;
 public interface ICommandUsageTracker
 {
     /// <summary>
+    /// Raised after a command invocation has been recorded, so live surfaces can refresh their counters.
+    /// </summary>
+    event EventHandler? UsageRecorded;
+
+    /// <summary>
     /// Records a command invocation and returns the new in-session use count.
     /// </summary>
     /// <param name="trigger">The normalized command trigger.</param>

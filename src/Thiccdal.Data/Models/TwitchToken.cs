@@ -1,12 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+using Thiccdal.Infrastructure.Twitch;
 
 namespace Thiccdal.Data.Models;
 
 public class TwitchToken
 {
     public int Id { get; set; }
+
+    /// <summary>
+    /// Gets or sets which account this authorization belongs to. One token is stored per role.
+    /// </summary>
+    public TwitchTokenRole Role { get; set; } = TwitchTokenRole.Bot;
     public string AccessToken { get; set; } = string.Empty;
     public string RefreshToken { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }

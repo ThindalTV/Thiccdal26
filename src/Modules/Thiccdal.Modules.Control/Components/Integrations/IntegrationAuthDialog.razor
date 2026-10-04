@@ -43,6 +43,11 @@
                     </p>
                 }
 
+                @if (!string.IsNullOrWhiteSpace(Notice))
+                {
+                    <p class="auth-dialog__notice">@Notice</p>
+                }
+
                 @if (!string.IsNullOrEmpty(ErrorMessage))
                 {
                     <div class="auth-dialog__error" role="alert">@ErrorMessage</div>
@@ -88,6 +93,12 @@
 }
 
 @code {
+    /// <summary>
+    /// Extra guidance shown above the authorize button, for example which browser profile to use.
+    /// </summary>
+    [Parameter]
+    public string? Notice { get; set; }
+
     [Parameter] public string PlatformName { get; set; } = string.Empty;
     [Parameter] public string Color { get; set; } = "rgba(255,255,255,0.5)";
     [Parameter] public string AuthorizationUrl { get; set; } = string.Empty;

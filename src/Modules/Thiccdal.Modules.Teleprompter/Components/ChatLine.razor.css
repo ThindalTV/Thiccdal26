@@ -1,15 +1,18 @@
 .message {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.35rem;
-    font-size: 1.15rem;
-    line-height: 1.5;
+    gap: 0.3rem;
+    font-size: 0.95rem;
+    line-height: 1.35;
 }
 
 .message__emote {
-    width: 2rem;
-    height: 2rem;
+    width: 1.4rem;
+    height: 1.4rem;
     object-fit: contain;
     vertical-align: middle;
 }
@@ -23,19 +26,19 @@
 .message :deep(.activity-event) {
     display: inline-flex;
     align-items: center;
-    min-height: 1.35rem;
-    padding: 0 0.45rem;
+    min-height: 1.15rem;
+    padding: 0 0.4rem;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.14);
     color: rgba(255, 255, 255, 0.82);
-    font-size: 0.72rem;
+    font-size: 0.6rem;
     font-weight: 700;
     text-transform: uppercase;
 }
 
 .message :deep(.chat-inline-emote) {
-    width: 2rem;
-    height: 2rem;
+    width: 1.4rem;
+    height: 1.4rem;
     object-fit: contain;
 }
 

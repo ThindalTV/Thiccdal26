@@ -10,6 +10,8 @@ public sealed class InMemoryCommandUsageTracker : ICommandUsageTracker
 {
     private readonly ConcurrentDictionary<string, int> _counts = new(StringComparer.OrdinalIgnoreCase);
 
+    public event EventHandler? UsageRecorded;
+
     public Task<int> RecordUse(string trigger, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -19,6 +21,8 @@ public sealed class InMemoryCommandUsageTracker : ICommandUsageTracker
             trigger.Trim(),
             1,
             static (_, currentCount) => checked(currentCount + 1));
+
+        UsageRecorded?.Invoke(this, EventArgs.Empty);
 
         return Task.FromResult(useCount);
     }

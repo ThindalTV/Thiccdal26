@@ -12,25 +12,30 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
 {
     private readonly TwitchOptions _options;
     private readonly ITwitchHelixClient _helixClient;
+    private readonly ITwitchTokenManager _tokenManager;
     private readonly TwitchEventSubNotificationMapper _mapper;
     private readonly ILogger<TwitchEventSubClient> _logger;
     private readonly SemaphoreSlim _connectionGate;
     private readonly Queue<string> _recentMessageIds;
     private readonly HashSet<string> _recentMessageIdSet;
 
-    private ClientWebSocket? _socket;
-    private CancellationTokenSource? _listenCancellation;
-    private Task? _listenTask;
+    // Twitch binds a WebSocket session to the single account that created its subscriptions, so each
+    // authorized account gets its own session: the bot carries chat, the broadcaster carries the
+    // channel-level events only the channel owner may read.
+    private readonly Dictionary<TwitchTokenRole, EventSubSession> _sessions = [];
+
     private TwitchChatConnectionProfile? _profile;
 
     public TwitchEventSubClient(
         IOptions<TwitchOptions> options,
         ITwitchHelixClient helixClient,
+        ITwitchTokenManager tokenManager,
         TwitchEventSubNotificationMapper mapper,
         ILogger<TwitchEventSubClient> logger)
     {
         _options = options.Value;
         _helixClient = helixClient;
+        _tokenManager = tokenManager;
         _mapper = mapper;
         _logger = logger;
         _connectionGate = new SemaphoreSlim(1, 1);
@@ -38,7 +43,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         _recentMessageIdSet = [];
     }
 
-    public bool Connected { get; private set; }
+    public bool Connected => _sessions.Count > 0;
 
     public event EventHandler<PlatformEvent>? OnEventReceived;
     public event EventHandler<ChatEvent>? ChatMessageReceived;
@@ -54,7 +59,28 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         try
         {
             _profile = profile;
-            await ConnectCore(_options.EventSub.WebSocketUrl, profile, subscribe: true, cancellationToken);
+            await ConnectSessions(profile, cancellationToken);
+        }
+        finally
+        {
+            _connectionGate.Release();
+        }
+    }
+
+    public async Task RefreshSubscriptions(CancellationToken cancellationToken = default)
+    {
+        await _connectionGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (_profile is null)
+            {
+                _logger.LogInformation("Skipping EventSub subscription refresh because no session is connected.");
+                return;
+            }
+
+            // A session cannot take on subscriptions from another account, so a newly authorized
+            // account needs a session of its own.
+            await ConnectSessions(_profile, cancellationToken);
         }
         finally
         {
@@ -67,7 +93,10 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         await _connectionGate.WaitAsync(cancellationToken);
         try
         {
-            await DisconnectCore(cancellationToken);
+            foreach (TwitchTokenRole role in _sessions.Keys.ToArray())
+            {
+                await DisconnectSession(role, cancellationToken);
+            }
         }
         finally
         {
@@ -97,9 +126,50 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
-    private async Task ConnectCore(string webSocketUrl, TwitchChatConnectionProfile profile, bool subscribe, CancellationToken cancellationToken, bool calledFromListenTask = false)
+    private async Task ConnectSessions(TwitchChatConnectionProfile profile, CancellationToken cancellationToken)
     {
-        await DisconnectCore(cancellationToken, awaitListenTask: !calledFromListenTask);
+        bool hasBot = await _tokenManager.HasToken(TwitchTokenRole.Bot, cancellationToken);
+        bool hasBroadcaster = await _tokenManager.HasToken(TwitchTokenRole.Broadcaster, cancellationToken);
+
+        if (!hasBot && !hasBroadcaster)
+        {
+            _logger.LogWarning("No Twitch account is authorized, so no EventSub session was opened.");
+            return;
+        }
+
+        if (!hasBroadcaster)
+        {
+            _logger.LogWarning(
+                "The Twitch broadcaster account is not authorized, so follows, subscriptions, cheers, and redemptions will not arrive.");
+        }
+
+        if (!hasBot)
+        {
+            _logger.LogWarning("The Twitch bot account is not authorized, so chat is read by the broadcaster account.");
+        }
+
+        foreach (TwitchTokenRole role in Enum.GetValues<TwitchTokenRole>())
+        {
+            bool isAuthorized = role == TwitchTokenRole.Broadcaster ? hasBroadcaster : hasBot;
+            if (!isAuthorized)
+            {
+                await DisconnectSession(role, cancellationToken);
+                continue;
+            }
+
+            await ConnectCore(_options.EventSub.WebSocketUrl, profile, role, subscribe: true, cancellationToken);
+        }
+    }
+
+    private async Task ConnectCore(
+        string webSocketUrl,
+        TwitchChatConnectionProfile profile,
+        TwitchTokenRole role,
+        bool subscribe,
+        CancellationToken cancellationToken,
+        bool calledFromListenTask = false)
+    {
+        await DisconnectSession(role, cancellationToken, awaitListenTask: !calledFromListenTask);
 
         ClientWebSocket socket = new();
         await socket.ConnectAsync(new Uri(webSocketUrl, UriKind.Absolute), cancellationToken);
@@ -118,21 +188,26 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
 
         if (subscribe)
         {
-            await EnsureSubscriptions(profile, sessionId, cancellationToken);
+            await EnsureSubscriptions(profile, sessionId, role, cancellationToken);
         }
 
-        _socket = socket;
-        Connected = true;
-        _listenCancellation = new CancellationTokenSource();
-        _listenTask = Listen(profile, socket, _listenCancellation.Token);
+        _profile = profile;
+        EventSubSession session = new EventSubSession(role, socket, sessionId);
+        _sessions[role] = session;
+        session.ListenTask = Listen(profile, role, socket, session.ListenCancellation.Token);
 
         _logger.LogInformation(
-            "Connected Twitch EventSub session {SessionId} for broadcaster {BroadcasterId}",
+            "Connected Twitch EventSub session {SessionId} owned by the {Role} account for broadcaster {BroadcasterId}",
             sessionId,
+            role,
             profile.BroadcasterId);
     }
 
-    private async Task Listen(TwitchChatConnectionProfile profile, ClientWebSocket socket, CancellationToken cancellationToken)
+    private async Task Listen(
+        TwitchChatConnectionProfile profile,
+        TwitchTokenRole role,
+        ClientWebSocket socket,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -179,7 +254,13 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
                                 // timeout-bounded token so the reconnect attempt can be cancelled independently.
                                 using CancellationTokenSource reconnectCts = new CancellationTokenSource(
                                     TimeSpan.FromSeconds(60));
-                                await ConnectCore(reconnectUrl, profile, subscribe: false, reconnectCts.Token, calledFromListenTask: true);
+                                await ConnectCore(
+                                    reconnectUrl,
+                                    profile,
+                                    role,
+                                    subscribe: false,
+                                    reconnectCts.Token,
+                                    calledFromListenTask: true);
                             }
                             finally
                             {
@@ -198,7 +279,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
                 }
             }
 
-            Connected = false;
+            _sessions.Remove(role);
             if (!cancellationToken.IsCancellationRequested)
             {
                 Disconnected?.Invoke(this, EventArgs.Empty);
@@ -206,44 +287,40 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Stopped Twitch EventSub listener due to cancellation");
+            _logger.LogInformation("Stopped the Twitch EventSub {Role} listener due to cancellation", role);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected Twitch EventSub listener failure");
-            Connected = false;
+            _logger.LogError(ex, "Unexpected Twitch EventSub listener failure on the {Role} session", role);
+            _sessions.Remove(role);
             Faulted?.Invoke(this, ex);
         }
     }
 
-    private async Task DisconnectCore(CancellationToken cancellationToken, bool awaitListenTask = true)
+    private async Task DisconnectSession(
+        TwitchTokenRole role,
+        CancellationToken cancellationToken,
+        bool awaitListenTask = true)
     {
-        CancellationTokenSource? listenCancellation = _listenCancellation;
-        Task? listenTask = _listenTask;
-        ClientWebSocket? socket = _socket;
-
-        _listenCancellation = null;
-        _listenTask = null;
-        _socket = null;
-        Connected = false;
-
-        if (listenCancellation != null)
+        if (!_sessions.Remove(role, out EventSubSession? session))
         {
-            await listenCancellation.CancelAsync();
-            listenCancellation.Dispose();
+            return;
         }
 
-        if (socket != null)
-        {
-            if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
-            {
-                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing Twitch EventSub session", cancellationToken);
-            }
+        Task? listenTask = session.ListenTask;
+        ClientWebSocket socket = session.Socket;
 
-            socket.Dispose();
+        await session.ListenCancellation.CancelAsync();
+        session.ListenCancellation.Dispose();
+
+        if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+        {
+            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing Twitch EventSub session", cancellationToken);
         }
 
-        // Skip awaiting the listen task when DisconnectCore is called from within the listen task
+        socket.Dispose();
+
+        // Skip awaiting the listen task when DisconnectSession is called from within the listen task
         // itself (e.g. during session_reconnect handling). Task.CurrentId is unreliable in async
         // continuations, so callers must pass awaitListenTask=false to signal this.
         if (awaitListenTask && listenTask != null)
@@ -261,10 +338,21 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
     private async Task EnsureSubscriptions(
         TwitchChatConnectionProfile profile,
         string sessionId,
+        TwitchTokenRole sessionRole,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<TwitchEventSubSubscription> existingSubscriptions = await _helixClient.GetEventSubscriptions(cancellationToken);
-        foreach (TwitchEventSubSubscriptionRequest request in BuildSubscriptionRequests(profile, sessionId))
+        bool hasBotSession = await _tokenManager.HasToken(TwitchTokenRole.Bot, cancellationToken);
+        bool hasBroadcasterSession = await _tokenManager.HasToken(TwitchTokenRole.Broadcaster, cancellationToken);
+
+        IReadOnlyList<TwitchEventSubSubscription> existingSubscriptions =
+            await _helixClient.GetEventSubscriptions(sessionRole, cancellationToken);
+
+        foreach (TwitchEventSubSubscriptionRequest request in BuildSubscriptionRequests(
+            profile,
+            sessionId,
+            sessionRole,
+            hasBotSession,
+            hasBroadcasterSession))
         {
             TwitchEventSubSubscription? stale = existingSubscriptions.FirstOrDefault(
                 subscription => SubscriptionMatchesRequest(subscription, request) &&
@@ -279,7 +367,7 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
 
                 try
                 {
-                    await _helixClient.DeleteEventSubscription(stale.Id, cancellationToken);
+                    await _helixClient.DeleteEventSubscription(stale.Id, sessionRole, cancellationToken);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -307,37 +395,86 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         }
     }
 
-    private IEnumerable<TwitchEventSubSubscriptionRequest> BuildSubscriptionRequests(
+    internal static IEnumerable<TwitchEventSubSubscriptionRequest> BuildSubscriptionRequests(
         TwitchChatConnectionProfile profile,
-        string sessionId)
+        string sessionId,
+        TwitchTokenRole sessionRole,
+        bool hasBotSession,
+        bool hasBroadcasterSession)
     {
         if (string.IsNullOrWhiteSpace(profile.BroadcasterId))
         {
             yield break;
         }
 
-        yield return CreateRequest(
-            "channel.chat.message",
-            "1",
-            sessionId,
-            new Dictionary<string, string>
-            {
-                ["broadcaster_user_id"] = profile.BroadcasterId,
-                ["user_id"] = profile.BotUserId
-            });
-
-        if (!string.IsNullOrWhiteSpace(profile.BotUserId))
+        if (sessionRole == TwitchTokenRole.Bot)
         {
+            // Chat belongs to the bot session: the condition's user is the account that reads it.
             yield return CreateRequest(
-                "channel.follow",
-                "2",
+                "channel.chat.message",
+                "1",
                 sessionId,
                 new Dictionary<string, string>
                 {
                     ["broadcaster_user_id"] = profile.BroadcasterId,
-                    ["moderator_user_id"] = profile.BotUserId
-                });
+                    ["user_id"] = profile.BotUserId
+                },
+                TwitchTokenRole.Bot);
+
+            // Raids need no scope, so the broadcaster session takes them when there is one.
+            if (!hasBroadcasterSession)
+            {
+                yield return CreateRequest(
+                    "channel.raid",
+                    "1",
+                    sessionId,
+                    new Dictionary<string, string>
+                    {
+                        ["to_broadcaster_user_id"] = profile.BroadcasterId
+                    },
+                    TwitchTokenRole.Bot);
+            }
+
+            yield break;
         }
+
+        if (!hasBotSession)
+        {
+            // No bot account, so the broadcaster reads its own chat.
+            yield return CreateRequest(
+                "channel.chat.message",
+                "1",
+                sessionId,
+                new Dictionary<string, string>
+                {
+                    ["broadcaster_user_id"] = profile.BroadcasterId,
+                    ["user_id"] = profile.BroadcasterId
+                },
+                TwitchTokenRole.Broadcaster);
+        }
+
+        yield return CreateRequest(
+            "channel.raid",
+            "1",
+            sessionId,
+            new Dictionary<string, string>
+            {
+                ["to_broadcaster_user_id"] = profile.BroadcasterId
+            },
+            TwitchTokenRole.Broadcaster);
+
+        // Follower reads are a moderator permission and the broadcaster moderates their own channel,
+        // so the broadcaster authorization covers this without the bot needing moderator status.
+        yield return CreateRequest(
+            "channel.follow",
+            "2",
+            sessionId,
+            new Dictionary<string, string>
+            {
+                ["broadcaster_user_id"] = profile.BroadcasterId,
+                ["moderator_user_id"] = profile.BroadcasterId
+            },
+            TwitchTokenRole.Broadcaster);
 
         yield return CreateRequest(
             "channel.subscribe",
@@ -346,7 +483,8 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
             new Dictionary<string, string>
             {
                 ["broadcaster_user_id"] = profile.BroadcasterId
-            });
+            },
+            TwitchTokenRole.Broadcaster);
 
         // channel.subscribe only fires for new subscriptions, so resubs and gift batches need their own topics.
         yield return CreateRequest(
@@ -356,7 +494,8 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
             new Dictionary<string, string>
             {
                 ["broadcaster_user_id"] = profile.BroadcasterId
-            });
+            },
+            TwitchTokenRole.Broadcaster);
 
         yield return CreateRequest(
             "channel.subscription.gift",
@@ -365,7 +504,8 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
             new Dictionary<string, string>
             {
                 ["broadcaster_user_id"] = profile.BroadcasterId
-            });
+            },
+            TwitchTokenRole.Broadcaster);
 
         yield return CreateRequest(
             "channel.cheer",
@@ -374,16 +514,8 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
             new Dictionary<string, string>
             {
                 ["broadcaster_user_id"] = profile.BroadcasterId
-            });
-
-        yield return CreateRequest(
-            "channel.raid",
-            "1",
-            sessionId,
-            new Dictionary<string, string>
-            {
-                ["to_broadcaster_user_id"] = profile.BroadcasterId
-            });
+            },
+            TwitchTokenRole.Broadcaster);
 
         yield return CreateRequest(
             "channel.channel_points_custom_reward_redemption.add",
@@ -392,21 +524,24 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
             new Dictionary<string, string>
             {
                 ["broadcaster_user_id"] = profile.BroadcasterId
-            });
+            },
+            TwitchTokenRole.Broadcaster);
     }
 
     private static TwitchEventSubSubscriptionRequest CreateRequest(
         string type,
         string version,
         string sessionId,
-        IReadOnlyDictionary<string, string> condition)
+        IReadOnlyDictionary<string, string> condition,
+        TwitchTokenRole role)
     {
         return new TwitchEventSubSubscriptionRequest
         {
             Type = type,
             Version = version,
             SessionId = sessionId,
-            Condition = condition
+            Condition = condition,
+            Role = role
         };
     }
 
@@ -515,5 +650,26 @@ public sealed class TwitchEventSubClient : ITwitchEventSubClient, IAsyncDisposab
         }
 
         return propertyElement.GetString() ?? string.Empty;
+    }
+
+    private sealed class EventSubSession
+    {
+        public EventSubSession(TwitchTokenRole role, ClientWebSocket socket, string sessionId)
+        {
+            Role = role;
+            Socket = socket;
+            SessionId = sessionId;
+            ListenCancellation = new CancellationTokenSource();
+        }
+
+        public TwitchTokenRole Role { get; }
+
+        public ClientWebSocket Socket { get; }
+
+        public string SessionId { get; }
+
+        public CancellationTokenSource ListenCancellation { get; }
+
+        public Task? ListenTask { get; set; }
     }
 }

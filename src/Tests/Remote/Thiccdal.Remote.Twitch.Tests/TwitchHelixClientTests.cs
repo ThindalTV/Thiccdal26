@@ -121,7 +121,7 @@ public class TwitchHelixClientTests
         var handler = new CapturingMessageHandler("""{"data":[{"id":"sub-1","type":"channel.follow","version":"2","condition":{"broadcaster_user_id":"12345","moderator_user_id":"24680"}}]}""");
         var client = CreateClient(handler);
 
-        IReadOnlyList<TwitchEventSubSubscription> subscriptions = await client.GetEventSubscriptions();
+        IReadOnlyList<TwitchEventSubSubscription> subscriptions = await client.GetEventSubscriptions(TwitchTokenRole.Bot);
 
         Assert.Equal(HttpMethod.Get, handler.LastRequest?.Method);
         Assert.Equal("/helix/eventsub/subscriptions", handler.LastRequest?.RequestUri?.PathAndQuery);
@@ -222,19 +222,29 @@ public class TwitchHelixClientTests
 
     private sealed class TestTokenManager : ITwitchTokenManager
     {
-        public Task<string?> GetToken(CancellationToken cancellationToken = default) => Task.FromResult<string?>("token");
+        public Task<string?> GetToken(TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>("token");
 
-        public Task<bool> HasToken(CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> HasToken(TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
 
-        public Task RefreshToken(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<TwitchUser?> GetIdentity(TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.FromResult<TwitchUser?>(null);
 
-        public Task StoreToken(string code, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RefreshToken(TwitchTokenRole role, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task Revoke(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StoreToken(string code, TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public string GetAuthorizationUrl() => string.Empty;
+        public Task Revoke(TwitchTokenRole role, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public bool ValidateAndConsumeState(string state) => true;
+        public string GetAuthorizationUrl(TwitchTokenRole role) => string.Empty;
+
+        public bool ValidateAndConsumeState(string state, out TwitchTokenRole role)
+        {
+            role = TwitchTokenRole.Bot;
+            return true;
+        }
     }
 
     private sealed class TestHttpClientFactory : IHttpClientFactory

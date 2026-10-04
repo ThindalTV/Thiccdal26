@@ -120,18 +120,63 @@
                             </div>
 
                             <div class="integrations-panel__section">
-                                <h4 class="integrations-panel__section-title">Authorization and chat session</h4>
+                                <h4 class="integrations-panel__section-title">Bot account</h4>
+                                <p class="integrations-panel__detail-copy integrations-panel__detail-copy--compact">
+                                    The account that reads and writes chat.
+                                </p>
                                 <p class="integrations-panel__auth-identity">
                                     <span class="integrations-panel__auth-dot integrations-panel__auth-dot--@(IsTwitchAuthorized ? "on" : "off")" aria-hidden="true"></span>
                                     @GetTwitchAuthorizationDisplay()
                                 </p>
+                                <p class="integrations-panel__warning">
+                                    @BotAuthorizationNotice
+                                </p>
                                 <div class="integrations-panel__actions-row">
                                     <button type="button"
                                             class="integrations-panel__primary-action"
-                                            disabled="@(_isWorking || string.IsNullOrWhiteSpace(selectedPlatform.AuthorizationUrl))"
-                                            @onclick="OpenSelectedAuthorizationDialog">
-                                        @(IsTwitchAuthorized ? "Re-authorize Twitch" : "Authorize Twitch")
+                                            disabled="@(_isWorking || string.IsNullOrWhiteSpace(GetTwitchAuthorizationUrl(TwitchTokenRole.Bot)))"
+                                            @onclick="@(() => OpenAuthorizationDialog(TwitchTokenRole.Bot))">
+                                        @(IsTwitchAuthorized ? "Re-authorize bot account" : "Authorize bot account")
                                     </button>
+                                    <button type="button"
+                                            class="integrations-panel__danger-action"
+                                            disabled="@(_isWorking || !IsTwitchAuthorized)"
+                                            @onclick="@(() => DisconnectAuthorization(TwitchTokenRole.Bot))">
+                                        Disconnect bot account
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="integrations-panel__section">
+                                <h4 class="integrations-panel__section-title">Broadcaster account</h4>
+                                <p class="integrations-panel__detail-copy integrations-panel__detail-copy--compact">
+                                    Twitch grants follows, subscriptions, cheers, and channel point redemptions only to
+                                    the channel owner, so the channel account has to authorize separately. Without it
+                                    only chat and raids arrive.
+                                </p>
+                                <p class="integrations-panel__auth-identity">
+                                    <span class="integrations-panel__auth-dot integrations-panel__auth-dot--@(IsBroadcasterAuthorized ? "on" : "off")" aria-hidden="true"></span>
+                                    @GetBroadcasterAuthorizationDisplay()
+                                </p>
+                                <div class="integrations-panel__actions-row">
+                                    <button type="button"
+                                            class="integrations-panel__primary-action"
+                                            disabled="@(_isWorking || string.IsNullOrWhiteSpace(GetTwitchAuthorizationUrl(TwitchTokenRole.Broadcaster)))"
+                                            @onclick="@(() => OpenAuthorizationDialog(TwitchTokenRole.Broadcaster))">
+                                        @(IsBroadcasterAuthorized ? "Re-authorize broadcaster account" : "Authorize broadcaster account")
+                                    </button>
+                                    <button type="button"
+                                            class="integrations-panel__danger-action"
+                                            disabled="@(_isWorking || !IsBroadcasterAuthorized)"
+                                            @onclick="@(() => DisconnectAuthorization(TwitchTokenRole.Broadcaster))">
+                                        Disconnect broadcaster account
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="integrations-panel__section">
+                                <h4 class="integrations-panel__section-title">Chat session</h4>
+                                <div class="integrations-panel__actions-row">
                                     <button type="button"
                                             class="integrations-panel__secondary-action"
                                             disabled="@(!CanConnectTwitch)"
@@ -143,12 +188,6 @@
                                             disabled="@(_isWorking || _twitchService?.Connected != true)"
                                             @onclick="DisconnectTwitchChat">
                                         Disconnect chat
-                                    </button>
-                                    <button type="button"
-                                            class="integrations-panel__danger-action"
-                                            disabled="@(_isWorking || !IsTwitchAuthorized)"
-                                            @onclick="DisconnectSelectedAuthorization">
-                                        Disconnect authorization
                                     </button>
                                 </div>
                                 <p class="integrations-panel__hint">Saved channel: @GetTwitchChannelDisplay()</p>
@@ -182,14 +221,15 @@
 {
     <IntegrationAuthDialog PlatformName="@authPlatform.PlatformName"
                            Color="@authPlatform.Color"
-                           AuthorizationUrl="@authPlatform.AuthorizationUrl"
+                           AuthorizationUrl="@GetDialogAuthorizationUrl(authPlatform)"
                            IsOpen="@_showAuthorizationDialog"
-                           IsConnected="@IsAuthorizationConnected(authPlatform.PlatformName)"
-                           AccountName="@GetAuthorizationAccountName(authPlatform.PlatformName)"
+                           IsConnected="@IsDialogAuthorizationConnected(authPlatform.PlatformName)"
+                           AccountName="@GetDialogAccountName(authPlatform.PlatformName)"
+                           Notice="@GetDialogNotice()"
                            ErrorMessage="@_authorizationErrorMessage"
                            OnClose="CloseAuthorizationDialog"
                            OnConnected="ConfirmSelectedAuthorization"
-                           OnDisconnect="DisconnectSelectedAuthorization" />
+                           OnDisconnect="@(() => DisconnectAuthorization(_authorizationRole))" />
 }
 
 @code {
@@ -225,12 +265,22 @@
     private bool _isWorking;
     private bool _showAuthorizationDialog;
     private bool _hasTwitchToken;
+    private bool _hasBroadcasterToken;
+    private TwitchTokenRole _authorizationRole = TwitchTokenRole.Bot;
+    private TwitchUser? _twitchBotIdentity;
+    private TwitchUser? _twitchBroadcasterIdentity;
+
+    private const string BotAuthorizationNotice =
+        "Sign in as the bot account, not your channel account. Twitch reuses whatever account the browser " +
+        "is already signed in to, so open the authorization in a private or separate browser window to " +
+        "avoid connecting your main account by mistake.";
 
     private PlatformViewModel? SelectedPlatform => _platforms.FirstOrDefault(
         platform => string.Equals(platform.PlatformName, _selectedPlatformName, StringComparison.OrdinalIgnoreCase));
 
     private bool IsTwitchSelected => string.Equals(_selectedPlatformName, "Twitch", StringComparison.OrdinalIgnoreCase);
     private bool IsTwitchAuthorized => _hasTwitchToken;
+    private bool IsBroadcasterAuthorized => _hasBroadcasterToken;
     private bool IsTwitchTargetDirty => !string.Equals(Normalize(_twitchTargetChannel), Normalize(_twitchProfile.TargetChannel), StringComparison.Ordinal) ||
                                         !string.Equals(Normalize(_twitchBroadcasterId), Normalize(_twitchProfile.BroadcasterId), StringComparison.Ordinal);
     private bool CanConnectTwitch => !_isWorking &&
@@ -295,7 +345,13 @@
                 await monitor.RefreshConnectionState();
             }
 
-            _hasTwitchToken = _twitchTokenManager is not null && await _twitchTokenManager.HasToken();
+            if (_twitchTokenManager is not null)
+            {
+                _hasTwitchToken = await _twitchTokenManager.HasToken(TwitchTokenRole.Bot);
+                _hasBroadcasterToken = await _twitchTokenManager.HasToken(TwitchTokenRole.Broadcaster);
+                _twitchBotIdentity = await _twitchTokenManager.GetIdentity(TwitchTokenRole.Bot);
+                _twitchBroadcasterIdentity = await _twitchTokenManager.GetIdentity(TwitchTokenRole.Broadcaster);
+            }
 
             if (_twitchService is not null)
             {
@@ -363,11 +419,63 @@
         _showAuthorizationDialog = false;
     }
 
-    private Task OpenSelectedAuthorizationDialog()
+    private Task OpenAuthorizationDialog(TwitchTokenRole role)
     {
+        _authorizationRole = role;
         _authorizationErrorMessage = string.Empty;
         _showAuthorizationDialog = true;
         return Task.CompletedTask;
+    }
+
+    private string GetTwitchAuthorizationUrl(TwitchTokenRole role)
+    {
+        return _twitchTokenManager?.GetAuthorizationUrl(role) ?? string.Empty;
+    }
+
+    private string GetDialogAuthorizationUrl(PlatformViewModel platform)
+    {
+        return IsTwitchSelected ? GetTwitchAuthorizationUrl(_authorizationRole) : platform.AuthorizationUrl;
+    }
+
+    private bool IsDialogAuthorizationConnected(string platformName)
+    {
+        if (!IsTwitchSelected)
+        {
+            return IsAuthorizationConnected(platformName);
+        }
+
+        return _authorizationRole == TwitchTokenRole.Broadcaster ? IsBroadcasterAuthorized : IsTwitchAuthorized;
+    }
+
+    private string GetDialogAccountName(string platformName)
+    {
+        if (!IsTwitchSelected)
+        {
+            return GetAuthorizationAccountName(platformName);
+        }
+
+        TwitchUser? identity = _authorizationRole == TwitchTokenRole.Broadcaster
+            ? _twitchBroadcasterIdentity
+            : _twitchBotIdentity;
+
+        return identity?.Login ?? string.Empty;
+    }
+
+    private string? GetDialogNotice()
+    {
+        return IsTwitchSelected && _authorizationRole == TwitchTokenRole.Bot ? BotAuthorizationNotice : null;
+    }
+
+    private string GetBroadcasterAuthorizationDisplay()
+    {
+        if (!IsBroadcasterAuthorized)
+        {
+            return "Not authorized — follows, subs, cheers, and redemptions will not arrive.";
+        }
+
+        return string.IsNullOrWhiteSpace(_twitchBroadcasterIdentity?.Login)
+            ? "Authorized."
+            : $"Authorized as {_twitchBroadcasterIdentity!.Login}.";
     }
 
     private Task CloseAuthorizationDialog()
@@ -429,7 +537,7 @@
             "Disconnected Twitch chat.");
     }
 
-    private Task DisconnectSelectedAuthorization()
+    private Task DisconnectAuthorization(TwitchTokenRole role)
     {
         return _selectedPlatformName switch
         {
@@ -444,9 +552,10 @@
                         await _twitchService.Disconnect();
                     }
 
-                    await _twitchTokenManager.Revoke();
+                    await _twitchTokenManager.Revoke(role);
+                    _showAuthorizationDialog = false;
                 },
-                "Disconnected Twitch authorization.",
+                $"Disconnected the Twitch {(role == TwitchTokenRole.Broadcaster ? "broadcaster" : "bot")} account.",
                 useAuthorizationErrorSurface: true),
             _ => Task.CompletedTask
         };

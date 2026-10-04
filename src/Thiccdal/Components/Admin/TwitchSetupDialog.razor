@@ -1,4 +1,4 @@
-﻿@*
+@*
     Twitch full setup dialog (modal).
     Handles target channel configuration, authorization, and IRC connection inline.
 *@
@@ -341,7 +341,7 @@
 
     private void Authorize()
     {
-        var url = TokenManager.GetAuthorizationUrl();
+        var url = TokenManager.GetAuthorizationUrl(TwitchTokenRole.Bot);
         Navigation.NavigateTo(url, forceLoad: true);
     }
 
@@ -358,7 +358,7 @@
                 await TwitchService.Disconnect(_cts.Token);
             }
 
-            await TokenManager.Revoke(_cts.Token);
+            await TokenManager.Revoke(TwitchTokenRole.Bot, _cts.Token);
             await TwitchService.RefreshConnectionState(_cts.Token);
             _successMessage = "Disconnected Twitch bot authorization.";
             await OnRevoked.InvokeAsync();

@@ -181,3 +181,14 @@
 .auth-dialog__btn--disconnect:active {
     opacity: 0.8;
 }
+
+.auth-dialog__notice {
+    margin: 0 0 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    background: rgba(120, 80, 0, 0.25);
+    color: rgba(254, 240, 199, 0.95);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}

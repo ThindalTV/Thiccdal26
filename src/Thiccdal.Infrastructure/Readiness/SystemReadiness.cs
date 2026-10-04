@@ -16,6 +16,12 @@ public sealed record SystemReadiness
     public bool HasTwitchAuth { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether the broadcaster account has been authorized. Without it Twitch
+    /// refuses the channel-level subscriptions that carry follows, subs, cheers, and redemptions.
+    /// </summary>
+    public bool HasBroadcasterAuth { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether the teleprompter has everything it needs to run.
     /// </summary>
     public bool IsPrompterReady => HasChannel;

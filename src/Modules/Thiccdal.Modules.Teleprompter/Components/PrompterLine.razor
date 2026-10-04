@@ -17,28 +17,15 @@
         }
     </div>
     <time>@Line.Timestamp.ToLocalTime().ToString("HH:mm:ss")</time>
-    <div class="sender">
-        @if (Line.IsStatus)
+    <div class="badges">
+        @foreach (string badgeLabel in GetBadgeLabels())
         {
-            <span class="event-pill">STATUS</span>
+            <span class="badge-pill">@badgeLabel</span>
         }
-        else if (Line.Type != PlatformEventType.ChatMessage && Line.Type != PlatformEventType.Raw)
-        {
-            <span class="event-pill">@Line.Type.ToString().ToUpperInvariant()</span>
-        }
-
-        @if (Line.Badges is { Count: > 0 })
-        {
-            foreach (ChatBadge badge in Line.Badges)
-            {
-                <span class="badge-pill">@FormatBadge(badge)</span>
-            }
-        }
-
-        <span class="sender__name" style="@GetSenderStyle()">@Line.Sender</span>
     </div>
+    <div class="sender" style="@GetSenderStyle()">@GetSenderName()</div>
     <div class="promptContent">
-        @if (!Line.IsStatus && Line.Type == PlatformEventType.ChatMessage)
+        @if (IsChatLine)
         {
             <ChatLine Line="@Line" />
         }
@@ -51,6 +38,14 @@
 @code {
     [Parameter]
     public required Line Line { get; set; }
+
+    private bool IsChatLine => !Line.IsStatus && Line.Type == PlatformEventType.ChatMessage;
+
+    // Chat names the chatter, events name whoever set them off, and what the app raises itself says so.
+    private string GetSenderName()
+    {
+        return string.IsNullOrWhiteSpace(Line.Sender) ? "system" : Line.Sender;
+    }
 
     private string GetLineCssClass()
     {
@@ -78,10 +73,29 @@
             : $"color: {Line.SenderColor};";
     }
 
-    private static string FormatBadge(ChatBadge badge)
+    private IEnumerable<string> GetBadgeLabels()
     {
-        return string.IsNullOrWhiteSpace(badge.Version)
-            ? badge.SetId
-            : $"{badge.SetId}:{badge.Version}";
+        if (Line.Badges is null)
+        {
+            return [];
+        }
+
+        return Line.Badges
+            .Select(GetBadgeLabel)
+            .Where(static label => !string.IsNullOrEmpty(label))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
+
+    // Twitch badge set ids. Another platform means another vocabulary — a YouTube subscription is a
+    // Twitch follow, not a Twitch subscription — so its adapter supplies its own set ids and falls through.
+    private static string GetBadgeLabel(ChatBadge badge) => badge.SetId switch
+    {
+        // The operator knows which channel they are reading; naming them adds nothing on camera.
+        "broadcaster" => string.Empty,
+        "subscriber" or "founder" => "SUB",
+        "moderator" => "MOD",
+        "vip" => "VIP",
+        _ => badge.SetId
+    };
 }

@@ -133,16 +133,8 @@ public static class PlatformActivityFormatter
 
     private static string BuildChatHtml(ChatEvent chatEvent)
     {
+        // Badges are rendered beside the sender, so repeating them inside the message only costs line width.
         StringBuilder builder = new();
-
-        foreach (ChatBadge badge in chatEvent.Badges)
-        {
-            builder.Append("<span class=\"chat-badge\" title=\"");
-            builder.Append(WebUtility.HtmlEncode($"{badge.SetId}:{badge.Version}"));
-            builder.Append("\">");
-            builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(badge.Info) ? badge.Version : badge.Info));
-            builder.Append("</span>");
-        }
 
         IReadOnlyList<ChatMessagePart> parts = chatEvent.Parts.Count == 0
             ? [new ChatMessagePart { Type = ChatMessagePartType.Text, Text = chatEvent.Content }]

@@ -156,14 +156,17 @@ public static class TwitchRegistrationExtensions
             return Results.Redirect("/dashboard?twitch_error=missing_code");
         }
 
-        if (string.IsNullOrEmpty(state) || !tokenManager.ValidateAndConsumeState(state))
+        if (string.IsNullOrEmpty(state) || !tokenManager.ValidateAndConsumeState(state, out TwitchTokenRole role))
         {
             logger.LogWarning("Twitch OAuth callback state validation failed — possible CSRF attempt (state={State})", state);
             return Results.Redirect("/dashboard?twitch_error=invalid_state");
         }
 
-        await tokenManager.StoreToken(code, cancellationToken);
+        await tokenManager.StoreToken(code, role, cancellationToken);
         await twitchService.RefreshConnectionState(cancellationToken);
+
+        // A live session subscribed only to what was authorized at connect time, so pick up the rest now.
+        await twitchService.RefreshSubscriptions(cancellationToken);
         await connectionMonitor.RefreshConnectionState(cancellationToken);
 
         return Results.Redirect("/dashboard");

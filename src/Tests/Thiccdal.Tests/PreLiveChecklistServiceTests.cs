@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Microsoft.Extensions.Options;
 using Thiccdal.Infrastructure.Bot.Models;
 using Thiccdal.Infrastructure.Operators;
@@ -666,6 +666,11 @@ public sealed class PreLiveChecklistServiceTests
         }
 
         public Task RefreshStreamState(CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task RefreshSubscriptions(CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
         }

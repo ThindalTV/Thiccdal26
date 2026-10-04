@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -269,27 +269,38 @@ public class TwitchRegistrationExtensionsTests
 
         public bool ShouldValidateState { get; init; }
 
-        public Task<string?> GetToken(CancellationToken cancellationToken = default) => Task.FromResult<string?>("token");
+        public TwitchTokenRole? StoredRole { get; private set; }
 
-        public Task<bool> HasToken(CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<string?> GetToken(TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>("token");
 
-        public Task RefreshToken(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> HasToken(TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
 
-        public Task StoreToken(string code, CancellationToken cancellationToken = default)
+        public Task<TwitchUser?> GetIdentity(TwitchTokenRole role, CancellationToken cancellationToken = default) =>
+            Task.FromResult<TwitchUser?>(null);
+
+        public Task RefreshToken(TwitchTokenRole role, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task StoreToken(string code, TwitchTokenRole role, CancellationToken cancellationToken = default)
         {
             StoredCode = code;
+            StoredRole = role;
             return Task.CompletedTask;
         }
 
-        public Task Revoke(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task Revoke(TwitchTokenRole role, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public string GetAuthorizationUrl() => "https://id.twitch.tv/oauth2/authorize";
+        public string GetAuthorizationUrl(TwitchTokenRole role) => "https://id.twitch.tv/oauth2/authorize";
 
-        public bool ValidateAndConsumeState(string state)
+        public bool ValidateAndConsumeState(string state, out TwitchTokenRole role)
         {
             ValidatedState = state;
+            role = ValidatedRole;
             return ShouldValidateState;
         }
+
+        public TwitchTokenRole ValidatedRole { get; init; } = TwitchTokenRole.Bot;
     }
 
     private sealed class FakeTwitchService : ITwitchService
@@ -345,6 +356,8 @@ public class TwitchRegistrationExtensionsTests
         }
 
         public Task RefreshStreamState(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task RefreshSubscriptions(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task SendMessage(string message, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }

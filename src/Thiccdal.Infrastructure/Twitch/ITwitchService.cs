@@ -29,4 +29,9 @@ public interface ITwitchService : IPlatformConnection
     /// Checks Twitch stream metadata and updates <see cref="IsStreamLive"/>.
     /// </summary>
     Task RefreshStreamState(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-runs EventSub subscription creation, for example after a further account is authorized.
+    /// </summary>
+    Task RefreshSubscriptions(CancellationToken cancellationToken = default);
 }

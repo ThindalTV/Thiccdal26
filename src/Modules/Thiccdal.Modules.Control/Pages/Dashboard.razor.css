@@ -28,7 +28,7 @@
 /* The queue owns three quarters of the centre column; the lower-third preview takes the rest. */
 .dashboard__col--middle {
     display: grid;
-    grid-template-rows: 3fr 1fr;
+    grid-template-rows: minmax(0, 3fr) minmax(0, 1fr);
 }
 
 /* ── Shared section-panel shell (applied via ::deep into all child components) ── */
